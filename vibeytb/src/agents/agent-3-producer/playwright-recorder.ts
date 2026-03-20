@@ -3,7 +3,7 @@ import fs from 'fs';
 import { launchStealthPage } from '../../utils/playwright';
 import { Browser, BrowserContext, Page } from 'playwright-chromium';
 
-const DEFAULT_QUERY = 'Summarize this page in 5 bullet points.';
+const DEFAULT_QUERY = 'Show me how this works';
 const INPUT_SELECTOR = 'textarea, [contenteditable="true"], input[type="text"], input[type="search"]';
 const MEDIA_SELECTOR = 'video, iframe, img';
 
