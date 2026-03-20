@@ -257,8 +257,9 @@ export async function recordWebsiteScroll(
 
         const query = searchQuery || DEFAULT_QUERY;
         await inputLocator.pressSequentially(query, { delay: 120 });
-        await page.keyboard.press('Enter');
         await inputLocator.press('Enter');
+        console.log(`[Playwright] Pressed Enter on input`);
+        
         await page.waitForTimeout(1000);
         try {
           // Scope button search tightly to the input's vicinity to avoid clicking random CTAs
@@ -267,7 +268,8 @@ export async function recordWebsiteScroll(
             let clicked = false;
             // Search up to 3 levels up for a button near the input
             for (let i = 0; i < 3 && current && !clicked; i++) {
-              const btn = current.querySelector('button, input[type="submit"], [aria-label*="search" i]');
+              // V3: Strictly target Search/Submit to avoid clicking "Attach" or "Voice" buttons
+              const btn = current.querySelector('button[type="submit"], input[type="submit"], [aria-label*="search" i], [aria-label*="submit" i], [class*="search" i]');
               if (btn && !btn.hasAttribute('disabled') && btn !== el) {
                 (btn as HTMLElement).click();
                 clicked = true;
