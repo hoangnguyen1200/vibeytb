@@ -182,7 +182,7 @@ export async function concatScenes(
   } finally {
     // Vệ sinh môi trường: Xóa file trung gian sau khi đã lưu xong video hoàn chỉnh
     if (fs.existsSync(tempConcat)) {
-      try { fs.unlinkSync(tempConcat); } catch (e) {}
+      try { fs.unlinkSync(tempConcat); } catch {}
     }
   }
 }
