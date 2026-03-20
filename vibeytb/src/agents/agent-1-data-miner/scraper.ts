@@ -10,45 +10,55 @@ export interface TrendData {
   newsUrl: string;
 }
 
+export interface YouTubeTrendData {
+  title: string;
+  url: string;
+  source: string;
+}
+
 /**
  * Cào dữ liệu kịch bản 1: Google Trends Daily Searches qua RSS theo Geolocation
  */
 export async function scrapeGoogleTrendsRSS(geo: string = 'US'): Promise<TrendData[]> {
   try {
     const feed = await parser.parseURL(`https://trends.google.com/trending/rss?geo=${geo}`);
-    const trends: TrendData[] = feed.items.map((item: any) => ({
-      title: item.title,
-      traffic: item['ht:approx_traffic'] || 'N/A',
-      pubDate: item.pubDate,
-      newsUrl: item.link
+    const trends: TrendData[] = feed.items.map((item: Parser.Item) => ({
+      title: item.title ?? '',
+      traffic: (item as Record<string, string>)['ht:approx_traffic'] ?? 'N/A',
+      pubDate: item.pubDate ?? '',
+      newsUrl: item.link ?? ''
     }));
     return trends;
-  } catch (error: any) {
-    console.error('Lỗi khi cào RSS Google Trends:', error);
-    // Throw error để BullMQ ghi nhận vả tự động Retry
-    throw new Error(`RSS Engine Failed: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Lỗi khi cào RSS Google Trends:', err);
+    throw new Error(`RSS Engine Failed: ${err.message}`);
   }
 }
 
 /**
  * Cào dữ liệu kịch bản 2: Dùng Playwright cào YouTube (Fallback/Mở rộng)
  */
-export async function scrapeYouTubeTrends(locale: string = 'en-US', timezoneId: string = 'America/New_York', geo: string = 'US', proxyServer?: string): Promise<any[]> {
-  // Config Playwright để đánh lừa YouTube là người dùng US auth chuẩn 
-  const browser = await chromium.launch({ 
+export async function scrapeYouTubeTrends(
+  locale: string = 'en-US',
+  timezoneId: string = 'America/New_York',
+  proxyServer?: string
+): Promise<YouTubeTrendData[]> {
+  const browser = await chromium.launch({
     headless: true,
     proxy: proxyServer ? { server: proxyServer } : undefined
   });
-  
+
   const context = await browser.newContext({
-    locale: locale,               // Ví dụ: 'en-US'
-    timezoneId: timezoneId,       // VÍ dụ: 'America/New_York'
-    geolocation: { latitude: 37.7749, longitude: -122.4194 }, // Giả lập toạ độ San Francisco
-    permissions: ['geolocation'], // Cấp quyền đọc toạ độ
+    locale,
+    timezoneId,
+    geolocation: { latitude: 37.7749, longitude: -122.4194 },
+    permissions: ['geolocation'],
   });
+
   const page = await context.newPage();
-  
-  // LEAN INFRASTRUCTURE: Chặn tải tài nguyên không cần thiết
+
+  // Chặn tải tài nguyên không cần thiết để tiết kiệm băng thông
   await page.route('**/*', (route) => {
     const requestType = route.request().resourceType();
     if (['image', 'font', 'stylesheet', 'media'].includes(requestType)) {
@@ -59,26 +69,30 @@ export async function scrapeYouTubeTrends(locale: string = 'en-US', timezoneId: 
   });
 
   try {
-    // RESILIENCE: Áp đặt timeout vòng đời tuyệt đối là 15 giây
-    await page.goto('https://www.youtube.com/feed/trending', { timeout: 15000, waitUntil: 'domcontentloaded' });
-    
-    // Chờ selector video load
-    await page.waitForSelector('#video-title', { timeout: 10000 });
-    
-    const trendingVideos = await page.$$eval('#video-title', (nodes) => {
-      return nodes.slice(0, 10).map((n: any) => ({
-        title: n.innerText,
-        url: n.href,
-        source: 'youtube_trending'
-      }));
+    await page.goto('https://www.youtube.com/feed/trending', {
+      timeout: 15000,
+      waitUntil: 'domcontentloaded'
     });
-    
+
+    await page.waitForSelector('#video-title', { timeout: 10000 });
+
+    const trendingVideos = await page.$$eval('#video-title', (nodes) => {
+      return nodes.slice(0, 10).map((n) => {
+        const anchor = n as HTMLAnchorElement;
+        return {
+          title: anchor.innerText,
+          url: anchor.href,
+          source: 'youtube_trending'
+        };
+      });
+    });
+
     return trendingVideos;
-  } catch (error: any) {
-    console.error('Lỗi khi cào YouTube Trends:', error);
-    throw new Error(`Playwright Timeout/Blocked: ${error.message}`);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Lỗi khi cào YouTube Trends:', err);
+    throw new Error(`Playwright Timeout/Blocked: ${err.message}`);
   } finally {
-    // Luôn dọn dẹp biến Browser dù try hay catch
     await browser.close();
   }
 }
