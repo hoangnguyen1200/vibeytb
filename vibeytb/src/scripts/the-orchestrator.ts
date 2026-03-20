@@ -157,13 +157,31 @@ export class TheMasterOrchestrator {
     const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone);
     const normalized = this.normalizeScript(aiOutput);
 
-    await this.updateJob(jobId, {
-      script_json: normalized,
-      status: VideoStatus.PENDING_APPROVAL,
-    });
+    const isScenesSufficient = normalized.scenes.length >= 4;
+    const title = (normalized as Record<string, unknown>).youtube_title;
+    const isTitleValid = typeof title === 'string' && title.trim().length > 10;
+    const isNarrationValid = normalized.scenes.every(s => typeof s.narration === 'string' && s.narration.trim().length > 0);
 
-    console.log('[PHASE 2] Completed. Status saved: [pending_approval]');
-    console.log('[PAUSE] Run: npx tsx src/scripts/human-approval.ts');
+    if (isScenesSufficient && isTitleValid && isNarrationValid) {
+      await this.updateJob(jobId, {
+        script_json: normalized,
+        status: VideoStatus.APPROVED_FOR_SYNTHESIS,
+      });
+      console.log('[AUTO-APPROVE] Script passed quality check');
+    } else {
+      let rejectReason = '';
+      if (!isScenesSufficient) rejectReason = `Not enough scenes (${normalized.scenes.length} < 4)`;
+      else if (!isTitleValid) rejectReason = 'youtube_title is empty or too short';
+      else rejectReason = 'One or more scenes have empty narration';
+
+      await this.updateJob(jobId, {
+        script_json: normalized,
+        status: VideoStatus.FAILED,
+        error_logs: `[AUTO-REJECT] Script failed: ${rejectReason}`,
+      });
+      console.log(`[AUTO-REJECT] Script failed: ${rejectReason}`);
+      await this.createSeedJob();
+    }
   }
 
   private async runPhase3(job: VideoProject): Promise<void> {
