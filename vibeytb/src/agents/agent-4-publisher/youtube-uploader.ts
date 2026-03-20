@@ -1,4 +1,4 @@
-import { chromium, Cookie } from 'playwright';
+import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 
@@ -56,8 +56,9 @@ export async function uploadToYouTube(
     try {
       await page.locator('#create-icon').click({ timeout: 5000 });
       await page.locator('#text-item-0').click({ timeout: 5000 }); // Option: Upload videos
-    } catch (e) {
-      console.log('⚠️ Không tìm thấy nút Create ở Navbar, thử nhấp nút Upload Videos giữa màn hình kênh trống...');
+    } catch (e: unknown) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.log(`⚠️ Không tìm thấy nút Create ở Navbar, thử nhấp nút Upload Videos giữa màn hình kênh trống... (Lỗi: ${errorMsg})`);
       await page.locator('#upload-icon').click();
     }
 
@@ -140,9 +141,9 @@ export async function uploadToYouTube(
     console.log(`🎉 [SUCCESS] Upload hoàn tất. Video URL hiện rạng: ${videoUrl}`);
     return videoUrl;
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`❌ [THE HEADLESS UPLOADER] Lỗi tự động hoá Playwright:`);
-    console.error(error);
+    console.error(error instanceof Error ? error.message : String(error));
     // Để cho luồng integration test ko nổ, trả về file mock
     console.log(`⚠️ Trả về URL báo lỗi nội bộ MOCK...`);
     return `https://youtu.be/error_${projectId}`;
