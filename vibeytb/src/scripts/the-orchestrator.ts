@@ -69,6 +69,12 @@ export class TheMasterOrchestrator {
 
       if (currentStatus === VideoStatus.PENDING || currentStatus === VideoStatus.PROCESSING) {
         await this.runPhase1And2(job);
+        // Reload job status
+        const updatedJob = await this.fetchJobById(jobId);
+        if (updatedJob?.status === VideoStatus.APPROVED_FOR_SYNTHESIS) {
+          await this.runPhase3(updatedJob);
+          await this.runPhase4(updatedJob);
+        }
         return;
       }
 
@@ -141,6 +147,20 @@ export class TheMasterOrchestrator {
 
     if (error) throw error;
     return (data?.[0] as VideoProject) ?? null;
+  }
+
+  private async fetchJobById(id: string): Promise<VideoProject | null> {
+    const { data, error } = await supabase
+      .from('video_projects')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.warn(`[WARNING] Failed to fetch job by id ${id}:`, error.message);
+      return null;
+    }
+    return (data as VideoProject) ?? null;
   }
 
   private async runPhase1And2(job: VideoProject): Promise<void> {
