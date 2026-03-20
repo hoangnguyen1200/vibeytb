@@ -47,8 +47,8 @@ export const producerWorker = new Worker<SynthesisJobData>(
 
         let audioDuration = 0; // Để truyền cho Veo API độ dài bằng nhau
         
-        let audioDone = false; // Mock data check
-        let videoDone = false; // Mock data check
+        const audioDone = false; // Mock data check
+        const videoDone = false; // Mock data check
 
         if (audioDone && videoDone) {
            console.log(`⏭️ [Skip] Scene ${scene.scene_index} ĐÃ ĐƯỢC RENDER (status='done'). Bỏ qua...`);
