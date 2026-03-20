@@ -4,7 +4,7 @@ import { launchStealthPage } from '../../utils/playwright';
 import { Browser, BrowserContext, Page } from 'playwright-chromium';
 
 const DEFAULT_QUERY = 'Show me how this works';
-const INPUT_SELECTOR = 'textarea, [contenteditable="true"], input[type="text"], input[type="search"]';
+const INPUT_SELECTOR = 'textarea, [contenteditable="true"], input[type="text"], input[type="search"], input[placeholder*="search" i], input[placeholder*="find" i], [role="searchbox"], .search-input, input[class*="search" i]';
 const MEDIA_SELECTOR = 'video, iframe, img';
 
 function ensureDir(dirPath: string) {
@@ -191,15 +191,11 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
 
   const elapsed = (Date.now() - startMs) / 1000;
   const remaining = Math.max(1, durationSec - elapsed);
-  const frames = Math.max(1, Math.floor(remaining * 30));
-  const delayMs = (remaining * 1000) / frames;
+  const steps = Math.max(1, Math.floor((remaining * 1000) / 800));
 
-  for (let i = 0; i < frames; i++) {
-    await page.mouse.wheel(0, 18);
-    if (i % 12 === 0) {
-      await page.keyboard.press('ArrowDown').catch(() => {});
-    }
-    await page.waitForTimeout(delayMs);
+  for (let i = 0; i < steps; i++) {
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(800);
   }
 }
 
