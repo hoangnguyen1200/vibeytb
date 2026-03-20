@@ -260,23 +260,20 @@ export async function recordWebsiteScroll(
         await inputLocator.press('Enter');
         await page.waitForTimeout(1000);
         try {
-          const smartSendBtn = page
-            .locator('button[aria-label*="send" i], button[title*="send" i], button[aria-label*="submit" i], button[type="submit"]')
-            .first();
-
-          if (await smartSendBtn.isVisible()) {
-            await smartSendBtn.click({ force: true });
-          } else {
-            await inputLocator.evaluate((el) => {
-              const container = el.parentElement?.parentElement;
-              if (container) {
-                const btn = container.querySelector('button');
-                if (btn && !btn.hasAttribute('disabled')) {
-                  (btn as HTMLButtonElement).click();
-                }
+          // Scope button search tightly to the input's vicinity to avoid clicking random CTAs
+          await inputLocator.evaluate((el) => {
+            let current = el.parentElement;
+            let clicked = false;
+            // Search up to 3 levels up for a button near the input
+            for (let i = 0; i < 3 && current && !clicked; i++) {
+              const btn = current.querySelector('button, input[type="submit"], [aria-label*="search" i]');
+              if (btn && !btn.hasAttribute('disabled') && btn !== el) {
+                (btn as HTMLElement).click();
+                clicked = true;
               }
-            });
-          }
+              current = current.parentElement;
+            }
+          });
         } catch (sendErr: unknown) {
           console.warn('[Playwright] Dual-Submit Engine failed.', sendErr);
         }
