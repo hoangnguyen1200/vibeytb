@@ -8,6 +8,20 @@ import ffmpeg from 'fluent-ffmpeg';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+interface PexelsVideoFile {
+  quality: string;
+  file_type: string;
+  link: string;
+}
+
+interface PexelsVideo {
+  video_files: PexelsVideoFile[];
+}
+
+interface PexelsResponse {
+  videos?: PexelsVideo[];
+}
+
 /**
  * Sinh video giả (Dummy) để fallback khi Pexels API sập hoàn toàn
  */
@@ -58,7 +72,7 @@ export async function downloadStockVideo(
   console.log(`🎬 [Pexels Client] Đang tìm kiếm video miễn phí cho từ khóa: "${searchKeywords}"...`);
 
   const maxRetries = 3;
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -71,20 +85,20 @@ export async function downloadStockVideo(
 
       // Tìm video trên Pexels ưu tiên màn hình dọc (portrait)
       const query = searchKeywords || 'beautiful';
-      const response: any = await client.videos.search({ 
+      const response = await client.videos.search({ 
           query, 
           per_page: 5,
           orientation: 'portrait',
           size: 'medium'
-      });
+      }) as unknown as PexelsResponse;
 
       if (!response || !response.videos || response.videos.length === 0) {
         console.warn(`   ⚠️ Lần thử ${attempt}: Không tìm thấy video dọc cho "${query}". Chuyển sang tìm video ngang/bất kỳ...`);
         // Thử lại lần 2 không giới hạn orientation
-        const fallbackResponse: any = await client.videos.search({ 
+        const fallbackResponse = await client.videos.search({ 
             query, 
             per_page: 5 
-        });
+        }) as unknown as PexelsResponse;
         if (!fallbackResponse || !fallbackResponse.videos || fallbackResponse.videos.length === 0) {
             throw new Error(`Không tìm thấy bất kỳ video nào trên Pexels cho từ khóa: ${query}`);
         }
@@ -96,10 +110,10 @@ export async function downloadStockVideo(
       
       // Tìm link mp4 chất lượng phù hợp (HD)
       const videoFiles = selectedVideo.video_files;
-      let targetFile = videoFiles.find((f: any) => f.quality === 'hd' && f.file_type === 'video/mp4');
+      let targetFile = videoFiles.find((f: PexelsVideoFile) => f.quality === 'hd' && f.file_type === 'video/mp4');
       if (!targetFile) {
           // Lấy link đầu tiên nếu không có HD
-          targetFile = videoFiles.find((f: any) => f.file_type === 'video/mp4') || videoFiles[0];
+          targetFile = videoFiles.find((f: PexelsVideoFile) => f.file_type === 'video/mp4') || videoFiles[0];
       }
 
       if (!targetFile || !targetFile.link) {
@@ -123,9 +137,10 @@ export async function downloadStockVideo(
 
       return filePath;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
-      console.warn(`   ⚠️ [Pexels Client] Lỗi (Attempt ${attempt}/${maxRetries}): ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`   ⚠️ [Pexels Client] Lỗi (Attempt ${attempt}/${maxRetries}): ${errorMessage}`);
       
       if (attempt < maxRetries) {
         // Exponential Backoff: Lần 1 (3s), Lần 2 (6s), Lần 3 (10s)
@@ -137,6 +152,7 @@ export async function downloadStockVideo(
   }
 
   // Nếu tất cả các lần Retry đều thất bại, gọi hàm Fallback Video
-  console.error(`❌ [Pexels Client] Đã thử lại ${maxRetries} lần nhưng đều thất bại do: ${lastError?.message || 'Unknown'}`);
+  const finalErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
+  console.error(`❌ [Pexels Client] Đã thử lại ${maxRetries} lần nhưng đều thất bại do: ${finalErrorMessage || 'Unknown'}`);
   return await generateDummyVideo(filePath, sceneIndex);
 }
