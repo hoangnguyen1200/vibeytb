@@ -250,6 +250,7 @@ export async function recordWebsiteScroll(
 
       const hasInput = (await inputLocator.count()) > 0;
       if (hasInput) {
+        console.log('[Playwright] Input Hunter found input, typing query...');
         await inputLocator.waitFor({ state: 'visible', timeout: 5000 });
         await inputLocator.click({ force: true });
         await page.waitForTimeout(400);
@@ -261,7 +262,7 @@ export async function recordWebsiteScroll(
         await page.waitForTimeout(1000);
         try {
           // Scope button search tightly to the input's vicinity to avoid clicking random CTAs
-          await inputLocator.evaluate((el) => {
+          const wasClicked = await inputLocator.evaluate((el) => {
             let current = el.parentElement;
             let clicked = false;
             // Search up to 3 levels up for a button near the input
@@ -273,7 +274,12 @@ export async function recordWebsiteScroll(
               }
               current = current.parentElement;
             }
+            return clicked;
           });
+          
+          if (wasClicked) {
+            console.log('[Playwright] Submit clicked within input container');
+          }
         } catch (sendErr: unknown) {
           console.warn('[Playwright] Dual-Submit Engine failed.', sendErr);
         }
