@@ -87,7 +87,7 @@ export async function downloadBGMFromPixabay(mood: string, projectId: string): P
     const randomHash = crypto.randomBytes(4).toString('hex');
     const localFilePath = path.join(tmpDir, `bgm_${mood}_${randomHash}${fileExt}`);
     
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const writer = fs.createWriteStream(localFilePath);
         audioResponse.data.pipe(writer);
         writer.on('finish', () => {
@@ -100,13 +100,14 @@ export async function downloadBGMFromPixabay(mood: string, projectId: string): P
         });
     });
 
-      } catch (error: any) {
-        if (error.response && error.response.status === 429 && retries < maxRetries) {
-            console.warn(`   ⚠️ [Pixabay Client] Lỗi HTTP 429: Too Many Requests. Đang tử lại sau ${backoffDelays[retries] / 1000} giây...`);
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response && error.response.status === 429 && retries < maxRetries) {
+            console.warn(`   ⚠️ [Pixabay Client] Lỗi HTTP 429: Too Many Requests. Đang thử lại sau ${backoffDelays[retries] / 1000} giây...`);
             await new Promise(r => setTimeout(r, backoffDelays[retries]));
             retries++;
         } else {
-            console.error(`❌ [Pixabay Client] Lỗi API Pixabay (${error.message}). Dừng kết nối và dùng phương án dự phòng.`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`❌ [Pixabay Client] Lỗi API Pixabay (${errorMessage}). Dừng kết nối và dùng phương án dự phòng.`);
             return getFallbackBgm();
         }
       }
