@@ -1,0 +1,29 @@
+```
+# Antigravity / AI config
+.agent/
+GEMINI.md
+
+# Logs & rác
+logs/
+*.log
+out.log
+out2.log
+output.txt
+raw-output.json
+db-errors.json
+gemini-error.txt
+models.json
+
+# Env
+.env
+
+# Node
+node_modules/
+
+```
+youtube-cookies.json
+temp_error.txt
+test-output.txt
+
+```
+vibeytb/assets/bgm/
