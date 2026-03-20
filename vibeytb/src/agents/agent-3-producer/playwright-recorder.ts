@@ -191,11 +191,11 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
 
   const elapsed = (Date.now() - startMs) / 1000;
   const remaining = Math.max(1, durationSec - elapsed);
-  const steps = Math.max(1, Math.floor((remaining * 1000) / 800));
+  const steps = Math.max(1, Math.floor((remaining * 1000) / 600));
 
   for (let i = 0; i < steps; i++) {
-    await page.mouse.wheel(0, 300);
-    await page.waitForTimeout(800);
+    await page.keyboard.press('PageDown').catch(() => {});
+    await page.waitForTimeout(600);
   }
 }
 
