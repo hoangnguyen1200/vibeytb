@@ -46,15 +46,9 @@ export async function mergeAudioVideoScene(
           outputs: 'sub_v'
         },
         {
-          filter: 'silenceremove',
-          options: 'start_periods=1:start_duration=0.1:start_threshold=-50dB:stop_periods=1:stop_duration=0.3:stop_threshold=-50dB',
-          inputs: '1:a',
-          outputs: 'trim_a'
-        },
-        {
           filter: 'aresample',
           options: '48000',
-          inputs: 'trim_a',
+          inputs: '1:a',
           outputs: 'resample_a'
         },
         {
