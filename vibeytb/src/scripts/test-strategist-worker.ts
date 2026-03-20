@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { startAIStrategistWorker } from '../agents/agent-2-strategist/worker';
+// import { startAIStrategistWorker } from '../agents/agent-2-strategist/worker';
 import { redisConnection } from '../lib/queue/redis';
 
 async function runWorker() {
@@ -9,13 +9,13 @@ async function runWorker() {
   try {
      await redisConnection.ping();
      console.log('✅ Đã verify kết nối Redis Upstash thành công!');
-  } catch (e: any) {
-     console.error('❌ Mất kết nối DB Queue. Kiểm tra lại REDIS_URL', e.message);
+  } catch (e: unknown) {
+     console.error('❌ Mất kết nối DB Queue. Kiểm tra lại REDIS_URL', e instanceof Error ? e.message : String(e));
      process.exit(1);
   }
 
-  // Khởi chạy Worker
-  startAIStrategistWorker();
+  // Khởi chạy Worker (Module Removed)
+  // startAIStrategistWorker();
 }
 
 runWorker();

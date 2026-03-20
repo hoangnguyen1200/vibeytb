@@ -68,8 +68,8 @@ async function runDryRun() {
       console.log('   ✅ Database Upsert thành công không phát sinh lỗi.');
       console.log(`   ✅ Bảng trends đã lưu ${data.length} bản ghi test.`);
     }
-  } catch (err: any) {
-    console.error('   ❌ Exception DB:', err.message);
+  } catch (err: unknown) {
+    console.error('   ❌ Exception DB:', err instanceof Error ? err.message : String(err));
   }
 
   console.log('\n🏁 [DRY-RUN] Hoàn tất luồng kiểm duyệt.');

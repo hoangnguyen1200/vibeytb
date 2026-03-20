@@ -45,7 +45,7 @@ async function main() {
             console.log(`\nNội dung Kịch Bản (Voiceover Tiếng Anh):`);
             
             const scenes = job.script_json?.scenes || [];
-            scenes.forEach((scene: any) => {
+            scenes.forEach((scene: Record<string, unknown>) => {
                 console.log(`  [Scene ${scene.scene_index}]: ${scene.narration}`);
             });
             console.log(`----------------------------------------------------\n`);

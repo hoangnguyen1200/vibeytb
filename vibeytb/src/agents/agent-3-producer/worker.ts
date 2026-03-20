@@ -76,10 +76,10 @@ export const producerWorker = new Worker<SynthesisJobData>(
           // Cập nhật Database -> processing
           // await supabase.from('rendered_assets').insert({ project_id, scene_index: scene.scene_index, asset_type: 'video', status: 'processing' });
 
-          const videoUrl = await generateVideoFromPrompt(scene.visual_prompt, audioDuration, project_id, scene.scene_index);
+          await generateVideoFromPrompt(scene.visual_prompt, audioDuration, project_id, scene.scene_index);
           
           // Video hoàn thành -> lưu vào Database
-          // await supabase.from('rendered_assets').update({ file_url: videoUrl, duration_sec: Math.ceil(audioDuration), status: 'done' }).eq('project_id', project_id).eq('scene_index', scene.scene_index).eq('asset_type', 'video');
+          // await supabase.from('rendered_assets').update({ file_url: _videoUrl, duration_sec: Math.ceil(audioDuration), status: 'done' }).eq('project_id', project_id).eq('scene_index', scene.scene_index).eq('asset_type', 'video');
         }
 
         console.log(`✅ [Worker] Scene ${scene.scene_index} Media Assets hoàn tất!\n`);
@@ -89,13 +89,14 @@ export const producerWorker = new Worker<SynthesisJobData>(
       // Sau khi Worker kết thúc mà ko bị Throw Error nào, ta có thể spawn thêm job nối file
       // hoặc trigger trực tiếp `media-stitcher.ts` tại đây!
 
-    } catch (error: any) {
-      if (error.message === 'RATE_LIMIT') {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage === 'RATE_LIMIT') {
          // Nếu quăng exception thẳng ra ngoài, BullMQ sẽ tự động trigger delay lại
          throw new Error('Đụng Rate Limit. Tạm hoãn process để BullMQ Backoff...');
       }
-      console.error(`❌ [Phase 3 Worker] Fatal Error:`, error.message);
-      // await supabase.from('video_projects').update({ error_logs: error.message }).eq('id', project_id);
+      console.error(`❌ [Phase 3 Worker] Fatal Error:`, errorMessage);
+      // await supabase.from('video_projects').update({ error_logs: errorMessage }).eq('id', project_id);
       throw error; // Kích hoạt retry
     }
   },

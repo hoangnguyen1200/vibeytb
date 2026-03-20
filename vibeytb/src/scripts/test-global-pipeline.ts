@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { scrapeYouTubeTrends, scrapeGoogleTrendsRSS } from '../agents/agent-1-data-miner/scraper';
+import { scrapeGoogleTrendsRSS } from '../agents/agent-1-data-miner/scraper';
 import { generateScriptFromTrend, VideoScriptSchema } from '../agents/agent-2-strategist/generator';
 
 // Biểu thức chính quy kiểm tra tiếng Việt có dấu
@@ -57,16 +57,16 @@ async function runQAGlobalPipelineTest() {
     }
 
     // Verify key fields
-    if (!aiOutput.scenes || aiOutput.scenes.length === 0 || !aiOutput.scenes[0].scene_index || !aiOutput.scenes[0].narration || !aiOutput.scenes[0].visual_prompt) {
-      throw new Error("Data Contract Violated: Không có đủ cấc trường scene_index, narration, visual_prompt như yêu cầu Phase 3");
+    if (!aiOutput.scenes || aiOutput.scenes.length === 0 || !aiOutput.scenes[0].scene_index || !aiOutput.scenes[0].narration || !aiOutput.scenes[0].stock_search_keywords) {
+      throw new Error("Data Contract Violated: Không có đủ cấc trường scene_index, narration, stock_search_keywords như yêu cầu Phase 3");
     }
 
-    console.log(`   [PASS] Cấu trúc JSON chuẩn xác, đầy đủ các trường yêu cầu cho Phase 3 (scene_index, visual_prompt, narration).`);
+    console.log(`   [PASS] Cấu trúc JSON chuẩn xác, đầy đủ các trường yêu cầu cho Phase 3 (scene_index, stock_search_keywords, narration).`);
 
-    // Kiểm tra tiếng Việt trong narration (voiceover_text) và visual_prompt
+    // Kiểm tra tiếng Việt trong narration (voiceover_text) và stock_search_keywords
     let hasVietnamese = false;
     for (const scene of aiOutput.scenes) {
-      if (VIETNAMESE_REGEX.test(scene.narration) || VIETNAMESE_REGEX.test(scene.visual_prompt)) {
+      if (VIETNAMESE_REGEX.test(scene.narration) || (scene.stock_search_keywords && VIETNAMESE_REGEX.test(scene.stock_search_keywords))) {
         hasVietnamese = true;
         break;
       }
@@ -91,11 +91,11 @@ async function runQAGlobalPipelineTest() {
     // Đợi 1s cho các handle đóng hẳn đề phòng crash UV trên Windows
     setTimeout(() => process.exit(0), 1000);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log('\n====================================================');
     console.error('❌ [FAIL] DATA FLOW BROKEN!');
     console.log('====================================================');
-    console.error(`[STACK TRACE]:\n`, error.message || error);
+    console.error(`[STACK TRACE]:\n`, error instanceof Error ? error.message : error);
     process.exit(1);
   }
 }

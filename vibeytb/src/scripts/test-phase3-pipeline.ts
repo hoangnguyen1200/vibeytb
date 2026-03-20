@@ -66,7 +66,7 @@ async function runPhase3PipelineLocal() {
 
        // Nối Audio và Video cho cảnh quay (Media Standardization)
        console.log(`✂️ [Task] Standardization & Stitching Audio/Video cho Scene ${scene.scene_index}...`);
-       await mergeAudioVideoScene(videoPath, audioPath, sceneFinalPath);
+       await mergeAudioVideoScene(videoPath, audioPath, sceneFinalPath, duration, 'mock.vtt');
        
        finalSceneFiles.push(sceneFinalPath);
        // Mô phỏng đã hoàn thành
@@ -97,7 +97,7 @@ async function runPhase3PipelineLocal() {
     
     process.exit(0);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log('\n====================================================');
     console.error('❌ [FAIL] PHASE 3 INTEGRATION BROKEN!');
     console.error(error);

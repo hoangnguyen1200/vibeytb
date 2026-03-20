@@ -28,7 +28,8 @@ export async function generateVideoFromPrompt(
   const fileName = `scene_${sceneIndex}_video_${crypto.randomBytes(4).toString('hex')}.mp4`;
   const filePath = path.join(tmpDir, fileName);
 
-  console.log(`🎬 [Veo Client] Đang tiếp nhận yêu cầu sinh Video cho Scene ${sceneIndex} (Yêu cầu thời lượng: ${duration.toFixed(2)}s)...`);
+  // Tránh cảnh báo unused variable
+  console.log(`🎬 [Veo Client] Đang tiếp nhận yêu cầu sinh Video cho Scene ${sceneIndex} (Yêu cầu thời lượng: ${duration.toFixed(2)}s). Prompt: ${visualPrompt.substring(0, 30)}...`);
 
   try {
     const veoApiKey = process.env.VEO_API_KEY;
@@ -87,11 +88,12 @@ export async function generateVideoFromPrompt(
 
     return filePath;
 
-  } catch (error: any) {
-    if (error.message === 'RATE_LIMIT') {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage === 'RATE_LIMIT') {
       console.warn(`⏳ [Veo Client] RATE LIMIT 429 Triggered. Cần Delay Worker...`);
     } else {
-      console.error(`❌ [Veo Client] Lỗi khi tạo Video cho Scene ${sceneIndex}:`, error.message);
+      console.error(`❌ [Veo Client] Lỗi khi tạo Video cho Scene ${sceneIndex}:`, errorMessage);
     }
     throw error;
   }

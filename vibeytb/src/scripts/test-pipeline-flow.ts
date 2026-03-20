@@ -56,7 +56,7 @@ async function runPipelineCheck() {
     }
 
     console.log(`   [PASS] Định dạng JSON thuần túy (Không có markdown tags).`);
-    console.log(`   [PASS] Cấu trúc chứa đầy đủ các trường yêu cầu: youtube_title, description, tags, mảng scenes (narration, visual_prompt).`);
+    console.log(`   [PASS] Cấu trúc chứa đầy đủ các trường yêu cầu: youtube_title, description, tags, mảng scenes (narration, stock_search_keywords).`);
 
     // 5. Kiểm tra State Management (Mô phỏng)
     console.log(`\n💾 [STEP 5] State Management: Cập nhật Database tiến trình...`);
@@ -75,12 +75,12 @@ async function runPipelineCheck() {
     
     process.exit(0);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log('\n====================================================');
     console.error('❌ [FAIL] DATA FLOW BROKEN!');
     console.log('====================================================');
     // In ra Stack Trace chỉ rõ module làm đứt đoạn
-    console.error(`[STACK TRACE]:\n`, error.stack || error.message);
+    console.error(`[STACK TRACE]:\n`, error instanceof Error ? error.stack || error.message : error);
     process.exit(1);
   }
 }

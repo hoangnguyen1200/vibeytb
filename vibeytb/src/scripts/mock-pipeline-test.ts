@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { supabase } from '../lib/supabase/client';
 import { generateScriptFromTrend } from '../agents/agent-2-strategist/generator';
-import { z } from 'zod';
 
 // Giả lập Dữ liệu Đầu vào từ Phase 1
 const mockTrend = "AI thay thế lập trình viên 2026";
@@ -62,8 +61,8 @@ async function runMockPipeline() {
     console.log('✅ Đã chuyển trạng thái Project thành `script_ready` an toàn.\n');
     
     console.log('🎉 TOÀN BỘ MOCK PIPELINE HOẠT ĐỘNG HOÀN HẢO!');
-  } catch (error: any) {
-    console.error(`\n❌ MOCK PIPELINE THẤT BẠI: ${error.message}`);
+  } catch (error: unknown) {
+    console.error(`\n❌ MOCK PIPELINE THẤT BẠI: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

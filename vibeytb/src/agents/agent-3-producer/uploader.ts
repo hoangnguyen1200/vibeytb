@@ -6,9 +6,10 @@ import path from 'path';
  * Task 3: Storage & State Completion
  * Chức năng Mock Storage Upload -> Update DB State -> Cleanup Thư mục Temporary local server
  */
-export async function uploadAndFinalizeProject(projectId: string, finalVideoPath: string): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function uploadAndFinalizeProject(projectId: string, _finalVideoPath: string): Promise<string> {
   console.log(`\n====================================================`);
-  console.log(`📤 [Storage Uploader] Chuẩn bị đóng gói Project [${project_id}]`);
+  console.log(`📤 [Storage Uploader] Chuẩn bị đóng gói Project [${projectId}]`);
   console.log(`====================================================\n`);
 
   try {
@@ -41,8 +42,9 @@ export async function uploadAndFinalizeProject(projectId: string, finalVideoPath
     console.log(`\n🎉 [COMPLETE] PHASE 3 (THE SYNTHESIZER) XONG HOÀN TOÀN! CHUYỂN GIAO THÀNH CÔNG.\n`);
     
     return publicUrl;
-  } catch (err: any) {
-    console.error(`❌ [Storage Uploader] Thất bại ở khâu cuối cùng:`, err.message);
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`❌ [Storage Uploader] Thất bại ở khâu cuối cùng:`, errorMessage);
     throw err;
   }
 }

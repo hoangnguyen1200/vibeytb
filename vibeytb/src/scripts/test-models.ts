@@ -8,7 +8,7 @@ async function listModels() {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
     const data = await res.json();
     console.log(JSON.stringify(data, null, 2));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Lỗi:", error);
   }
 }

@@ -107,8 +107,9 @@ export async function generateAudioFromText(
 
     return { filePath, vttPath, duration };
 
-  } catch (error: any) {
-    console.error(`❌ [TTS Client] Lỗi khi tạo Audio cho Scene ${sceneIndex}:`, error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`❌ [TTS Client] Lỗi khi tạo Audio cho Scene ${sceneIndex}:`, errorMessage);
     throw error;
   }
 }
