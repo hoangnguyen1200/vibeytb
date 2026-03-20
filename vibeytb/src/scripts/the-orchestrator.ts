@@ -195,13 +195,19 @@ export class TheMasterOrchestrator {
 
       let videoPath: string;
       if (scene.target_website_url) {
-        console.log(`[PHASE 3] Recording website: ${scene.target_website_url}`);
-        videoPath = await recordWebsiteScroll(
-          scene.target_website_url,
-          duration,
-          path.join(tmpDir, `scene_${sceneIndex}_raw.webm`),
-          scene.target_search_query || undefined
-        );
+        try {
+          console.log(`[PHASE 3] Recording website: ${scene.target_website_url}`);
+          videoPath = await recordWebsiteScroll(
+            scene.target_website_url,
+            duration,
+            path.join(tmpDir, `scene_${sceneIndex}_raw.webm`),
+            scene.target_search_query || undefined
+          );
+        } catch (error: unknown) {
+          console.log('[FALLBACK] Playwright failed, switching to stock video');
+          const keywords = scene.stock_search_keywords || 'technology';
+          videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
+        }
       } else {
         const keywords = scene.stock_search_keywords || 'technology';
         console.log(`[PHASE 3] Downloading stock video (keywords: "${keywords}")`);
