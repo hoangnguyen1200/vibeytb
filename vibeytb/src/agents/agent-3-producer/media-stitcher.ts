@@ -145,13 +145,13 @@ export async function concatScenes(
           '[0:a]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a_norm]'
         ]);
       } else {
-        console.log(`[FFmpeg] Mixing BGM: ${path.basename(bgmPath)} (volume 10%)`);
+        console.log(`[FFmpeg] Mixing BGM: ${path.basename(bgmPath)} (volume 5%)`);
         audioMap = '[a_mix]';
         mixCmd
           .input(bgmPath)
           .inputOptions(['-stream_loop', '-1'])
           .complexFilter([
-            '[1:a]volume=0.1[bgm]',
+            '[1:a]volume=0.05[bgm]',
             '[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a_mix]'
           ]);
       }

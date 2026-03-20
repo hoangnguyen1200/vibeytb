@@ -31,12 +31,17 @@ function convertEdgeJsonToVtt(jsonPath: string, vttPath: string) {
   const subs = JSON.parse(rawData) as Array<{ part: string, start: number, end: number }>;
   
   let vttContent = 'WEBVTT\n\n';
-  subs.forEach((sub) => {
-    // node-edge-tts lưu start và end theo định dạng ms
-    const startTime = msToVttTimestamp(sub.start);
-    const endTime = msToVttTimestamp(sub.end);
-    vttContent += `${startTime} --> ${endTime}\n${sub.part}\n\n`;
-  });
+  
+  for (let i = 0; i < subs.length; i += 4) {
+    const group = subs.slice(i, i + 4);
+    const startTime = msToVttTimestamp(group[0].start);
+    const endTime = msToVttTimestamp(group[group.length - 1].end);
+    
+    // Nối các từ lại, xoá khoảng trắng thừa
+    const text = group.map(sub => sub.part.trim()).join(' ');
+    
+    vttContent += `${startTime} --> ${endTime}\n${text}\n\n`;
+  }
   
   fs.writeFileSync(vttPath, vttContent, 'utf-8');
   fs.unlinkSync(jsonPath); // Xoá file json dọn dẹp
