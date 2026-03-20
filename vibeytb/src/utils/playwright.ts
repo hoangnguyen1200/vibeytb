@@ -1,8 +1,5 @@
-﻿import { chromium } from 'playwright-extra';
-import stealth from 'puppeteer-extra-plugin-stealth';
+import { chromium } from 'playwright-chromium';
 import type { Browser, BrowserContext, Page, LaunchOptions } from 'playwright';
-
-chromium.use(stealth());
 
 export const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
