@@ -75,7 +75,7 @@ Không thêm bất kỳ text định dạng Markdown nào khác như \`\`\`json.
 
 export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English'): Promise<VideoScriptData> {
   let retries = 3;
-  let lastError: any;
+  let lastError: unknown;
 
   while (retries > 0) {
     try {
@@ -108,7 +108,7 @@ export async function generateScriptFromTrend(keyword: string, language: string 
       
       // Fallback an toàn: Nếu AI cấu trúc đúng nhưng trả về null cho stock_search_keywords
       if (parsedJson && Array.isArray(parsedJson.scenes)) {
-          parsedJson.scenes = parsedJson.scenes.map((scene: any) => {
+          parsedJson.scenes = parsedJson.scenes.map((scene: { stock_search_keywords?: string | null; [key: string]: unknown }) => {
               if (scene.stock_search_keywords === null || scene.stock_search_keywords === undefined || scene.stock_search_keywords === "") {
                   // Fallback an toàn thuộc chủ đề công nghệ, mạng rỗng
                   const safeFallbacks = ["abstract technology", "digital network", "data flow"];
@@ -123,14 +123,16 @@ export async function generateScriptFromTrend(keyword: string, language: string 
 
       return validatedData;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
-      console.warn(`⚠️ Gemini API Lỗi/Malformed JSON. Đang thử lại... Chi tiết: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`⚠️ Gemini API Lỗi/Malformed JSON. Đang thử lại... Chi tiết: ${errorMessage}`);
       retries--;
       // Backoff 2 giây
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
-  throw new Error(`❌ Gemini Failed sau 3 lần rặn kịch bản: ${lastError?.message}`);
+  const finalErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`❌ Gemini Failed sau 3 lần rặn kịch bản: ${finalErrorMessage}`);
 }
