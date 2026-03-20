@@ -1,6 +1,7 @@
-﻿import path from 'path';
+import path from 'path';
 import fs from 'fs';
 import { launchStealthPage } from '../../utils/playwright';
+import { Browser, BrowserContext, Page } from 'playwright-chromium';
 
 const DEFAULT_QUERY = 'Summarize this page in 5 bullet points.';
 const INPUT_SELECTOR = 'textarea, [contenteditable="true"], input[type="text"], input[type="search"]';
@@ -22,8 +23,9 @@ function ensureSampleUploadFile(): string {
   return samplePath;
 }
 
-async function installContinuousPurifier(page: any) {
+async function installContinuousPurifier(page: Page) {
   await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any;
     if (w.__purifierInterval) {
       clearInterval(w.__purifierInterval);
@@ -79,9 +81,10 @@ async function installContinuousPurifier(page: any) {
   });
 }
 
-async function cleanupContinuousPurifier(page: any) {
+async function cleanupContinuousPurifier(page: Page) {
   try {
     await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const w = window as any;
       if (w.__purifierInterval) {
         clearInterval(w.__purifierInterval);
@@ -93,7 +96,7 @@ async function cleanupContinuousPurifier(page: any) {
   }
 }
 
-async function injectFakeCursor(page: any) {
+async function injectFakeCursor(page: Page) {
   try {
     await page.evaluate(() => {
       if (document.getElementById('playwright-fake-cursor')) return;
@@ -128,7 +131,8 @@ async function injectFakeCursor(page: any) {
   }
 }
 
-async function tryUploadSampleFile(page: any): Promise<void> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _tryUploadSampleFile(page: Page): Promise<void> {
   try {
     const fileInput = page.locator('input[type="file"]').first();
     const count = await fileInput.count();
@@ -137,12 +141,12 @@ async function tryUploadSampleFile(page: any): Promise<void> {
     const samplePath = ensureSampleUploadFile();
     await fileInput.setInputFiles(samplePath);
     await page.waitForTimeout(500);
-  } catch (err) {
+  } catch (err: unknown) {
     console.warn('[Playwright] Upload attempt failed. Continuing without upload.', err);
   }
 }
 
-async function runDemoHunter(page: any, durationSec: number, startMs: number): Promise<void> {
+async function runDemoHunter(page: Page, durationSec: number, startMs: number): Promise<void> {
   try {
     const mediaLocator = page.locator(MEDIA_SELECTOR);
     const count = await mediaLocator.count();
@@ -181,7 +185,7 @@ async function runDemoHunter(page: any, durationSec: number, startMs: number): P
         return;
       }
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.warn('[Playwright] Demo Hunter failed, falling back to scroll.', err);
   }
 
@@ -205,10 +209,10 @@ export async function recordWebsiteScroll(
   outputFilePath: string,
   searchQuery?: string
 ): Promise<string> {
-  let browser: any = null;
-  let context: any = null;
-  let page: any = null;
-  let video: any = null;
+  let browser: Browser | null = null;
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
+  let video: ReturnType<Page['video']> | null = null;
 
   const outputDir = path.dirname(outputFilePath);
   ensureDir(outputDir);
@@ -226,13 +230,14 @@ export async function recordWebsiteScroll(
       await page.evaluate(() => {
         document.body.style.backgroundColor = document.body.style.backgroundColor || 'white';
       });
-    } catch (err: any) {
-      console.warn(`[Playwright] Page load warning: ${err?.message || err}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.warn(`[Playwright] Page load warning: ${errorMessage}`);
     }
 
     try {
       await installContinuousPurifier(page);
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('[Playwright] Purifier setup failed.', err);
     }
 
@@ -276,7 +281,7 @@ export async function recordWebsiteScroll(
               }
             });
           }
-        } catch (sendErr) {
+        } catch (sendErr: unknown) {
           console.warn('[Playwright] Dual-Submit Engine failed.', sendErr);
         }
         await page.waitForTimeout(10000);
@@ -296,14 +301,14 @@ export async function recordWebsiteScroll(
 
         phaseACompleted = true;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('[Playwright] Input Hunter failed, switching to Demo Hunter.', err);
     }
 
     if (!phaseACompleted) {
       await runDemoHunter(page, durationSec, startMs);
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[Playwright] Recording failed:', err);
   } finally {
     if (page) {
