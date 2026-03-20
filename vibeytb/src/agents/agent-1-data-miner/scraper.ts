@@ -58,10 +58,12 @@ export async function scrapeYouTubeTrends(
 
   const page = await context.newPage();
 
+  const BLOCKED_RESOURCE_TYPES = ['image', 'font', 'stylesheet', 'media'];
+
   // Chặn tải tài nguyên không cần thiết để tiết kiệm băng thông
   await page.route('**/*', (route) => {
     const requestType = route.request().resourceType();
-    if (['image', 'font', 'stylesheet', 'media'].includes(requestType)) {
+    if (BLOCKED_RESOURCE_TYPES.includes(requestType)) {
       route.abort();
     } else {
       route.continue();
