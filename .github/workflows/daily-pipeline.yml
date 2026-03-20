@@ -1,0 +1,54 @@
+name: Daily YouTube Pipeline
+
+on:
+  schedule:
+    - cron: '0 20 * * *'  # 8:00 PM Vietnam = 3:00 PM EST
+  workflow_dispatch:        # Cho phép chạy thủ công
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: vibeytb/package-lock.json
+
+      - name: Install dependencies
+        working-directory: vibeytb
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: vibeytb
+        run: npx playwright install chromium --with-deps
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Create .env file
+        working-directory: vibeytb
+        run: |
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env
+          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> .env
+          echo "GOOGLE_REFRESH_TOKEN=${{ secrets.GOOGLE_REFRESH_TOKEN }}" >> .env
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+
+      - name: Run pipeline
+        working-directory: vibeytb
+        run: npx tsx src/scripts/the-orchestrator.ts
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs
+          path: vibeytb/tmp/
