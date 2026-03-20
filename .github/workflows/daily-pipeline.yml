@@ -25,6 +25,9 @@ jobs:
         working-directory: vibeytb
         run: npm ci
 
+      - name: Create BGM directory
+        run: mkdir -p vibeytb/assets/bgm
+
       - name: Install Playwright browsers
         working-directory: vibeytb
         run: npx playwright install chromium --with-deps
