@@ -9,7 +9,7 @@ export const queues = {
 };
 
 // Hàm tiện ích thêm job
-export const addJobToQueue = async (queueName: QueueName, jobName: string, data: any) => {
+export const addJobToQueue = async (queueName: QueueName, jobName: string, data: unknown) => {
   const queue = queues[queueName];
   if (!queue) throw new Error(`Queue ${queueName} không được hỗ trợ`);
   
