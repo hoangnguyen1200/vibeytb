@@ -1,4 +1,4 @@
-﻿import 'dotenv/config';
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 
@@ -284,7 +284,7 @@ export class TheMasterOrchestrator {
       throw new Error('script_json.scenes is missing or empty.');
     }
 
-    const scenes = scenesRaw.map((scene: any, index: number) => {
+    const scenes = scenesRaw.map((scene: Record<string, unknown>, index: number) => {
       const narration = typeof scene?.narration === 'string' ? scene.narration.trim() : '';
       if (!narration) throw new Error(`Scene ${index + 1} is missing narration text.`);
 
@@ -314,14 +314,15 @@ export class TheMasterOrchestrator {
     const parsed = this.parseJsonMaybe(raw);
     if (!parsed || typeof parsed !== 'object') return {};
 
+    const parsedRecord = parsed as Record<string, unknown>;
     const youtubeTitle =
-      typeof (parsed as any).youtube_title === 'string' ? (parsed as any).youtube_title : undefined;
+      typeof parsedRecord.youtube_title === 'string' ? parsedRecord.youtube_title : undefined;
     const youtubeDescription =
-      typeof (parsed as any).youtube_description === 'string'
-        ? (parsed as any).youtube_description
+      typeof parsedRecord.youtube_description === 'string'
+        ? parsedRecord.youtube_description
         : undefined;
-    const youtubeTags = Array.isArray((parsed as any).youtube_tags)
-      ? (parsed as any).youtube_tags.filter((tag: unknown) => typeof tag === 'string')
+    const youtubeTags = Array.isArray(parsedRecord.youtube_tags)
+      ? parsedRecord.youtube_tags.filter((tag: unknown) => typeof tag === 'string') as string[]
       : undefined;
 
     return {
@@ -368,8 +369,8 @@ export class TheMasterOrchestrator {
 
       try {
         await fs.promises.rename(filePath, targetPath);
-      } catch (err: any) {
-        if (err?.code === 'EXDEV') {
+      } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'code' in err && (err as Record<string, unknown>).code === 'EXDEV') {
           await fs.promises.copyFile(filePath, targetPath);
           await fs.promises.unlink(filePath);
         } else {
