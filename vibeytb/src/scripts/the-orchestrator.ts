@@ -285,13 +285,12 @@ export class TheMasterOrchestrator {
           console.log(`[PHASE 3] Chạy Visual QC trên đoạn ghi hình...`);
           const isPass = await runVisualQC(videoPath, jobId, scene.target_website_url);
           if (!isPass) {
-              throw new Error('FAILED_VISUAL_QC');
+              console.log('[VISUAL QC] ❌ FAIL → Graceful fallback sang stock video thay vì crash pipeline.');
+              const keywords = scene.stock_search_keywords || 'technology';
+              videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
           }
 
         } catch (error: unknown) {
-          if (error instanceof Error && error.message === 'FAILED_VISUAL_QC') {
-              throw error; // Ném thẳng ra ngoài Phase 3 để Orchestrator Loop Retry
-          }
           console.log('[FALLBACK] Playwright failed, switching to stock video');
           const keywords = scene.stock_search_keywords || 'technology';
           videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
