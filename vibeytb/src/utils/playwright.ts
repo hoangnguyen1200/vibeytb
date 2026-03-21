@@ -1,7 +1,4 @@
-import { chromium } from 'playwright-extra';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const stealth = require('puppeteer-extra-plugin-stealth');
-chromium.use(stealth());
+import { chromium } from 'playwright-chromium';
 import type { Browser, BrowserContext, Page, LaunchOptions } from 'playwright';
 
 export const DEFAULT_USER_AGENT =
