@@ -76,17 +76,18 @@ Không thêm bất kỳ text định dạng Markdown nào khác như \`\`\`json.
 export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English'): Promise<VideoScriptData> {
   let retries = 3;
   let lastError: unknown;
+  let currentModel = model;
 
   while (retries > 0) {
     try {
-      console.log(`🧠 [Gemini 2.5 Flash] Scripting for keyword: "${keyword}" (Target: ${language}, Tone: ${tone})... (Remaining retries: ${retries})`);
+      console.log(`🧠 [Gemini] Scripting for keyword: "${keyword}" (Target: ${language}, Tone: ${tone})... (Remaining retries: ${retries})`);
       
       const prompt = `Current Trending Keyword: "${keyword}". Please craft an engaging video script immediately!
       Target Language/Locale: ${language}
       Required Tone of Voice: ${tone}`;
 
       // Call LLM
-      const result = await model.generateContent({
+      const result = await currentModel.generateContent({
         contents: [
           { role: 'user', parts: [{ text: prompt }] }
         ],
@@ -123,10 +124,17 @@ export async function generateScriptFromTrend(keyword: string, language: string 
 
       return validatedData;
 
-    } catch (error: unknown) {
+    } catch (error: any) {
       lastError = error;
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.warn(`⚠️ Gemini API Lỗi/Malformed JSON. Đang thử lại... Chi tiết: ${errorMessage}`);
+      
+      if (error.status === 429 || error.status === 404 || errorMessage.toLowerCase().includes('quota')) {
+        console.log('[MODEL FALLBACK] gemini-2.5-flash quota exceeded, switching to gemini-1.5-flash-latest');
+        currentModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+      } else {
+        console.warn(`⚠️ Gemini API Lỗi/Malformed JSON. Đang thử lại... Chi tiết: ${errorMessage}`);
+      }
+      
       retries--;
       // Backoff 2 giây
       await new Promise(resolve => setTimeout(resolve, 2000));

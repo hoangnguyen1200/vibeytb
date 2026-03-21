@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
  * Mắt thần AI: Trích xuất 3 khung hình và gọi Gemini duyệt
@@ -64,7 +64,9 @@ async function extractFramesBase64(videoPath: string, outputDir: string): Promis
   });
 }
 
-async function analyzeFramesWithGemini(base64Frames: string[]): Promise<boolean> {
+async function analyzeFramesWithGemini(base64Frames: string[], retryCount = 0): Promise<boolean> {
+  let currentModel = retryCount === 0 ? model : genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
   const prompt = `Bạn là một Chuyên gia Kiểm duyệt Video tự động.
 Phân tích 3 khung hình (frames) được trích xuất từ Video quay một trang web Affiliate/Software.
 Trang web có đang hiển thị nội dung bình thường, xem được và nhận diện được UI không?
@@ -82,10 +84,15 @@ CHỈ ĐƯỢC PHÉP TRẢ VỀ DUY NHẤT 1 TỪ:
   }));
 
   try {
-    const result = await model.generateContent([prompt, ...imageParts]);
+    const result = await currentModel.generateContent([prompt, ...imageParts]);
     const response = result.response.text().trim().toUpperCase();
     return response.includes('PASS');
-  } catch (err) {
+  } catch (err: any) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    if (retryCount === 0 && (err.status === 429 || err.status === 404 || errorMessage.toLowerCase().includes('quota'))) {
+      console.log('[VISUAL QC MODEL FALLBACK] switching to gemini-1.5-flash-latest');
+      return analyzeFramesWithGemini(base64Frames, 1);
+    }
     console.error(`[VISUAL QC] Lỗi gọi Gemini API:`, err);
     return false;
   }
