@@ -11,6 +11,7 @@ import { downloadBGMFromPixabay } from '../agents/agent-3-producer/pixabay-clien
 import { recordWebsiteScroll } from '../agents/agent-3-producer/playwright-recorder';
 import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/media-stitcher';
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
+import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { validateVideo } from './qc-video';
 
 type Mode = 'cron' | 'worker' | 'all';
@@ -51,9 +52,9 @@ export class TheMasterOrchestrator {
    * Master loop
    * @param mode 'cron' (Phase 1+2 only), 'worker' (Phase 3+4 only), or 'all' (E2E)
    */
-  async runAutoPilot(mode: Mode = 'all') {
+  async runAutoPilot(mode: Mode = 'all', retryCount: number = 0): Promise<void> {
     console.log('====================================================');
-    console.log(`[ORCHESTRATOR] STARTING PIPELINE (Mode: ${mode.toUpperCase()})`);
+    console.log(`[ORCHESTRATOR] STARTING PIPELINE (Mode: ${mode.toUpperCase()} | Retry: ${retryCount})`);
     console.log('====================================================\n');
 
     let jobId: string | null = null;
@@ -89,6 +90,25 @@ export class TheMasterOrchestrator {
         console.log('[ORCHESTRATOR] Job is waiting for human approval. Aborting.');
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'FAILED_VISUAL_QC') {
+        console.log(`\n====================================================`);
+        console.log(`[ORCHESTRATOR] Visual QC phát hiện lỗi Cloudflare/Captcha.`);
+        await this.failJob(jobId, error);
+        
+        if (retryCount < 2) {
+            console.log(`[RETRY] Bắt đầu Seed Job mới và thử lại (Lần ${retryCount + 1}/2)...`);
+            console.log(`====================================================\n`);
+            // Ép buộc tạo seed job ngay để đảm bảo retry keyword khác nếu queue rỗng
+            if (envFlag('ALLOW_DRY_SEED')) {
+                await this.createSeedJob();
+            }
+            return this.runAutoPilot(mode, retryCount + 1);
+        } else {
+            console.log(`[EXIT] Đã thử 2 lần đều Fail QC. Chấp nhận bỏ cuộc.`);
+            throw error;
+        }
+      }
+
       await this.failJob(jobId, error);
       throw error;
     }
@@ -241,7 +261,17 @@ export class TheMasterOrchestrator {
             path.join(tmpDir, `scene_${sceneIndex}_raw.webm`),
             scene.target_search_query || undefined
           );
+
+          console.log(`[PHASE 3] Chạy Visual QC trên đoạn ghi hình...`);
+          const isPass = await runVisualQC(videoPath, jobId, scene.target_website_url);
+          if (!isPass) {
+              throw new Error('FAILED_VISUAL_QC');
+          }
+
         } catch (error: unknown) {
+          if (error instanceof Error && error.message === 'FAILED_VISUAL_QC') {
+              throw error; // Ném thẳng ra ngoài Phase 3 để Orchestrator Loop Retry
+          }
           console.log('[FALLBACK] Playwright failed, switching to stock video');
           const keywords = scene.stock_search_keywords || 'technology';
           videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
