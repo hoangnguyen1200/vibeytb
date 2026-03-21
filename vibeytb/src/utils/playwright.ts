@@ -18,9 +18,8 @@ export type StealthContextOptions = {
 };
 
 export async function launchStealthBrowser(options: StealthLaunchOptions = {}): Promise<Browser> {
-  const isCI = !!process.env.GITHUB_ACTIONS;
   const launchOptions: StealthLaunchOptions = {
-    headless: isCI ? false : (options.headless ?? true),
+    headless: options.headless ?? true,
     slowMo: options.slowMo,
     args: options.args,
   };

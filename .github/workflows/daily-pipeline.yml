@@ -2,13 +2,17 @@ name: Daily YouTube Pipeline
 
 on:
   schedule:
-    - cron: "0 20 * * *" # 8:00 PM Vietnam = 3:00 PM EST
+    - cron: "0 2 * * *" # 9:00 AM Vietnam = 10:00 PM EST = 7:00 PM PST
   workflow_dispatch: # Cho phép chạy thủ công
 
 jobs:
   run-pipeline:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: pwsh
 
     steps:
       - name: Checkout code
@@ -26,35 +30,27 @@ jobs:
         run: npm ci
 
       - name: Create BGM directory
-        run: mkdir -p vibeytb/assets/bgm
-
-      - name: Install Playwright browsers
-        working-directory: vibeytb
-        run: npx playwright install chromium --with-deps
-
-      - name: Install FFmpeg
-        run: sudo apt-get install -y ffmpeg
+        run: New-Item -ItemType Directory -Force -Path vibeytb/assets/bgm
 
       - name: Create .env file
         working-directory: vibeytb
         run: |
-          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> .env
-          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> .env
-          echo "GOOGLE_REFRESH_TOKEN=${{ secrets.GOOGLE_REFRESH_TOKEN }}" >> .env
-          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .env
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
-          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}" >> .env
-          echo "PIXABAY_API_KEY=${{ secrets.PIXABAY_API_KEY }}" >> .env
-
-      - name: Install Xvfb
-        run: sudo apt-get install -y xvfb
+          @"
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN=${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY=${{ secrets.PIXABAY_API_KEY }}
+          "@ | Out-File -FilePath .env -Encoding utf8
 
       - name: Run pipeline
         working-directory: vibeytb
         env:
           ALLOW_DRY_SEED: "true"
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npx tsx src/scripts/the-orchestrator.ts
+        run: npx tsx src/scripts/the-orchestrator.ts
 
       - name: Upload logs on failure
         if: failure()
