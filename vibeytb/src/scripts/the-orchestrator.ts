@@ -17,14 +17,18 @@ import { validateVideo } from './qc-video';
 type Mode = 'cron' | 'worker' | 'all';
 
 const SEED_TOPICS = [
-  'secret AI tools',
-  'affiliate marketing hacks',
-  'coding for beginners',
-  'SaaS ideas',
-  'passive income digital products',
-  'freelance tech tips',
-  'chatgpt hidden features',
-  'make money with automation',
+  'best new AI tools this week',
+  'AI tools that replace expensive software',
+  'free AI tools nobody talks about',
+  'AI tools to make money online 2025',
+  'AI tools that save 10 hours a week',
+  'new AI image generators trending',
+  'AI writing tools better than ChatGPT',
+  'AI video tools going viral',
+  'AI tools for passive income',
+  'underrated AI tools under the radar',
+  'AI automation tools for beginners',
+  'AI tools replacing traditional jobs',
 ];
 
 const ACTIVE_STATUSES: VideoStatus[] = [
