@@ -256,6 +256,22 @@ export class TheMasterOrchestrator {
       );
 
       let videoPath: string;
+
+      // Runtime blacklist guard — LLM hay bướng, cần code chặn
+      const BLOCKED_DOMAINS = [
+        'perplexity.ai', 'chatgpt.com', 'chat.openai.com',
+        'claude.ai', 'bard.google.com', 'character.ai',
+        'you.com', 'poe.com', 'gemini.google.com',
+      ];
+      const targetUrl = scene.target_website_url;
+      if (targetUrl) {
+        const isBlocked = BLOCKED_DOMAINS.some(domain => targetUrl.includes(domain));
+        if (isBlocked) {
+          console.log(`[GUARD] ⛔ URL bị chặn bởi blacklist: ${targetUrl} → Fallback sang stock video.`);
+          scene.target_website_url = null;
+        }
+      }
+
       if (scene.target_website_url) {
         try {
           console.log(`[PHASE 3] Recording website: ${scene.target_website_url}`);
