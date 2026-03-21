@@ -59,7 +59,7 @@ async function extractFramesBase64(videoPath: string, outputDir: string): Promis
         timestamps: ['20%', '50%', '80%'], // 3 thời điểm giữa video
         filename: 'frame_%i.jpg',
         folder: outputDir,
-        size: '1280x720' // Giảm dung lượng ảnh gửi API
+        size: '640x360' // Giảm dung lượng ảnh gửi API
       });
   });
 }
