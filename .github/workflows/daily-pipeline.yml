@@ -46,6 +46,7 @@ jobs:
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
           echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}" >> .env
           echo "PIXABAY_API_KEY=${{ secrets.PIXABAY_API_KEY }}" >> .env
+	  echo "BROWSERLESS_API_KEY=${{ secrets.BROWSERLESS_API_KEY }}" >> .env
 
       - name: Run pipeline
         working-directory: vibeytb
