@@ -52,7 +52,7 @@ jobs:
         working-directory: vibeytb
         env:
           ALLOW_DRY_SEED: 'true'
-        run: npx tsx src/scripts/the-orchestrator.ts
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npx tsx src/scripts/the-orchestrator.ts
 
       - name: Upload logs on failure
         if: failure()

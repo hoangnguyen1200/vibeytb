@@ -18,14 +18,12 @@ export type StealthContextOptions = {
 };
 
 export async function launchStealthBrowser(options: StealthLaunchOptions = {}): Promise<Browser> {
+  const isCI = !!process.env.GITHUB_ACTIONS;
   const launchOptions: StealthLaunchOptions = {
-    headless: options.headless ?? true,
+    headless: isCI ? false : (options.headless ?? true),
     slowMo: options.slowMo,
     args: options.args,
   };
-  if (process.env.BROWSERLESS_API_KEY) {
-    return chromium.connect(`wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`);
-  }
 
   return chromium.launch(launchOptions);
 }
@@ -37,7 +35,7 @@ export async function createStealthContext(
   return browser.newContext({
     userAgent: DEFAULT_USER_AGENT,
     viewport: DEFAULT_VIEWPORT,
-    recordVideo: (!process.env.BROWSERLESS_API_KEY && options.recordVideoDir)
+    recordVideo: options.recordVideoDir
       ? {
           dir: options.recordVideoDir,
           size: options.recordVideoSize ?? DEFAULT_VIEWPORT,
