@@ -23,6 +23,10 @@ export async function launchStealthBrowser(options: StealthLaunchOptions = {}): 
     slowMo: options.slowMo,
     args: options.args,
   };
+  if (process.env.BROWSERLESS_API_KEY) {
+    return chromium.connect(`wss://chrome.browserless.io?token=${process.env.BROWSERLESS_API_KEY}`);
+  }
+
   return chromium.launch(launchOptions);
 }
 
@@ -33,7 +37,7 @@ export async function createStealthContext(
   return browser.newContext({
     userAgent: DEFAULT_USER_AGENT,
     viewport: DEFAULT_VIEWPORT,
-    recordVideo: options.recordVideoDir
+    recordVideo: (!process.env.BROWSERLESS_API_KEY && options.recordVideoDir)
       ? {
           dir: options.recordVideoDir,
           size: options.recordVideoSize ?? DEFAULT_VIEWPORT,
