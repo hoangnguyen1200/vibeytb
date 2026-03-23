@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { supabase } from '../lib/supabase/client';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { VideoStatus, type VideoProject, type ScriptJson } from '../types/video-script';
 import { generateScriptFromTrend } from '../agents/agent-2-strategist/generator';
 import { generateAudioFromText } from '../agents/agent-3-producer/tts-client';
@@ -17,37 +18,17 @@ import { notifyDiscord } from '../utils/notifier';
 
 type Mode = 'cron' | 'worker' | 'all';
 
-const SEED_TOPICS = [
+// Fallback topics — only used when LLM discovery fails
+const FALLBACK_TOPICS = [
   'best new AI tools this week',
-  'AI tools that replace expensive software',
   'free AI tools nobody talks about',
-  'AI tools to make money online 2025',
-  'AI tools that save 10 hours a week',
-  'new AI image generators trending',
-  'AI writing tools better than ChatGPT',
-  'AI video tools going viral',
-  'AI tools for passive income',
-  'underrated AI tools under the radar',
   'AI automation tools for beginners',
-  'AI tools for freelancers and solopreneurs',
-  'AI productivity tools for students',
-  'AI music generation tools free',
-  'AI presentation makers that replace PowerPoint',
+  'AI tools that save 10 hours a week',
+  'underrated AI tools under the radar',
+  'AI video tools going viral',
   'AI coding assistants trending right now',
-  'best AI chatbots besides ChatGPT',
   'AI tools for content creators on YouTube',
-  'AI design tools that replace Canva',
   'new AI voice cloning tools',
-  'AI research tools for deep work',
-  'AI SEO tools that are actually free',
-  'AI data analysis tools for non-coders',
-  'AI meeting note takers going viral',
-  'AI resume builders trending',
-  'AI tools for ecommerce sellers',
-  'AI translation tools better than Google',
-  'AI logo makers free and professional',
-  'AI tools for real estate agents',
-  'AI customer service bots trending',
   'AI tools replacing traditional jobs',
 ];
 
@@ -238,11 +219,11 @@ export class TheMasterOrchestrator {
     console.log('[PHASE 1] Data Mining');
     await this.updateJobStatus(jobId, VideoStatus.PROCESSING);
 
-    const selectedTrend = this.pickSeedTopic();
-    console.log(`[PHASE 1] Selected niche keyword: "${selectedTrend}"`);
-
-    // Content Memory: get tools to avoid
+    // Content Memory: get tools to avoid (used by both topic discovery and script generation)
     const recentTools = await this.getRecentlyUsedTools();
+
+    const selectedTrend = await this.discoverFreshTopic(recentTools);
+    console.log(`[PHASE 1] Selected niche keyword: "${selectedTrend}"`);
 
     console.log('[PHASE 2] Content Strategist (AI script generation)');
     const language = (typeof job.target_language === 'string' && job.target_language.trim()) || 'en-US';
@@ -519,8 +500,53 @@ export class TheMasterOrchestrator {
     }
   }
 
-  private pickSeedTopic(): string {
-    return SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)];
+  /**
+   * Dynamic Topic Discovery: Ask LLM to generate a fresh, unique niche topic.
+   * Falls back to static list if LLM fails.
+   */
+  private async discoverFreshTopic(avoidTools: string[]): Promise<string> {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error('No GEMINI_API_KEY');
+
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+      const today = new Date().toISOString().split('T')[0];
+      const avoidStr = avoidTools.length > 0
+        ? `\nDo NOT suggest these tools (already covered): ${avoidTools.join(', ')}`
+        : '';
+
+      const result = await model.generateContent({
+        contents: [{
+          role: 'user',
+          parts: [{
+            text: `You are a YouTube Shorts content researcher. Today is ${today}.
+
+Suggest ONE specific, trending AI tool niche keyword for a YouTube Shorts video that would get high views right now.
+
+Rules:
+- Focus on a SPECIFIC category (e.g. "AI tools for video editing" not just "AI tools")
+- The topic should feel FRESH and timely
+- Target US audience, English content
+- Think about what people are searching for RIGHT NOW${avoidStr}
+
+Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that replace Photoshop for free"`
+          }]
+        }],
+      });
+
+      const topic = result.response.text().trim().replace(/^["']|["']$/g, '');
+      if (topic && topic.length > 10 && topic.length < 100) {
+        console.log(`[TOPIC DISCOVERY] 🔍 LLM suggested: "${topic}"`);
+        return topic;
+      }
+
+      throw new Error(`Invalid topic response: "${topic}"`);
+    } catch (err) {
+      console.warn('[TOPIC DISCOVERY] LLM failed, using fallback.', err);
+      return FALLBACK_TOPICS[Math.floor(Math.random() * FALLBACK_TOPICS.length)];
+    }
   }
 
   private getJobTmpDir(jobId: string): string {
