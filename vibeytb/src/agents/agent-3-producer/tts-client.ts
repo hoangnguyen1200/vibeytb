@@ -86,11 +86,26 @@ export async function generateAudioFromText(
   const fileName = `scene_${sceneIndex}_audio_${crypto.randomBytes(4).toString('hex')}.mp3`;
   const filePath = path.join(tmpDir, fileName);
 
-  console.log(`🎙️ [TTS Client] Gọi Microsoft Edge TTS miễn phí cho Scene ${sceneIndex}...`);
+  console.log(`🎙️ [TTS Client] Calling Microsoft Edge TTS for Scene ${sceneIndex}...`);
+
+  // Voice rotation pool: 3 male + 3 female high-quality English voices
+  const VOICE_POOL = [
+    'en-US-AndrewMultilingualNeural',  // Male, clear & professional
+    'en-US-BrianMultilingualNeural',   // Male, warm & engaging
+    'en-US-SteffanNeural',             // Male, energetic tech reviewer
+    'en-US-AvaMultilingualNeural',     // Female, confident & modern
+    'en-US-EmmaMultilingualNeural',    // Female, friendly & approachable
+    'en-US-JennyNeural',              // Female, natural & conversational
+  ];
+
+  // Pick one random voice per video (use projectId as seed for consistency within same video)
+  const voiceIndex = projectId.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % VOICE_POOL.length;
+  const selectedVoice = VOICE_POOL[voiceIndex];
 
   try {
+    console.log(`🎤 [TTS] Voice selected: ${selectedVoice}`);
     const tts = new EdgeTTS({
-      voice: 'en-US-SteffanNeural', // Giọng nam Mỹ, review công nghệ năng lượng
+      voice: selectedVoice,
       lang: 'en-US',
       outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
       saveSubtitles: true,

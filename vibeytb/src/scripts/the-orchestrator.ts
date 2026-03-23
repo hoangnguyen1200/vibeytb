@@ -412,6 +412,9 @@ export class TheMasterOrchestrator {
       throw new Error('Final video output missing. Phase 3 must complete before upload.');
     }
 
+    // Auto-trim: ensure video ≤ 59 seconds for YouTube Shorts
+    await this.trimIfTooLong(finalVideoOutput, 59);
+
     let qcPassed = false;
     try {
       qcPassed = await validateVideo(finalVideoOutput);
@@ -567,6 +570,40 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
       console.warn('[TOPIC DISCOVERY] LLM failed, using fallback.', err);
       return FALLBACK_TOPICS[Math.floor(Math.random() * FALLBACK_TOPICS.length)];
     }
+  }
+
+  /**
+   * Auto-trim: if video exceeds maxSeconds, truncate it using ffmpeg.
+   */
+  private async trimIfTooLong(videoPath: string, maxSeconds: number): Promise<void> {
+    const { getMediaDuration } = await import('../agents/agent-3-producer/tts-client');
+    const duration = await getMediaDuration(videoPath);
+
+    if (duration <= maxSeconds) {
+      console.log(`[TRIM] Video is ${duration.toFixed(1)}s — within ${maxSeconds}s limit. ✅`);
+      return;
+    }
+
+    console.log(`[TRIM] ⚠️ Video is ${duration.toFixed(1)}s — exceeds ${maxSeconds}s! Trimming...`);
+    const { ffmpeg: ff } = await import('../utils/ffmpeg');
+    const trimmedPath = videoPath.replace('.mp4', '_trimmed.mp4');
+
+    await new Promise<void>((resolve, reject) => {
+      ff(videoPath)
+        .outputOptions([
+          `-t ${maxSeconds}`,
+          '-c copy',          // Fast — no re-encoding
+          '-movflags +faststart',
+        ])
+        .save(trimmedPath)
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err));
+    });
+
+    // Replace original with trimmed version
+    fs.unlinkSync(videoPath);
+    fs.renameSync(trimmedPath, videoPath);
+    console.log(`[TRIM] ✅ Trimmed to ${maxSeconds}s successfully.`);
   }
 
   private getJobTmpDir(jobId: string): string {
