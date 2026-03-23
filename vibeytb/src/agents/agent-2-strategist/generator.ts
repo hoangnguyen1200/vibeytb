@@ -21,6 +21,7 @@ export const VideoScriptSchema = z.object({
     scene_index: z.number(),
     narration: z.string().describe("Engaging voiceover text written in native American English. MUST start with a shocking 3-second 'Killer Hook' (under 10 words) at scene 1. Use short sentences, fast-paced storytelling/mystery style. ENTIRE SCRIPT MUST BE 110-120 WORDS MAXIMUM (roughly 50 seconds)."),
     stock_search_keywords: z.string().nullable().optional().describe("Exactly 1-3 words representing the 'Macro-Context' (Main Topic) of the entire script/scene. MUST be concrete (e.g., 'cargo ship', 'stock market', 'computer server'). STRICTLY PROHIBITED to use abstract adjectives, quantities, or time words like 'daily', 'one', 'very', 'tech integration'."),
+    tool_name: z.string().nullable().optional().describe("The EXACT name of the AI tool/software mentioned in this scene's narration (e.g., 'Gamma', 'Notion', 'ElevenLabs', 'Perplexity'). If no specific tool is mentioned, set to null."),
     target_website_url: z.string().nullable().optional().describe("Use any public URL that does NOT require login. AVOID heavy anti-bot sites: chatgpt.com, chat.openai.com, claude.ai, bard.google.com, character.ai. Prefer tool homepages, landing pages, or product pages. If the tool requires login or is known to block bots, set target_website_url to null."),
     target_search_query: z.string().nullable().optional().describe("A search query logically matching the scene's narration. Example: if narration is about Perplexity AI, the query MUST be a contextual question like 'What are the best productivity tools for 2025?' and NOT generic commands like 'Summarize this page'. This will be auto-typed into the website search bar. If target_website_url is null, this MUST be null."),
     estimated_duration: z.number().describe("Estimated duration for this scene in seconds (e.g., 3, 5, 8).")
@@ -48,6 +49,7 @@ SCENE REQUIREMENTS & DEMOGRAPHICS constraints:
 - \`music_mood\`: Define exactly ONE word for the background music vibe of the entire video. Limit to focused, modern vibes: "lofi", "synthwave", "upbeat", "electronic", or "chill". Do NOT write a sentence.
 
 CRITICAL RULE 3 (THE CAMERAMAN TRIGGER):
+- \`tool_name\`: If the scene mentions a specific AI tool by name, put the EXACT name here (e.g., "Gamma", "Notion", "ElevenLabs"). This is used for fallback recording on Product Hunt.
 - \`target_website_url\`: Out of the 4-5 total scenes, EXACTLY 1 OR 2 scenes MUST have a valid homepage URL in this field. Use any public URL that does NOT require login. AVOID heavy anti-bot sites: chatgpt.com, chat.openai.com, claude.ai, bard.google.com, character.ai. Prefer the tool's official homepage or landing page. If the tool requires login, set to null.
 - Hook (Scene 1) and Outro (final scene) should usually leave this as null or empty.
 - If target_website_url has a value, stock_search_keywords will be ignored. If NULL, we will use stock_search_keywords for generic B-roll.

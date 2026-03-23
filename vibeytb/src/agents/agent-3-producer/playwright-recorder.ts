@@ -352,3 +352,20 @@ export async function recordWebsiteScroll(
   fs.renameSync(videoPath, outputFilePath);
   return outputFilePath;
 }
+
+/**
+ * Layer 2 Cascade: Record Product Hunt page for a given tool name.
+ * Product Hunt NEVER has captcha and always shows real screenshots of the tool.
+ */
+export async function recordProductHuntPage(
+  toolName: string,
+  durationSec: number,
+  outputFilePath: string
+): Promise<string> {
+  // Build Product Hunt URL from tool name
+  const toolSlug = toolName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const phUrl = `https://www.producthunt.com/products/${toolSlug}`;
+  console.log(`[Product Hunt Cascade] Recording: ${phUrl}`);
+
+  return recordWebsiteScroll(phUrl, durationSec, outputFilePath);
+}

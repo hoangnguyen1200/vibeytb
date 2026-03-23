@@ -8,7 +8,7 @@ import { generateScriptFromTrend } from '../agents/agent-2-strategist/generator'
 import { generateAudioFromText } from '../agents/agent-3-producer/tts-client';
 import { downloadStockVideo } from '../agents/agent-3-producer/pexels-client';
 import { downloadBGMFromPixabay } from '../agents/agent-3-producer/pixabay-client';
-import { recordWebsiteScroll } from '../agents/agent-3-producer/playwright-recorder';
+import { recordWebsiteScroll, recordProductHuntPage } from '../agents/agent-3-producer/playwright-recorder';
 import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/media-stitcher';
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
@@ -94,25 +94,6 @@ export class TheMasterOrchestrator {
         console.log('[ORCHESTRATOR] Job is waiting for human approval. Aborting.');
       }
     } catch (error) {
-      if (error instanceof Error && error.message === 'FAILED_VISUAL_QC') {
-        console.log(`\n====================================================`);
-        console.log(`[ORCHESTRATOR] Visual QC phát hiện lỗi Cloudflare/Captcha.`);
-        await this.failJob(jobId, error);
-        
-        if (retryCount < 2) {
-            console.log(`[RETRY] Bắt đầu Seed Job mới và thử lại (Lần ${retryCount + 1}/2)...`);
-            console.log(`====================================================\n`);
-            // Ép buộc tạo seed job ngay để đảm bảo retry keyword khác nếu queue rỗng
-            if (envFlag('ALLOW_DRY_SEED')) {
-                await this.createSeedJob();
-            }
-            return this.runAutoPilot(mode, retryCount + 1);
-        } else {
-            console.log(`[EXIT] Đã thử 2 lần đều Fail QC. Chấp nhận bỏ cuộc.`);
-            throw error;
-        }
-      }
-
       await this.failJob(jobId, error);
       throw error;
     }
@@ -255,7 +236,7 @@ export class TheMasterOrchestrator {
         sceneIndex
       );
 
-      let videoPath: string;
+      let videoPath: string = '';
 
       // Runtime blacklist guard — LLM hay bướng, cần code chặn
       const BLOCKED_DOMAINS = [
@@ -273,8 +254,11 @@ export class TheMasterOrchestrator {
       }
 
       if (scene.target_website_url) {
+        let websiteRecorded = false;
+
+        // === LAYER 1: Try original website homepage ===
         try {
-          console.log(`[PHASE 3] Recording website: ${scene.target_website_url}`);
+          console.log(`[PHASE 3] Layer 1 → Recording website: ${scene.target_website_url}`);
           videoPath = await recordWebsiteScroll(
             scene.target_website_url,
             duration,
@@ -282,16 +266,45 @@ export class TheMasterOrchestrator {
             scene.target_search_query || undefined
           );
 
-          console.log(`[PHASE 3] Chạy Visual QC trên đoạn ghi hình...`);
+          console.log(`[PHASE 3] Running Visual QC on Layer 1 recording...`);
           const isPass = await runVisualQC(videoPath, jobId, scene.target_website_url);
-          if (!isPass) {
-              console.log('[VISUAL QC] ❌ FAIL → Graceful fallback sang stock video thay vì crash pipeline.');
-              const keywords = scene.stock_search_keywords || 'technology';
-              videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
+          if (isPass) {
+            websiteRecorded = true;
+          } else {
+            console.log('[VISUAL QC] ❌ Layer 1 FAIL → Trying Product Hunt cascade...');
           }
-
         } catch (error: unknown) {
-          console.log('[FALLBACK] Playwright failed, switching to stock video');
+          console.log('[LAYER 1] Playwright failed → Trying Product Hunt cascade...');
+        }
+
+        // === LAYER 2: Product Hunt fallback (has real screenshots) ===
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const toolName = (scene as any).tool_name as string | null | undefined;
+        if (!websiteRecorded && toolName) {
+          try {
+            console.log(`[PHASE 3] Layer 2 → Recording Product Hunt page for: ${toolName}`);
+            videoPath = await recordProductHuntPage(
+              toolName,
+              duration,
+              path.join(tmpDir, `scene_${sceneIndex}_ph.webm`)
+            );
+
+            console.log(`[PHASE 3] Running Visual QC on Product Hunt recording...`);
+            const phPass = await runVisualQC(videoPath, jobId, `producthunt.com/products/${toolName}`);
+            if (phPass) {
+              websiteRecorded = true;
+              console.log('[LAYER 2] ✅ Product Hunt recording passed Visual QC!');
+            } else {
+              console.log('[LAYER 2] ❌ Product Hunt also failed QC → Using stock video.');
+            }
+          } catch (error: unknown) {
+            console.log('[LAYER 2] Product Hunt recording failed → Using stock video.');
+          }
+        }
+
+        // === LAYER 3: Stock video (last resort) ===
+        if (!websiteRecorded) {
+          console.log('[LAYER 3] Downloading stock video as final fallback.');
           const keywords = scene.stock_search_keywords || 'technology';
           videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
         }
