@@ -32,8 +32,8 @@ function convertEdgeJsonToVtt(jsonPath: string, vttPath: string) {
   
   let vttContent = 'WEBVTT\n\n';
   
-  for (let i = 0; i < subs.length; i += 4) {
-    const group = subs.slice(i, i + 4);
+  for (let i = 0; i < subs.length; i += 3) {
+    const group = subs.slice(i, i + 3);
     const startTime = msToVttTimestamp(group[0].start);
     const endTime = msToVttTimestamp(group[group.length - 1].end);
     

@@ -13,6 +13,7 @@ import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/m
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { validateVideo } from './qc-video';
+import { notifyDiscord } from '../utils/notifier';
 
 type Mode = 'cron' | 'worker' | 'all';
 
@@ -28,6 +29,25 @@ const SEED_TOPICS = [
   'AI tools for passive income',
   'underrated AI tools under the radar',
   'AI automation tools for beginners',
+  'AI tools for freelancers and solopreneurs',
+  'AI productivity tools for students',
+  'AI music generation tools free',
+  'AI presentation makers that replace PowerPoint',
+  'AI coding assistants trending right now',
+  'best AI chatbots besides ChatGPT',
+  'AI tools for content creators on YouTube',
+  'AI design tools that replace Canva',
+  'new AI voice cloning tools',
+  'AI research tools for deep work',
+  'AI SEO tools that are actually free',
+  'AI data analysis tools for non-coders',
+  'AI meeting note takers going viral',
+  'AI resume builders trending',
+  'AI tools for ecommerce sellers',
+  'AI translation tools better than Google',
+  'AI logo makers free and professional',
+  'AI tools for real estate agents',
+  'AI customer service bots trending',
   'AI tools replacing traditional jobs',
 ];
 
@@ -60,6 +80,7 @@ export class TheMasterOrchestrator {
     console.log('====================================================');
     console.log(`[ORCHESTRATOR] STARTING PIPELINE (Mode: ${mode.toUpperCase()} | Retry: ${retryCount})`);
     console.log('====================================================\n');
+    this.pipelineStartMs = Date.now();
 
     let jobId: string | null = null;
 
@@ -99,6 +120,8 @@ export class TheMasterOrchestrator {
         try { await this.cleanupTmp(jobId); } catch { /* ignore cleanup errors */ }
       }
       await this.failJob(jobId, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      await notifyDiscord({ status: 'failure', jobId: jobId || 'unknown', error: errorMsg, durationMs: Date.now() - this.pipelineStartMs });
       throw error;
     }
   }
@@ -418,7 +441,13 @@ export class TheMasterOrchestrator {
 
     console.log('[DONE] Pipeline complete.');
     console.log(`Video URL: ${youtubeUrl}`);
+
+    // Send success notification
+    await notifyDiscord({ status: 'success', jobId, title, youtubeUrl, durationMs: Date.now() - this.pipelineStartMs });
   }
+
+  // Expose start time for notifications
+  private pipelineStartMs: number = Date.now();
 
   private normalizeScript(raw: unknown): ScriptJson {
     const parsed = this.parseJsonMaybe(raw);

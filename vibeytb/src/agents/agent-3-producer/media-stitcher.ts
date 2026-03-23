@@ -41,7 +41,7 @@ export async function mergeAudioVideoScene(
         },
         {
           filter: 'subtitles',
-          options: `'${escapedVttPath}':force_style='Fontname=Impact,Fontsize=18,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=2,Alignment=2,MarginV=60'`,
+          options: `'${escapedVttPath}':force_style='Fontname=Impact,Fontsize=24,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H80000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=120,Bold=1'`,
           inputs: 'padded_v',
           outputs: 'sub_v'
         },
