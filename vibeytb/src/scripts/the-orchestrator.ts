@@ -573,37 +573,78 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
   }
 
   /**
-   * Auto-trim: if video exceeds maxSeconds, truncate it using ffmpeg.
+   * Auto-fit: if video exceeds maxSeconds, speed it up instead of cutting.
+   * This preserves ALL content — no sentences get cut mid-word.
+   * Speed up to 1.3x is virtually unnoticeable to viewers.
    */
   private async trimIfTooLong(videoPath: string, maxSeconds: number): Promise<void> {
     const { getMediaDuration } = await import('../agents/agent-3-producer/tts-client');
     const duration = await getMediaDuration(videoPath);
 
     if (duration <= maxSeconds) {
-      console.log(`[TRIM] Video is ${duration.toFixed(1)}s — within ${maxSeconds}s limit. ✅`);
+      console.log(`[FIT] Video is ${duration.toFixed(1)}s — within ${maxSeconds}s limit. ✅`);
       return;
     }
 
-    console.log(`[TRIM] ⚠️ Video is ${duration.toFixed(1)}s — exceeds ${maxSeconds}s! Trimming...`);
+    const speedFactor = duration / maxSeconds; // e.g. 65/59 = 1.10x
     const { ffmpeg: ff } = await import('../utils/ffmpeg');
-    const trimmedPath = videoPath.replace('.mp4', '_trimmed.mp4');
+    const fittedPath = videoPath.replace('.mp4', '_fitted.mp4');
 
-    await new Promise<void>((resolve, reject) => {
-      ff(videoPath)
-        .outputOptions([
-          `-t ${maxSeconds}`,
-          '-c copy',          // Fast — no re-encoding
-          '-movflags +faststart',
-        ])
-        .save(trimmedPath)
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err));
-    });
+    if (speedFactor <= 1.3) {
+      // Smart speed-up: barely noticeable, keeps ALL content
+      console.log(`[FIT] ⚡ Video is ${duration.toFixed(1)}s → speed up ${speedFactor.toFixed(2)}x to fit ${maxSeconds}s`);
 
-    // Replace original with trimmed version
+      await new Promise<void>((resolve, reject) => {
+        ff(videoPath)
+          .complexFilter([
+            `[0:v]setpts=${(1 / speedFactor).toFixed(4)}*PTS[v]`,
+            `[0:a]atempo=${speedFactor.toFixed(4)}[a]`,
+          ])
+          .outputOptions([
+            '-map [v]',
+            '-map [a]',
+            '-c:v libx264',
+            '-preset fast',
+            '-b:v 8M',
+            '-c:a aac',
+            '-b:a 128k',
+            '-movflags +faststart',
+          ])
+          .save(fittedPath)
+          .on('end', () => resolve())
+          .on('error', (err: Error) => reject(err));
+      });
+    } else {
+      // Extreme case (>1.3x would sound weird) — hard trim + fade out
+      console.log(`[FIT] ✂️ Video is ${duration.toFixed(1)}s — too long for speed-up. Trimming with fade-out.`);
+
+      await new Promise<void>((resolve, reject) => {
+        const fadeStart = maxSeconds - 1.5;
+        ff(videoPath)
+          .complexFilter([
+            `[0:v]trim=0:${maxSeconds},setpts=PTS-STARTPTS,fade=t=out:st=${fadeStart}:d=1.5[v]`,
+            `[0:a]atrim=0:${maxSeconds},asetpts=PTS-STARTPTS,afade=t=out:st=${fadeStart}:d=1.5[a]`,
+          ])
+          .outputOptions([
+            '-map [v]',
+            '-map [a]',
+            '-c:v libx264',
+            '-preset fast',
+            '-b:v 8M',
+            '-c:a aac',
+            '-b:a 128k',
+            '-movflags +faststart',
+          ])
+          .save(fittedPath)
+          .on('end', () => resolve())
+          .on('error', (err: Error) => reject(err));
+      });
+    }
+
+    // Replace original with fitted version
     fs.unlinkSync(videoPath);
-    fs.renameSync(trimmedPath, videoPath);
-    console.log(`[TRIM] ✅ Trimmed to ${maxSeconds}s successfully.`);
+    fs.renameSync(fittedPath, videoPath);
+    console.log(`[FIT] ✅ Video fitted to ≤${maxSeconds}s successfully.`);
   }
 
   private getJobTmpDir(jobId: string): string {
