@@ -384,8 +384,28 @@ export class TheMasterOrchestrator {
 
     const meta = this.extractScriptMeta(job.script_json);
     const title = meta.title || 'Auto Generated YouTube Short';
-    const desc = meta.description || 'Auto upload from orchestrator';
+    const rawDesc = meta.description || 'Auto upload from orchestrator';
     const tags = meta.tags || ['shorts', 'automation', 'tech'];
+
+    // Extract tool URL from script for description link
+    const scriptData = this.parseJsonMaybe(job.script_json) as Record<string, unknown> | null;
+    const scenes = (scriptData?.scenes as Array<Record<string, unknown>>) || [];
+    const toolUrl = scenes.find(s => typeof s.target_website_url === 'string')?.target_website_url as string | undefined;
+    const toolName = scenes.find(s => typeof s.tool_name === 'string')?.tool_name as string | undefined;
+
+    // Build enriched description
+    const descParts = [
+      rawDesc,
+      '',
+      toolUrl ? `🔗 Try it: ${toolUrl}` : '',
+      toolName ? `📌 Tool featured: ${toolName}` : '',
+      '',
+      '👉 Follow @TechHustleLabs for daily AI tool reviews!',
+      '🔔 Turn on notifications to never miss a new discovery.',
+      '',
+      '#shorts #ai #aitools #tech #productivity #automation #free',
+    ].filter(Boolean);
+    const desc = descParts.join('\n');
 
     const finalVideoOutput = this.getFinalVideoPath(jobId);
     if (!(await this.fileExists(finalVideoOutput))) {
