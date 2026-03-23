@@ -11,6 +11,7 @@ export type StealthLaunchOptions = LaunchOptions;
 export type StealthContextOptions = {
   recordVideoDir?: string;
   recordVideoSize?: { width: number; height: number };
+  storageState?: string; // Path to auth/*.json for cookie injection
   locale?: string;
   timezoneId?: string;
   geolocation?: { longitude: number; latitude: number };
@@ -34,6 +35,7 @@ export async function createStealthContext(
   return browser.newContext({
     userAgent: DEFAULT_USER_AGENT,
     viewport: DEFAULT_VIEWPORT,
+    storageState: options.storageState,
     recordVideo: options.recordVideoDir
       ? {
           dir: options.recordVideoDir,

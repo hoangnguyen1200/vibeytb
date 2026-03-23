@@ -214,7 +214,23 @@ export async function recordWebsiteScroll(
   ensureDir(outputDir);
 
   try {
-    const launched = await launchStealthPage({ recordVideoDir: outputDir });
+    // Auto-detect saved auth cookies for this domain
+    const authDir = path.join(process.cwd(), 'auth');
+    let storageState: string | undefined;
+    try {
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname.replace(/^www\./, '');
+      const domainFile = domain.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json';
+      const authFile = path.join(authDir, domainFile);
+      if (fs.existsSync(authFile)) {
+        storageState = authFile;
+        console.log(`[Auth] 🔑 Loaded saved session for ${domain}`);
+      }
+    } catch {
+      // URL parsing error, skip auth
+    }
+
+    const launched = await launchStealthPage({ recordVideoDir: outputDir, storageState });
     browser = launched.browser;
     context = launched.context;
     page = launched.page;
