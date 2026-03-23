@@ -125,7 +125,7 @@ Return ONLY raw JSON matching the structure above. No markdown, no code fences, 
 `;
 
 
-export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English'): Promise<VideoScriptData> {
+export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English', avoidTools: string[] = []): Promise<VideoScriptData> {
   let retries = 3;
   let lastError: unknown;
   let currentModel = model;
@@ -134,9 +134,15 @@ export async function generateScriptFromTrend(keyword: string, language: string 
     try {
       console.log(`🧠 [Gemini] Scripting for keyword: "${keyword}" (Target: ${language}, Tone: ${tone})... (Remaining retries: ${retries})`);
       
-      const prompt = `Current Trending Keyword: "${keyword}". Please craft an engaging video script immediately!
+      let prompt = `Current Trending Keyword: "${keyword}". Please craft an engaging video script immediately!
       Target Language/Locale: ${language}
       Required Tone of Voice: ${tone}`;
+
+      // Content Memory: inject avoid list
+      if (avoidTools.length > 0) {
+        prompt += `\n\nCRITICAL - CONTENT MEMORY: You have ALREADY covered these tools in the past 7 days. You MUST NOT use any of them: ${avoidTools.join(', ')}. Pick a DIFFERENT tool!`;
+        console.log(`[CONTENT MEMORY] 🚫 Avoiding tools: ${avoidTools.join(', ')}`);
+      }
 
       // Call LLM
       const result = await currentModel.generateContent({

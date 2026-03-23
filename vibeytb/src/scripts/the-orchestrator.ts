@@ -172,6 +172,44 @@ export class TheMasterOrchestrator {
     return (data as VideoProject) ?? null;
   }
 
+  /**
+   * Content Memory: Extract tool names from recently completed videos
+   * to prevent duplicate content within a 7-day window.
+   */
+  private async getRecentlyUsedTools(): Promise<string[]> {
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('video_projects')
+        .select('script_json')
+        .gte('created_at', sevenDaysAgo)
+        .not('script_json', 'is', null);
+
+      if (error || !data) return [];
+
+      const toolNames = new Set<string>();
+      for (const row of data) {
+        const script = row.script_json as ScriptJson | null;
+        if (!script?.scenes) continue;
+        for (const scene of script.scenes) {
+          const name = (scene as Record<string, unknown>).tool_name;
+          if (typeof name === 'string' && name.trim()) {
+            toolNames.add(name.trim());
+          }
+        }
+      }
+
+      const tools = Array.from(toolNames);
+      if (tools.length > 0) {
+        console.log(`[CONTENT MEMORY] 🧠 Tools used in last 7 days: ${tools.join(', ')}`);
+      }
+      return tools;
+    } catch (err) {
+      console.warn('[CONTENT MEMORY] Failed to fetch history, skipping.', err);
+      return [];
+    }
+  }
+
   private async runPhase1And2(job: VideoProject): Promise<void> {
     const jobId = job.id;
     console.log('[PHASE 1] Data Mining');
@@ -180,10 +218,13 @@ export class TheMasterOrchestrator {
     const selectedTrend = this.pickSeedTopic();
     console.log(`[PHASE 1] Selected niche keyword: "${selectedTrend}"`);
 
+    // Content Memory: get tools to avoid
+    const recentTools = await this.getRecentlyUsedTools();
+
     console.log('[PHASE 2] Content Strategist (AI script generation)');
     const language = (typeof job.target_language === 'string' && job.target_language.trim()) || 'en-US';
     const tone = (typeof job.tone_of_voice === 'string' && job.tone_of_voice.trim()) || 'casual';
-    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone);
+    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools);
     const normalized = this.normalizeScript(aiOutput);
 
     const isScenesSufficient = normalized.scenes.length >= 4;
@@ -257,9 +298,9 @@ export class TheMasterOrchestrator {
         }
       }
 
-      if (scene.target_website_url) {
-        let websiteRecorded = false;
+      let websiteRecorded = false;
 
+      if (scene.target_website_url) {
         // === LAYER 1: Try original website homepage ===
         try {
           console.log(`[PHASE 3] Layer 1 → Recording website: ${scene.target_website_url}`);
@@ -280,41 +321,37 @@ export class TheMasterOrchestrator {
         } catch (error: unknown) {
           console.log('[LAYER 1] Playwright failed → Trying Product Hunt cascade...');
         }
+      }
 
-        // === LAYER 2: Product Hunt fallback (has real screenshots) ===
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const toolName = (scene as any).tool_name as string | null | undefined;
-        if (!websiteRecorded && toolName) {
-          try {
-            console.log(`[PHASE 3] Layer 2 → Recording Product Hunt page for: ${toolName}`);
-            videoPath = await recordProductHuntPage(
-              toolName,
-              duration,
-              path.join(tmpDir, `scene_${sceneIndex}_ph.webm`)
-            );
+      // === LAYER 2: Product Hunt fallback (works even when URL is blacklisted!) ===
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolName = (scene as any).tool_name as string | null | undefined;
+      if (!websiteRecorded && toolName) {
+        try {
+          console.log(`[PHASE 3] Layer 2 → Recording Product Hunt page for: ${toolName}`);
+          videoPath = await recordProductHuntPage(
+            toolName,
+            duration,
+            path.join(tmpDir, `scene_${sceneIndex}_ph.webm`)
+          );
 
-            console.log(`[PHASE 3] Running Visual QC on Product Hunt recording...`);
-            const phPass = await runVisualQC(videoPath, jobId, `producthunt.com/products/${toolName}`);
-            if (phPass) {
-              websiteRecorded = true;
-              console.log('[LAYER 2] ✅ Product Hunt recording passed Visual QC!');
-            } else {
-              console.log('[LAYER 2] ❌ Product Hunt also failed QC → Using stock video.');
-            }
-          } catch (error: unknown) {
-            console.log('[LAYER 2] Product Hunt recording failed → Using stock video.');
+          console.log(`[PHASE 3] Running Visual QC on Product Hunt recording...`);
+          const phPass = await runVisualQC(videoPath, jobId, `producthunt.com/products/${toolName}`);
+          if (phPass) {
+            websiteRecorded = true;
+            console.log('[LAYER 2] ✅ Product Hunt recording passed Visual QC!');
+          } else {
+            console.log('[LAYER 2] ❌ Product Hunt also failed QC → Using stock video.');
           }
+        } catch (error: unknown) {
+          console.log('[LAYER 2] Product Hunt recording failed → Using stock video.');
         }
+      }
 
-        // === LAYER 3: Stock video (last resort) ===
-        if (!websiteRecorded) {
-          console.log('[LAYER 3] Downloading stock video as final fallback.');
-          const keywords = scene.stock_search_keywords || 'technology';
-          videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
-        }
-      } else {
+      // === LAYER 3: Stock video (last resort) ===
+      if (!websiteRecorded) {
         const keywords = scene.stock_search_keywords || 'technology';
-        console.log(`[PHASE 3] Downloading stock video (keywords: "${keywords}")`);
+        console.log(`[LAYER 3] Downloading stock video (keywords: "${keywords}")`);
         videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
       }
 
