@@ -105,8 +105,9 @@ export async function downloadStockVideo(
         response.videos = fallbackResponse.videos;
       }
 
-      // Chọn video đầu tiên
-      const selectedVideo = response.videos[0];
+      // Chọn video ngẫu nhiên để tránh lặp lại
+      const randomIndex = Math.floor(Math.random() * response.videos.length);
+      const selectedVideo = response.videos[randomIndex];
       
       // Tìm link mp4 chất lượng phù hợp (HD)
       const videoFiles = selectedVideo.video_files;

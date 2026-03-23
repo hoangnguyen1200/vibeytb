@@ -94,6 +94,10 @@ export class TheMasterOrchestrator {
         console.log('[ORCHESTRATOR] Job is waiting for human approval. Aborting.');
       }
     } catch (error) {
+      // Cleanup tmp files even on failure to prevent disk from filling up
+      if (jobId) {
+        try { await this.cleanupTmp(jobId); } catch { /* ignore cleanup errors */ }
+      }
       await this.failJob(jobId, error);
       throw error;
     }

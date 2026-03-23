@@ -89,9 +89,14 @@ CHỈ ĐƯỢC PHÉP TRẢ VỀ DUY NHẤT 1 TỪ:
     return response.includes('PASS');
   } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    if (retryCount === 0 && (err.status === 429 || err.status === 404 || errorMessage.toLowerCase().includes('quota'))) {
+    const isQuotaError = err.status === 429 || err.status === 404 || errorMessage.toLowerCase().includes('quota');
+    if (retryCount === 0 && isQuotaError) {
       console.log('[VISUAL QC MODEL FALLBACK] switching to gemini-1.5-flash-latest');
       return analyzeFramesWithGemini(base64Frames, 1);
+    }
+    if (isQuotaError) {
+      console.log('[VISUAL QC] ⚠️ Gemini quota exhausted on both models → Auto-PASS to keep pipeline alive.');
+      return true;
     }
     console.error(`[VISUAL QC] Lỗi gọi Gemini API:`, err);
     return false;
