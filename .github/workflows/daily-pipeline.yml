@@ -44,6 +44,7 @@ jobs:
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY=${{ secrets.PIXABAY_API_KEY }}
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           "@ | Out-File -FilePath .env -Encoding utf8
 
       - name: Run pipeline
