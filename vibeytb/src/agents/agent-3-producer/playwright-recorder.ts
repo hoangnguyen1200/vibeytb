@@ -147,56 +147,141 @@ async function _tryUploadSampleFile(page: Page): Promise<void> {
 }
 
 async function runDemoHunter(page: Page, durationSec: number, startMs: number): Promise<void> {
-  try {
-    const mediaLocator = page.locator(MEDIA_SELECTOR);
-    const count = await mediaLocator.count();
+  const getRemaining = () => Math.max(0, durationSec - (Date.now() - startMs) / 1000);
 
-    let bestIndex = -1;
-    let bestArea = 0;
+  // Helper: safely click an element with cursor movement
+  async function safeClick(selector: string, label: string): Promise<boolean> {
+    try {
+      const el = page.locator(selector).first();
+      if ((await el.count()) === 0) return false;
+      if (!(await el.isVisible())) return false;
+      const box = await el.boundingBox();
+      if (!box) return false;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 15 });
+      await page.waitForTimeout(300);
+      await el.click({ force: true, timeout: 3000 });
+      console.log(`[Smart Interact] ✅ Clicked: ${label}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
-    for (let i = 0; i < count; i++) {
-      const item = mediaLocator.nth(i);
-      if (!(await item.isVisible())) continue;
-      const box = await item.boundingBox();
-      if (!box) continue;
+  // Helper: smooth scroll
+  async function smoothScroll(pixels: number, stepMs: number = 80): Promise<void> {
+    const steps = Math.ceil(pixels / 100);
+    for (let i = 0; i < steps && getRemaining() > 1; i++) {
+      await page.mouse.wheel(0, 100);
+      await page.waitForTimeout(stepMs);
+    }
+  }
 
-      const area = box.width * box.height;
-      if (box.width > 280 && box.height > 180 && area > bestArea) {
-        bestArea = area;
-        bestIndex = i;
+  // Helper: hover over visible elements
+  async function hoverElements(selector: string, maxItems: number = 3): Promise<void> {
+    try {
+      const items = page.locator(selector);
+      const count = Math.min(await items.count(), maxItems);
+      for (let i = 0; i < count && getRemaining() > 2; i++) {
+        const el = items.nth(i);
+        if (!(await el.isVisible())) continue;
+        const box = await el.boundingBox();
+        if (!box) continue;
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
+        await page.waitForTimeout(600);
+      }
+    } catch {
+      // ignore hover errors
+    }
+  }
+
+  console.log(`[Smart Interact] 🧠 Starting smart interaction (${durationSec}s budget)...`);
+
+  // === STEP 1: Hover hero section elements (trigger animations) ===
+  if (getRemaining() > 3) {
+    console.log('[Smart Interact] Step 1: Hovering hero section...');
+    await hoverElements('h1, h2, [class*="hero" i] button, [class*="hero" i] a, [class*="cta" i]', 3);
+    await page.waitForTimeout(500);
+  }
+
+  // === STEP 2: Click a nav link (Features, Pricing, How it works) ===
+  if (getRemaining() > 5) {
+    console.log('[Smart Interact] Step 2: Looking for nav links...');
+    const navSelectors = [
+      'nav a:has-text("Features")', 'a:has-text("Features")',
+      'nav a:has-text("Pricing")', 'a:has-text("Pricing")',
+      'nav a:has-text("How it works")', 'a:has-text("How it")',
+      'nav a:has-text("Use Cases")', 'a:has-text("Use Cases")',
+    ];
+    for (const sel of navSelectors) {
+      if (getRemaining() < 4) break;
+      const label = sel.replace(/nav a:has-text\("|a:has-text\("|"\)/g, '');
+      const clicked = await safeClick(sel, label);
+      if (clicked) {
+        await page.waitForTimeout(1500);
+        break;
       }
     }
+  }
 
-    if (bestIndex >= 0) {
-      const target = mediaLocator.nth(bestIndex);
-      await target.scrollIntoViewIfNeeded();
-      const box = await target.boundingBox();
+  // === STEP 3: Smooth scroll through content ===
+  if (getRemaining() > 4) {
+    console.log('[Smart Interact] Step 3: Smooth scrolling...');
+    await smoothScroll(800, 100);
+    await page.waitForTimeout(800);
+  }
 
-      if (box) {
-        const elapsed = (Date.now() - startMs) / 1000;
-        const remaining = Math.max(1, durationSec - elapsed);
-        const steps = Math.max(6, Math.floor(remaining * 2));
-        for (let i = 0; i < steps; i++) {
-          const x = box.x + box.width * (0.3 + 0.4 * Math.random());
-          const y = box.y + box.height * (0.3 + 0.4 * Math.random());
-          await page.mouse.move(x, y, { steps: 10 });
-          await page.waitForTimeout(Math.max(200, (remaining * 1000) / steps));
+  // === STEP 4: Hover interactive cards/feature items ===
+  if (getRemaining() > 3) {
+    console.log('[Smart Interact] Step 4: Hovering feature cards...');
+    await hoverElements('[class*="card" i], [class*="feature" i], [class*="benefit" i], [class*="pricing" i] > div', 3);
+  }
+
+  // === STEP 5: Click FAQ accordions ===
+  if (getRemaining() > 4) {
+    console.log('[Smart Interact] Step 5: Looking for FAQ...');
+    const faqSelectors = [
+      'details summary',
+      '[class*="accordion" i] button', '[class*="accordion" i] h3',
+      '[class*="faq" i] button', '[class*="faq" i] h3',
+      '[data-toggle="collapse"]',
+      'button[aria-expanded]',
+    ];
+    let faqClicked = 0;
+    for (const sel of faqSelectors) {
+      if (faqClicked >= 2 || getRemaining() < 2) break;
+      try {
+        const items = page.locator(sel);
+        const count = Math.min(await items.count(), 2);
+        for (let i = 0; i < count && faqClicked < 2 && getRemaining() > 2; i++) {
+          const el = items.nth(i);
+          if (!(await el.isVisible())) continue;
+          const box = await el.boundingBox();
+          if (!box) continue;
+          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
+          await page.waitForTimeout(300);
+          await el.click({ force: true, timeout: 2000 });
+          faqClicked++;
+          console.log(`[Smart Interact] ✅ Expanded FAQ item ${faqClicked}`);
+          await page.waitForTimeout(1000);
         }
-        return;
+      } catch {
+        // skip this selector
       }
     }
-  } catch (err: unknown) {
-    console.warn('[Playwright] Demo Hunter failed, falling back to scroll.', err);
   }
 
-  const elapsed = (Date.now() - startMs) / 1000;
-  const remaining = Math.max(1, durationSec - elapsed);
-  const steps = Math.max(1, Math.floor((remaining * 1000) / 600));
-
-  for (let i = 0; i < steps; i++) {
-    await page.keyboard.press('PageDown').catch(() => {});
-    await page.waitForTimeout(600);
+  // === STEP 6: Final scroll to fill remaining time ===
+  const finalRemaining = getRemaining();
+  if (finalRemaining > 1) {
+    console.log(`[Smart Interact] Step 6: Final scroll (${finalRemaining.toFixed(1)}s remaining)...`);
+    const scrollSteps = Math.max(1, Math.floor(finalRemaining / 0.7));
+    for (let i = 0; i < scrollSteps && getRemaining() > 0.5; i++) {
+      await page.mouse.wheel(0, 120);
+      await page.waitForTimeout(600);
+    }
   }
+
+  console.log('[Smart Interact] ✅ Interaction complete.');
 }
 
 export async function recordWebsiteScroll(
