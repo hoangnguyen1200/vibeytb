@@ -203,8 +203,101 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
     await page.waitForTimeout(500);
   }
 
-  // === STEP 1: Hover hero section elements (trigger animations) ===
-  if (getRemaining() > 3) {
+  // === STEP 0.5: Smart CTA Click — try entering app page ===
+  let enteredAppPage = false;
+  if (getRemaining() > 6) {
+    console.log('[Smart CTA] Trying to enter app page via CTA button...');
+    // Scroll back to top to find CTA buttons
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await page.waitForTimeout(500);
+
+    const ctaSelectors = [
+      'a:has-text("Upload Image")', 'button:has-text("Upload Image")',
+      'a:has-text("Try Free")', 'a:has-text("Try for Free")',
+      'a:has-text("Start Free")', 'a:has-text("Get Started Free")',
+      'a:has-text("Try it")', 'a:has-text("Try Now")',
+      'button:has-text("Try Free")', 'button:has-text("Try for Free")',
+      'button:has-text("Start Free")', 'button:has-text("Get Started Free")',
+      'button:has-text("Try it")', 'button:has-text("Try Now")',
+      'a:has-text("Start now")', 'button:has-text("Start now")',
+      'a:has-text("Start Now")', 'button:has-text("Start Now")',
+      'a:has-text("Get Started")', 'button:has-text("Get Started")',
+      'a:has-text("Start designing")', 'button:has-text("Start designing")',
+      'a:has-text("Launch App")', 'button:has-text("Launch App")',
+      'a:has-text("Open App")', 'button:has-text("Open App")',
+    ];
+
+    const originalUrl = page.url();
+    let ctaClicked = false;
+
+    for (const sel of ctaSelectors) {
+      if (ctaClicked) break;
+      try {
+        const el = page.locator(sel).first();
+        if ((await el.count()) === 0) continue;
+        if (!(await el.isVisible())) continue;
+        const box = await el.boundingBox();
+        if (!box) continue;
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
+        await page.waitForTimeout(300);
+        await el.click({ force: true, timeout: 3000 });
+        ctaClicked = true;
+        console.log(`[Smart CTA] ✅ Clicked: ${sel}`);
+        await page.waitForTimeout(3000);
+      } catch {
+        // skip this selector
+      }
+    }
+
+    if (ctaClicked) {
+      // Detect login/signup page by scoring signals
+      const currentUrl = page.url();
+      const urlIsAuth = /\/(login|signin|signup|sign-up|sign-in|register|auth)/i.test(currentUrl);
+
+      const isLoginPage = await page.evaluate((urlFlag: boolean) => {
+        const hasPasswordInput = !!document.querySelector('input[type="password"]');
+        const headingText = (document.querySelector('h1, h2, h3') as HTMLElement)?.innerText || '';
+        const hasLoginHeading = /\b(sign in|log in|sign up|create account|register)\b/i.test(headingText);
+        const hasOAuth = !!document.querySelector(
+          '[class*="google" i], [class*="github" i], [class*="oauth" i], [data-provider]'
+        );
+        const bodyText = document.body.innerText.toLowerCase();
+        const hasContinueWith = bodyText.includes('continue with google') ||
+          bodyText.includes('continue with facebook') ||
+          bodyText.includes('continue with apple');
+        const titleIsAuth = /\b(login|sign.?in|sign.?up|register)\b/i.test(document.title);
+
+        let score = 0;
+        if (hasPasswordInput) score += 3;
+        if (hasLoginHeading) score += 3;
+        if (hasOAuth) score += 2;
+        if (hasContinueWith) score += 3;
+        if (titleIsAuth) score += 2;
+        if (urlFlag) score += 2;
+        if (bodyText.includes('forgot password')) score += 1;
+        if (bodyText.includes("don't have an account")) score += 1;
+        return score >= 2;
+      }, urlIsAuth);
+
+      if (isLoginPage) {
+        console.log('[Smart CTA] ⚠️ Login page detected → Going back');
+        try {
+          await page.goBack({ waitUntil: 'domcontentloaded', timeout: 5000 });
+        } catch {
+          await page.goto(originalUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+        }
+        await page.waitForTimeout(1000);
+      } else {
+        console.log('[Smart CTA] 🎯 Entered app page! Recording product UI...');
+        enteredAppPage = true;
+        await smoothScroll(600, 80);
+        await page.waitForTimeout(500);
+      }
+    }
+  }
+
+  // === STEP 1: Hover visible elements (trigger animations) ===
+  if (getRemaining() > 3 && !enteredAppPage) {
     console.log('[Smart Interact] Step 1: Hovering visible elements...');
     await hoverElements('h1, h2, [class*="hero" i] button, [class*="hero" i] a, [class*="cta" i]', 3);
     await page.waitForTimeout(500);
