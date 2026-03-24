@@ -393,15 +393,20 @@ export class TheMasterOrchestrator {
     const toolUrl = scenes.find(s => typeof s.target_website_url === 'string')?.target_website_url as string | undefined;
     const toolName = scenes.find(s => typeof s.tool_name === 'string')?.tool_name as string | undefined;
 
+    // Strip hashtags from LLM description (we add our own at the bottom)
+    const cleanDesc = rawDesc.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
+
     // Build enriched description
     const descParts = [
-      rawDesc,
+      cleanDesc,
       '',
       toolUrl ? `🔗 Try it: ${toolUrl}` : '',
       toolName ? `📌 Tool featured: ${toolName}` : '',
       '',
       '👉 Follow @TechHustleLabs for daily AI tool reviews!',
       '🔔 Turn on notifications to never miss a new discovery.',
+      '📅 New AI tool review uploaded EVERY DAY',
+      '🔗 All links: https://linktr.ee/techhustlelabs',
       '',
       '#shorts #ai #aitools #tech #productivity #automation #free',
     ].filter(Boolean);
