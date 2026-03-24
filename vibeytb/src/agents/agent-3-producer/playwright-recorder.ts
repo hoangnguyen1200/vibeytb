@@ -196,9 +196,16 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
 
   console.log(`[Smart Interact] 🧠 Starting smart interaction (${durationSec}s budget)...`);
 
+  // === STEP 0: Quick-scroll past hero to reach actual product content ===
+  if (getRemaining() > 4) {
+    console.log('[Smart Interact] Step 0: Quick-skip past hero section...');
+    await smoothScroll(1500, 40); // Fast scroll past hero text/CTA
+    await page.waitForTimeout(500);
+  }
+
   // === STEP 1: Hover hero section elements (trigger animations) ===
   if (getRemaining() > 3) {
-    console.log('[Smart Interact] Step 1: Hovering hero section...');
+    console.log('[Smart Interact] Step 1: Hovering visible elements...');
     await hoverElements('h1, h2, [class*="hero" i] button, [class*="hero" i] a, [class*="cta" i]', 3);
     await page.waitForTimeout(500);
   }
@@ -207,10 +214,15 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
   if (getRemaining() > 5) {
     console.log('[Smart Interact] Step 2: Looking for nav links...');
     const navSelectors = [
+      'nav a:has-text("Gallery")', 'a:has-text("Gallery")',
+      'nav a:has-text("Examples")', 'a:has-text("Examples")',
+      'nav a:has-text("Showcase")', 'a:has-text("Showcase")',
+      'nav a:has-text("Templates")', 'a:has-text("Templates")',
+      'nav a:has-text("Demo")', 'a:has-text("Demo")',
       'nav a:has-text("Features")', 'a:has-text("Features")',
-      'nav a:has-text("Pricing")', 'a:has-text("Pricing")',
       'nav a:has-text("How it works")', 'a:has-text("How it")',
       'nav a:has-text("Use Cases")', 'a:has-text("Use Cases")',
+      'nav a:has-text("Pricing")', 'a:has-text("Pricing")',
     ];
     for (const sel of navSelectors) {
       if (getRemaining() < 4) break;
@@ -225,8 +237,8 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
 
   // === STEP 3: Smooth scroll through content ===
   if (getRemaining() > 4) {
-    console.log('[Smart Interact] Step 3: Smooth scrolling...');
-    await smoothScroll(800, 100);
+    console.log('[Smart Interact] Step 3: Smooth scrolling through features...');
+    await smoothScroll(1200, 100);
     await page.waitForTimeout(800);
   }
 
