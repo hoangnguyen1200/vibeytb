@@ -2,7 +2,7 @@ name: Daily YouTube Pipeline
 
 on:
   schedule:
-    - cron: "0 1 * * *" # 8 AM VN + ~2h delay ≈ 10 AM VN = 10 PM EST (peak US)
+    - cron: "0 23 * * *" # 6 AM VN + ~2h delay ≈ 8-9 AM VN = 8-9 PM EST (peak US)
   workflow_dispatch: # Cho phép chạy thủ công
 
 jobs:
