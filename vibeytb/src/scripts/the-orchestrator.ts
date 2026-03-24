@@ -268,6 +268,28 @@ export class TheMasterOrchestrator {
 
     const finalSceneFiles: string[] = [];
 
+    // Propagate tool URL to ALL scenes — prevents stock footage fallback
+    // LLM often only sets target_website_url on some scenes (e.g. scenes 2-3),
+    // leaving intro/outro with null → generic stock footage. Fix: share the URL.
+    const sharedUrl = scriptData.scenes.find(
+      (s: Record<string, unknown>) => typeof s.target_website_url === 'string' && s.target_website_url
+    )?.target_website_url as string | undefined;
+    const sharedToolName = scriptData.scenes.find(
+      (s: Record<string, unknown>) => typeof s.tool_name === 'string' && s.tool_name
+    )?.tool_name as string | undefined;
+
+    if (sharedUrl || sharedToolName) {
+      for (const scene of scriptData.scenes) {
+        if (!scene.target_website_url && sharedUrl) {
+          scene.target_website_url = sharedUrl;
+          console.log(`[URL PROPAGATE] Scene ${scene.scene_index} → inherited URL: ${sharedUrl}`);
+        }
+        if (!scene.tool_name && sharedToolName) {
+          scene.tool_name = sharedToolName;
+        }
+      }
+    }
+
     for (const [index, scene] of scriptData.scenes.entries()) {
       const sceneIndex = Number.isInteger(scene.scene_index) ? scene.scene_index : index + 1;
       console.log(`[PHASE 3] Rendering scene ${sceneIndex}`);

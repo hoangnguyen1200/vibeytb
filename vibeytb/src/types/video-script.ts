@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 
 export enum VideoStatus {
   PENDING = 'pending',
@@ -17,6 +17,7 @@ export const ScriptSceneSchema = z.object({
   stock_search_keywords: z.string().min(1).nullable().optional(),
   target_website_url: z.string().min(1).nullable().optional(),
   target_search_query: z.string().min(1).nullable().optional(),
+  tool_name: z.string().min(1).nullable().optional(),
   estimated_duration: z.number().positive(),
 });
 
