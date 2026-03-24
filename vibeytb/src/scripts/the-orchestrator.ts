@@ -13,6 +13,7 @@ import { recordWebsiteScroll, recordProductHuntPage } from '../agents/agent-3-pr
 import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/media-stitcher';
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
+import { scrapeProductHuntToday, pickBestTool, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
 import { validateVideo } from './qc-video';
 import { notifyDiscord } from '../utils/notifier';
 
@@ -222,13 +223,27 @@ export class TheMasterOrchestrator {
     // Content Memory: get tools to avoid (used by both topic discovery and script generation)
     const recentTools = await this.getRecentlyUsedTools();
 
-    const selectedTrend = await this.discoverFreshTopic(recentTools);
-    console.log(`[PHASE 1] Selected niche keyword: "${selectedTrend}"`);
+    // PRIMARY: Try Product Hunt for real tool data
+    const phTool = await this.discoverFromProductHunt(recentTools);
+
+    let selectedTrend: string;
+    let toolData: { name: string; tagline: string; url: string } | undefined;
+
+    if (phTool) {
+      selectedTrend = `${phTool.name}: ${phTool.tagline}`;
+      toolData = { name: phTool.name, tagline: phTool.tagline, url: phTool.websiteUrl };
+      console.log(`[PHASE 1] 🎯 Product Hunt tool: "${phTool.name}" — ${phTool.tagline}`);
+      console.log(`[PHASE 1] 🔗 Website: ${phTool.websiteUrl}`);
+    } else {
+      // FALLBACK: LLM keyword discovery
+      selectedTrend = await this.discoverFreshTopic(recentTools);
+      console.log(`[PHASE 1] 🔍 LLM keyword (fallback): "${selectedTrend}"`);
+    }
 
     console.log('[PHASE 2] Content Strategist (AI script generation)');
     const language = (typeof job.target_language === 'string' && job.target_language.trim()) || 'en-US';
     const tone = (typeof job.tone_of_voice === 'string' && job.tone_of_voice.trim()) || 'casual';
-    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools);
+    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
     const normalized = this.normalizeScript(aiOutput);
 
     const isScenesSufficient = normalized.scenes.length >= 4;
@@ -551,8 +566,31 @@ export class TheMasterOrchestrator {
   }
 
   /**
-   * Dynamic Topic Discovery: Ask LLM to generate a fresh, unique niche topic.
-   * Falls back to static list if LLM fails.
+   * PRIMARY data source: Product Hunt today's launches.
+   * Returns the best tool not recently used, or null if PH is unavailable.
+   */
+  private async discoverFromProductHunt(avoidTools: string[]): Promise<ProductHuntTool | null> {
+    try {
+      const tools = await scrapeProductHuntToday();
+      if (tools.length === 0) {
+        console.log('[PH DISCOVERY] No tools from Product Hunt, falling back to LLM');
+        return null;
+      }
+      const picked = pickBestTool(tools, avoidTools);
+      if (!picked) {
+        console.log('[PH DISCOVERY] All PH tools already used recently, falling back to LLM');
+        return null;
+      }
+      return picked;
+    } catch (err) {
+      console.warn('[PH DISCOVERY] Product Hunt scrape failed, falling back to LLM', err);
+      return null;
+    }
+  }
+
+  /**
+   * FALLBACK data source: LLM generates a trending keyword.
+   * Used when Product Hunt is unavailable or all tools are already covered.
    */
   private async discoverFreshTopic(avoidTools: string[]): Promise<string> {
     try {

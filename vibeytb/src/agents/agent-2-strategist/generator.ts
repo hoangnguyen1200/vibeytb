@@ -125,7 +125,7 @@ Return ONLY raw JSON matching the structure above. No markdown, no code fences, 
 `;
 
 
-export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English', avoidTools: string[] = []): Promise<VideoScriptData> {
+export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English', avoidTools: string[] = [], toolData?: { name: string; tagline: string; url: string }): Promise<VideoScriptData> {
   let retries = 3;
   let lastError: unknown;
   let currentModel = model;
@@ -137,6 +137,18 @@ export async function generateScriptFromTrend(keyword: string, language: string 
       let prompt = `Current Trending Keyword: "${keyword}". Please craft an engaging video script immediately!
       Target Language/Locale: ${language}
       Required Tone of Voice: ${tone}`;
+
+      // Product Hunt tool data: inject real tool info to prevent LLM hallucination
+      if (toolData) {
+        prompt += `\n\nIMPORTANT — REAL TOOL DATA (from Product Hunt today's launches):
+- Tool Name: "${toolData.name}"
+- Tagline: "${toolData.tagline}"
+- Website URL: ${toolData.url}
+
+You MUST write the script about THIS specific tool. Use the EXACT tool name "${toolData.name}" in scenes 2-3.
+Set target_website_url to "${toolData.url}" for scenes 2-3 (body scenes).
+The tool_name field MUST be "${toolData.name}" for scenes where the tool is mentioned.`;
+      }
 
       // Content Memory: inject avoid list
       if (avoidTools.length > 0) {
