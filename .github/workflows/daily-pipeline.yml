@@ -14,6 +14,9 @@ jobs:
       run:
         shell: powershell
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,9 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: vibeytb/package-lock.json
+          node-version: "22"
 
       - name: Install dependencies
         working-directory: vibeytb
@@ -43,7 +44,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
-          PIXABAY_API_KEY=${{ secrets.PIXABAY_API_KEY }}
+
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           "@ | Out-File -FilePath .env -Encoding utf8
 
