@@ -246,6 +246,17 @@ export class TheMasterOrchestrator {
     const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
     const normalized = this.normalizeScript(aiOutput);
 
+    // Force-inject PH tool name into ALL scenes (LLM often omits tool_name)
+    // This ensures Layer 2 cascade (PH page recording) always works
+    if (toolData?.name) {
+      for (const scene of normalized.scenes) {
+        if (!(scene as Record<string, unknown>).tool_name) {
+          (scene as Record<string, unknown>).tool_name = toolData.name;
+        }
+      }
+      console.log(`[TOOL NAME] Injected "${toolData.name}" into all scenes for Layer 2 cascade`);
+    }
+
     const isScenesSufficient = normalized.scenes.length >= 4;
     const title = (normalized as Record<string, unknown>).youtube_title;
     const isTitleValid = typeof title === 'string' && title.trim().length > 10;
