@@ -2,15 +2,15 @@
  * Product Hunt Data Source — Fetch today's top AI/Tech product launches.
  *
  * Strategy: Use Product Hunt's public RSS feed (no API key needed).
- * The RSS `content` field contains:
- *   - First <p>: the product tagline
- *   - Second <p>: Discussion link + official website redirect (/r/p/<id>)
- *
- * The redirect URL is followed via HTTP to resolve the actual website URL.
+ * URL Resolution Chain:
+ *   1. Gemini LLM lookup (uses existing API key, 1 query/day)
+ *   2. URL guessing from product name (fallback)
  *
  * Feed URL: https://www.producthunt.com/feed
  */
+import 'dotenv/config';
 import Parser from 'rss-parser';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const rssParser = new Parser();
 
@@ -45,7 +45,6 @@ function extractTagline(content: string): string {
 
 /**
  * Extract the PH redirect URL (/r/p/<id>) from RSS content.
- * This redirect leads to the product's official website.
  */
 function extractRedirectUrl(content: string): string | null {
   const match = content.match(/href="(https:\/\/www\.producthunt\.com\/r\/p\/[^"]+)"/);
@@ -53,50 +52,51 @@ function extractRedirectUrl(content: string): string | null {
 }
 
 /**
- * Follow a PH redirect URL to resolve the actual destination website.
- * Uses HTTP HEAD with redirect: 'manual' to read the Location header
- * without actually visiting the target (fast, no browser needed).
+ * Use Gemini to find the official website URL for a product.
+ * This is more accurate than guessing because Gemini has web knowledge.
+ * Only called for the TOP selected tool (1 API call per pipeline run).
  */
-async function resolveRedirectUrl(phRedirectUrl: string): Promise<string | null> {
+async function resolveUrlViaGemini(name: string, tagline: string): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
   try {
-    // fetch with redirect: 'manual' stops at the 301/302 and gives us Location
-    const resp = await fetch(phRedirectUrl, {
-      method: 'HEAD',
-      redirect: 'manual',
-    });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    const location = resp.headers.get('location');
-    if (location && !location.includes('producthunt.com')) {
-      // Clean tracking params
-      try {
-        const url = new URL(location);
-        // Remove common tracking params
-        ['ref', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].forEach(p => url.searchParams.delete(p));
-        const clean = url.toString().replace(/\/$/, '');
-        return clean;
-      } catch {
-        return location;
-      }
+    const prompt = `What is the OFFICIAL website URL for the product "${name}"?
+Description: "${tagline}"
+It was recently launched on Product Hunt.
+
+Rules:
+- Respond with ONLY the URL, nothing else
+- Must be the actual product website, NOT producthunt.com
+- If the product name contains a domain (like "jared.so"), use that
+- If unsure, respond with exactly: UNKNOWN
+
+Example response: https://teamprompt.ai`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    // Validate the response is a URL
+    if (text === 'UNKNOWN' || !text.startsWith('http')) {
+      return null;
     }
 
-    // If Location still points to PH, try GET with follow
-    if (location?.includes('producthunt.com')) {
-      const resp2 = await fetch(location, { method: 'HEAD', redirect: 'manual' });
-      const loc2 = resp2.headers.get('location');
-      if (loc2 && !loc2.includes('producthunt.com')) {
-        try {
-          const url = new URL(loc2);
-          ['ref', 'utm_source', 'utm_medium', 'utm_campaign'].forEach(p => url.searchParams.delete(p));
-          return url.toString().replace(/\/$/, '');
-        } catch {
-          return loc2;
-        }
+    // Clean the URL
+    try {
+      const url = new URL(text);
+      // Don't accept PH or generic URLs
+      if (url.hostname.includes('producthunt.com') || url.hostname === 'example.com') {
+        return null;
       }
+      return url.origin; // Clean URL without path/params
+    } catch {
+      return null;
     }
-
-    return null;
   } catch (err) {
-    console.warn(`  ⚠️ Redirect resolution failed for ${phRedirectUrl}:`, (err as Error).message);
+    console.warn(`  ⚠️ Gemini URL lookup failed:`, (err as Error).message?.slice(0, 80));
     return null;
   }
 }
@@ -106,7 +106,7 @@ async function resolveRedirectUrl(phRedirectUrl: string): Promise<string | null>
  * Handles common patterns: "Tool.ai", "ToolAI", "Tool 2.0", etc.
  */
 function guessWebsiteUrl(name: string): string {
-  // If name is already a domain (e.g., "opencutai.video", "tobira.ai")
+  // If name is already a domain (e.g., "jared.so", "tobira.ai")
   if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(name.trim())) {
     return `https://${name.trim().toLowerCase()}`;
   }
@@ -122,7 +122,7 @@ function guessWebsiteUrl(name: string): string {
 
 /**
  * Fetch today's Product Hunt launches via RSS feed.
- * Returns AI/Tech products with REAL website URLs (resolved via redirects).
+ * Returns AI/Tech products sorted by position in feed (top = most popular).
  */
 export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
   console.log('[PH Scraper] 🔍 Fetching today\'s launches via RSS feed...');
@@ -139,20 +139,20 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
 
       const rawContent = item.content || '';
       const tagline = extractTagline(rawContent);
-      const redirectUrl = extractRedirectUrl(rawContent);
       const productHuntUrl = item.link || '';
+      // Keep redirect URL as metadata but don't use as websiteUrl
+      extractRedirectUrl(rawContent);
 
-      // Store redirect URL temporarily — will resolve after filtering
       tools.push({
         name,
         tagline: tagline.slice(0, 200),
-        websiteUrl: redirectUrl || '', // Temporary — resolved below
+        websiteUrl: '', // Will be resolved after filtering
         topics: [],
         productHuntUrl,
       });
     }
 
-    // Filter for tech/AI relevance FIRST (before resolving URLs to save time)
+    // Filter for tech/AI relevance FIRST (before URL resolution)
     const filtered = tools.filter((p) => {
       const text = `${p.name} ${p.tagline}`.toLowerCase();
       return TECH_KEYWORDS.some(kw => text.includes(kw));
@@ -160,30 +160,14 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
 
     console.log(`[PH Scraper] ✅ ${filtered.length}/${tools.length} tech/AI products`);
 
-    // Resolve actual website URLs for top 5 (the ones most likely to be picked)
-    console.log(`[PH Scraper] 🔗 Resolving website URLs for top ${Math.min(5, filtered.length)} products...`);
-    for (const tool of filtered.slice(0, 5)) {
-      if (tool.websiteUrl && tool.websiteUrl.includes('producthunt.com/r/p/')) {
-        const resolved = await resolveRedirectUrl(tool.websiteUrl);
-        if (resolved) {
-          console.log(`  ✅ ${tool.name} → ${resolved}`);
-          tool.websiteUrl = resolved;
-        } else {
-          // Fallback: guess from name
-          tool.websiteUrl = guessWebsiteUrl(tool.name);
-          console.log(`  🔄 ${tool.name} → ${tool.websiteUrl} (guessed)`);
-        }
-      } else if (!tool.websiteUrl) {
-        tool.websiteUrl = guessWebsiteUrl(tool.name);
-        console.log(`  🔄 ${tool.name} → ${tool.websiteUrl} (guessed)`);
-      }
+    // Log top 5 for debugging
+    for (const p of filtered.slice(0, 5)) {
+      console.log(`  → ${p.name} — ${p.tagline.slice(0, 60)}`);
     }
 
-    // Resolve remaining tools (lazy — only guess URL, don't HTTP resolve)
-    for (const tool of filtered.slice(5)) {
-      if (!tool.websiteUrl || tool.websiteUrl.includes('producthunt.com')) {
-        tool.websiteUrl = guessWebsiteUrl(tool.name);
-      }
+    // Set fallback URLs for all tools (guessed from name)
+    for (const tool of filtered) {
+      tool.websiteUrl = guessWebsiteUrl(tool.name);
     }
 
     return filtered;
@@ -195,12 +179,13 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
 
 /**
  * Pick the best tool from today's PH launches, avoiding recently used ones.
+ * Also resolves the REAL website URL via Gemini for the selected tool.
  * Returns null if no suitable tool found.
  */
-export function pickBestTool(
+export async function pickBestTool(
   tools: ProductHuntTool[],
   avoidNames: string[]
-): ProductHuntTool | null {
+): Promise<ProductHuntTool | null> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
   for (const tool of tools) {
@@ -209,7 +194,19 @@ export function pickBestTool(
       console.log(`[PH Picker] Skipping "${tool.name}" (recently used)`);
       continue;
     }
+
     console.log(`[PH Picker] 🎯 Selected: "${tool.name}" — ${tool.tagline.slice(0, 50)}`);
+
+    // Resolve real URL via Gemini (only for the chosen tool — 1 API call)
+    console.log(`[PH Picker] 🔗 Resolving real URL via Gemini...`);
+    const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline);
+    if (realUrl) {
+      console.log(`[PH Picker] ✅ Gemini found: ${realUrl}`);
+      tool.websiteUrl = realUrl;
+    } else {
+      console.log(`[PH Picker] 🔄 Gemini failed, using guess: ${tool.websiteUrl}`);
+    }
+
     return tool;
   }
 

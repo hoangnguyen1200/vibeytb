@@ -81,7 +81,11 @@ export class TheMasterOrchestrator {
         const updatedJob = await this.fetchJobById(jobId);
         if (updatedJob?.status === VideoStatus.APPROVED_FOR_SYNTHESIS) {
           await this.runPhase3(updatedJob);
-          await this.runPhase4(updatedJob);
+          if (process.env.SKIP_UPLOAD === 'true') {
+            console.log('[ORCHESTRATOR] SKIP_UPLOAD=true → Skipping Phase 4 (upload)');
+          } else {
+            await this.runPhase4(updatedJob);
+          }
         }
         return;
       }
@@ -92,7 +96,11 @@ export class TheMasterOrchestrator {
       }
 
       if (currentStatus === VideoStatus.READY_FOR_UPLOAD) {
-        await this.runPhase4(job);
+        if (process.env.SKIP_UPLOAD === 'true') {
+          console.log('[ORCHESTRATOR] SKIP_UPLOAD=true → Skipping Phase 4 (upload)');
+        } else {
+          await this.runPhase4(job);
+        }
       } else if (currentStatus === VideoStatus.PENDING_APPROVAL) {
         console.log('[ORCHESTRATOR] Job is waiting for human approval. Aborting.');
       }
@@ -587,7 +595,7 @@ export class TheMasterOrchestrator {
         console.log('[PH DISCOVERY] No tools from Product Hunt, falling back to LLM');
         return null;
       }
-      const picked = pickBestTool(tools, avoidTools);
+      const picked = await pickBestTool(tools, avoidTools);
       if (!picked) {
         console.log('[PH DISCOVERY] All PH tools already used recently, falling back to LLM');
         return null;
