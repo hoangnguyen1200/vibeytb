@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-25
+> Cập nhật lần cuối: 2026-03-26
 
 ---
 
@@ -43,8 +43,8 @@ GitHub Actions Cron (daily-pipeline.yml)
   ├── Node.js 22 + FORCE_JAVASCRIPT_ACTIONS_TO_NODE24
   ├── Phase 1: PH RSS Feed → pickBestTool() → Gemini URL Resolution
   ├── Phase 2: Gemini script generation (với real tool data)
-  ├── Phase 3: Edge TTS + Playwright recording + FFmpeg
-  └── Phase 4: YouTube upload via OAuth
+  ├── Phase 3: Edge TTS + Playwright 1920×1080 + FFmpeg center-crop → 1080×1920
+  └── Phase 4: YouTube upload via OAuth (skippable: SKIP_UPLOAD=true)
 ```
 
 ### URL Resolution Chain (Phase 1)
@@ -71,6 +71,20 @@ Layer 3: Pexels stock footage (keywords)
 
 > `tool_name` được inject vào ALL scenes ở Phase 1-2 (không phụ thuộc LLM).
 
+### Video Pipeline (Phase 3 — FFmpeg)
+
+```
+Playwright recording 1920×1080 (desktop viewport)
+  ↓ FFmpeg crop
+crop center 1080×1080 (cắt 2 bên, giữ trung tâm)
+  ↓ FFmpeg pad
+pad 1080×1920 (thêm đen trên/dưới → 9:16 portrait)
+  ↓ subtitles + silenceremove + concat
+Final video 1080×1920 9:16
+```
+
+> Website hiển thị **desktop layout** (không mobile). Text/UI giữ nguyên resolution.
+
 ### Các File Quan Trọng
 
 | File | Vai trò |
@@ -83,8 +97,11 @@ Layer 3: Pexels stock footage (keywords)
 | `src/agents/agent-3-producer/visual-qc.ts` | Gemini Visual QC (kiểm tra video quality) |
 | `src/agents/agent-3-producer/tts-client.ts` | Edge TTS voice |
 | `src/agents/agent-3-producer/pixabay-client.ts` | Local BGM picker (chọn random từ `assets/bgm/`) |
-| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly |
+| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (center-crop 1080×1920) |
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload |
+| `src/scripts/orchestrator.smoke.test.ts` | Smoke test (13 tests, <3s, zero API calls) |
+| `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
+| `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
 
 ### External Services
 
@@ -124,6 +141,11 @@ Layer 3: Pexels stock footage (keywords)
 10. **Tool name injection**: `tool_name` inject vào all scenes cho Layer 2 cascade (2026-03-25)
 11. **SKIP_UPLOAD flag**: `SKIP_UPLOAD=true` env để test local không upload (2026-03-25)
 12. **Node.js upgrade**: 20 → 22, `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`, xóa npm cache (2026-03-25)
+13. **Phase 4 crash fix**: Self-healing auto-rerun Phase 3 khi video missing + failJob() before cleanup (2026-03-25)
+14. **Smoke tests**: 13 tests, <3s, zero API calls — import chain, status transitions, error handler, self-healing (2026-03-25)
+15. **Pre-commit hook**: Husky chạy `vitest run` trước mỗi commit — block commit nếu test fail (2026-03-25)
+16. **CI smoke test**: `.github/workflows/smoke-test.yml` — chạy trên push/PR to main (2026-03-25)
+17. **Video quality fix**: Viewport 1920×1080 (desktop) + FFmpeg center-crop → 1080×1920 portrait (2026-03-26)
 
 ## 🔄 Đang Xem Xét
 
@@ -141,3 +163,23 @@ Layer 3: Pexels stock footage (keywords)
 - **DuckDuckGo**: Block automated HTTP requests — KHÔNG dùng cho URL lookup
 - **Gemini URL lookup**: Chỉ gọi 1 lần cho tool được chọn (tiết kiệm quota)
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
+- **Video recording**: Viewport 1920×1080 desktop → FFmpeg crop center → pad 1080×1920 (9:16)
+- **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
+- **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng
+
+## 🧪 Testing
+
+```bash
+npm run test:smoke   # 13 tests, <3s, zero API calls
+npx vitest run       # Full test suite (pre-commit hook chạy cái này)
+```
+
+| Test Group | Count | What it catches |
+|---|---|---|
+| Import Chain | 2 | Broken imports, missing modules |
+| Status Transitions | 3 | Missing/invalid VideoStatus enum values |
+| Path Helpers | 2 | Wrong tmp/video paths |
+| Error Handler | 2 | `failJob` not called before `cleanupTmp` |
+| Self-Healing | 1 | Missing Phase 3 re-run when video file absent |
+| envFlag Parser | 1 | Env flag not handling truthy values |
+| Baseline | 2 | Basic sanity checks |

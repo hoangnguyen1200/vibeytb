@@ -4,7 +4,7 @@ import path from 'path';
 
 /**
  * Step 1: Merge audio + video per scene
- * - Scale/pad 9:16
+ * - Center-crop 1920×1080 → 1080×1080, then pad to 1080×1920
  * - Burn subtitles
  * - Trim dead air (silenceremove)
  * - Force stereo 48kHz / 128k
@@ -28,15 +28,15 @@ export async function mergeAudioVideoScene(
       .input(audioPath)
       .complexFilter([
         {
-          filter: 'scale',
-          options: '1080:1920:force_original_aspect_ratio=decrease',
+          filter: 'crop',
+          options: '1080:1080:(iw-1080)/2:0',
           inputs: '0:v',
-          outputs: 'scaled_v'
+          outputs: 'cropped_v'
         },
         {
           filter: 'pad',
           options: '1080:1920:(ow-iw)/2:(oh-ih)/2:color=black',
-          inputs: 'scaled_v',
+          inputs: 'cropped_v',
           outputs: 'padded_v'
         },
         {

@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import { launchStealthPage } from '../../utils/playwright';
+import { launchStealthPage, RECORDING_SIZE } from '../../utils/playwright';
 import { Browser, BrowserContext, Page } from 'playwright-chromium';
 
 const DEFAULT_QUERY = 'Show me how this works';
@@ -420,7 +420,7 @@ export async function recordWebsiteScroll(
       // URL parsing error, skip auth
     }
 
-    const launched = await launchStealthPage({ recordVideoDir: outputDir, storageState });
+    const launched = await launchStealthPage({ recordVideoDir: outputDir, recordVideoSize: RECORDING_SIZE, storageState });
     browser = launched.browser;
     context = launched.context;
     page = launched.page;

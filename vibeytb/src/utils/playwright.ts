@@ -4,7 +4,14 @@ import type { Browser, BrowserContext, Page, LaunchOptions } from 'playwright';
 export const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-export const DEFAULT_VIEWPORT = { width: 1080, height: 1920 };
+/** Desktop viewport — websites render at full width, no mobile layout */
+export const DEFAULT_VIEWPORT = { width: 1920, height: 1080 };
+
+/** Recording resolution — matches the viewport */
+export const RECORDING_SIZE = { width: 1920, height: 1080 };
+
+/** Final 9:16 output dimensions (center-cropped in FFmpeg) */
+export const CROP_OUTPUT = { width: 1080, height: 1920 };
 
 export type StealthLaunchOptions = LaunchOptions;
 
