@@ -96,6 +96,13 @@ export class TheMasterOrchestrator {
       }
 
       if (currentStatus === VideoStatus.READY_FOR_UPLOAD) {
+        // Self-healing: if video file is missing (e.g. ephemeral CI runner), re-run Phase 3
+        const videoPath = this.getFinalVideoPath(job.id);
+        if (!(await this.fileExists(videoPath))) {
+          console.warn('[ORCHESTRATOR] Video file missing at resume. Re-running Phase 3 to regenerate...');
+          await this.runPhase3(job);
+        }
+
         if (process.env.SKIP_UPLOAD === 'true') {
           console.log('[ORCHESTRATOR] SKIP_UPLOAD=true → Skipping Phase 4 (upload)');
         } else {
@@ -105,11 +112,12 @@ export class TheMasterOrchestrator {
         console.log('[ORCHESTRATOR] Job is waiting for human approval. Aborting.');
       }
     } catch (error) {
-      // Cleanup tmp files even on failure to prevent disk from filling up
+      // Mark job as FAILED first — prevents zombie jobs if cleanup or discord notify throws
+      await this.failJob(jobId, error);
+      // Then cleanup tmp files to prevent disk from filling up
       if (jobId) {
         try { await this.cleanupTmp(jobId); } catch { /* ignore cleanup errors */ }
       }
-      await this.failJob(jobId, error);
       const errorMsg = error instanceof Error ? error.message : String(error);
       await notifyDiscord({ status: 'failure', jobId: jobId || 'unknown', error: errorMsg, durationMs: Date.now() - this.pipelineStartMs });
       throw error;

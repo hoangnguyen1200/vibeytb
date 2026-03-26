@@ -1,0 +1,23 @@
+name: Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vibeytb/package-lock.json
+      - run: npm ci
+        working-directory: vibeytb
+      - run: npm run test:smoke
+        working-directory: vibeytb
