@@ -32,11 +32,26 @@ function convertEdgeJsonToVtt(jsonPath: string, vttPath: string) {
   
   let vttContent = 'WEBVTT\n\n';
   
+  const MIN_CAPTION_MS = 1500;
+
   for (let i = 0; i < subs.length; i += 3) {
     const group = subs.slice(i, i + 3);
-    const startTime = msToVttTimestamp(group[0].start);
-    const endTime = msToVttTimestamp(group[group.length - 1].end);
-    
+    const startMs = group[0].start;
+    let endMs = group[group.length - 1].end;
+
+    // Enforce minimum 1.5s display time for readability
+    if (endMs - startMs < MIN_CAPTION_MS) {
+      endMs = startMs + MIN_CAPTION_MS;
+    }
+    // Don't overlap with next caption group
+    const nextGroup = subs[i + 3];
+    if (nextGroup && endMs > nextGroup.start) {
+      endMs = nextGroup.start - 50; // 50ms gap
+    }
+
+    const startTime = msToVttTimestamp(startMs);
+    const endTime = msToVttTimestamp(endMs);
+
     // Nối các từ lại, xoá khoảng trắng thừa
     const text = group.map(sub => sub.part.trim()).join(' ');
     

@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-26
+> Cập nhật lần cuối: 2026-03-26 (Batch 1 quick wins)
 
 ---
 
@@ -97,8 +97,8 @@ Final video 1080×1920 9:16
 | `src/agents/agent-3-producer/visual-qc.ts` | Gemini Visual QC (kiểm tra video quality) |
 | `src/agents/agent-3-producer/tts-client.ts` | Edge TTS voice |
 | `src/agents/agent-3-producer/pixabay-client.ts` | Local BGM picker (chọn random từ `assets/bgm/`) |
-| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (center-crop 1080×1920) |
-| `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload |
+| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (center-crop 1080×1920, BGM 15%) |
+| `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA |
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (13 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
@@ -147,6 +147,9 @@ Final video 1080×1920 9:16
 16. **CI smoke test**: `.github/workflows/smoke-test.yml` — chạy trên push/PR to main (2026-03-25)
 17. **Video quality fix**: Viewport 1920×1080 (desktop) + FFmpeg center-crop → 1080×1920 portrait (2026-03-26)
 18. **Input Hunter validation fix**: Smart input-type detection (url/email/search/text) + validation error scanner + self-correction fallback to Demo Hunter (2026-03-26)
+19. **Caption timing ≥1.5s**: Min caption duration raised from 0.8s to 1.5s for readable subtitles (2026-03-26)
+20. **BGM volume 5%→15%**: Background music now audible without overpowering voice (2026-03-26)
+21. **Pinned comment CTA**: Auto-posts engagement comment with tool link after upload (2026-03-26)
 
 ## 🔄 Đang Xem Xét
 

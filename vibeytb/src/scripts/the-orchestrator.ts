@@ -507,7 +507,7 @@ export class TheMasterOrchestrator {
     }
 
     console.log('[PHASE 4] QC passed. Launching browser for upload...');
-    const youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false);
+    const youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName);
 
     await this.cleanupTmp(jobId);
     await this.updateJob(jobId, { status: VideoStatus.PUBLISHED, youtube_url: youtubeUrl });

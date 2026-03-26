@@ -1,5 +1,42 @@
-import { google } from 'googleapis';
+import { google, youtube_v3 } from 'googleapis';
 import fs from 'fs';
+
+/**
+ * Post a pinned comment on the uploaded video with CTA + tool link.
+ * Best-effort: failures are logged but don't affect the upload result.
+ */
+async function postPinnedComment(
+  youtube: youtube_v3.Youtube,
+  videoId: string,
+  toolUrl?: string,
+  toolName?: string,
+): Promise<void> {
+  const commentText = [
+    toolName ? `🔗 Try ${toolName} here:` : '🔗 Try this tool:',
+    toolUrl || 'Link in description!',
+    '',
+    '👉 Follow @TechHustleLabs for daily AI tool reviews!',
+    '🔔 Turn on notifications to never miss a new discovery!',
+  ].join('\n');
+
+  try {
+    await youtube.commentThreads.insert({
+      part: ['snippet'],
+      requestBody: {
+        snippet: {
+          videoId,
+          topLevelComment: {
+            snippet: { textOriginal: commentText },
+          },
+        },
+      },
+    });
+    console.log(`💬 [Pinned Comment] Posted successfully on video ${videoId}`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`⚠️ [Pinned Comment] Failed (non-fatal): ${msg}`);
+  }
+}
 
 /**
  * Upload Video lên YouTube sử dụng YouTube Data API v3
@@ -11,7 +48,9 @@ export async function uploadToYouTube(
   title: string,
   description: string,
   tags: string[],
-  isHeadless: boolean = true // Vẫn giữ nguyên signature
+  isHeadless: boolean = true, // Vẫn giữ nguyên signature
+  toolUrl?: string,
+  toolName?: string,
 ): Promise<string> {
   console.log(`🚀 [API Uploader] Bắt đầu quá trình publish cho project: ${projectId}`);
   
@@ -71,6 +110,10 @@ export async function uploadToYouTube(
       
       const videoUrl = `https://youtu.be/${videoId}`;
       console.log(`🎉 [SUCCESS] Upload hoàn tất. Video URL: ${videoUrl}`);
+
+      // Post pinned comment (best-effort, non-blocking for return)
+      await postPinnedComment(youtube, videoId, toolUrl, toolName);
+
       return videoUrl;
 
     } catch (error: unknown) {
@@ -88,3 +131,4 @@ export async function uploadToYouTube(
   console.error(`❌ [YouTube Upload] Đã thử ${maxRetries} lần đều thất bại.`);
   return `https://youtu.be/error_${projectId}`;
 }
+
