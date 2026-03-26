@@ -3,7 +3,63 @@ import fs from 'fs';
 import { launchStealthPage, RECORDING_SIZE } from '../../utils/playwright';
 import { Browser, BrowserContext, Page } from 'playwright-chromium';
 
-const DEFAULT_QUERY = 'Show me how this works';
+type InputType = 'url' | 'email' | 'search' | 'text';
+
+const SMART_QUERIES: Record<InputType, string> = {
+  url: 'https://example.com',
+  email: 'demo@example.com',
+  search: 'Show me how this works',
+  text: 'Show me how this works',
+};
+
+function detectInputType(attrs: Record<string, string>): InputType {
+  const type = (attrs.type || '').toLowerCase();
+  const placeholder = (attrs.placeholder || '').toLowerCase();
+  const name = (attrs.name || '').toLowerCase();
+  const ariaLabel = (attrs['aria-label'] || '').toLowerCase();
+  const allText = `${type} ${placeholder} ${name} ${ariaLabel}`;
+
+  if (type === 'url' || /url|website|domain|http/.test(allText)) return 'url';
+  if (type === 'email' || /email|e-mail/.test(allText)) return 'email';
+  if (type === 'search' || /search|find|query/.test(allText)) return 'search';
+  return 'text';
+}
+
+async function detectValidationError(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    // Check 1: aria-invalid on any input
+    const invalidInputs = document.querySelectorAll('[aria-invalid="true"]');
+    if (invalidInputs.length > 0) return true;
+
+    // Check 2: Visible error messages near inputs
+    const errorSelectors = [
+      '.error', '.error-message', '.field-error', '.input-error',
+      '.invalid-feedback', '.form-error', '.validation-error',
+      '[class*="error" i]', '[class*="invalid" i]',
+      '[role="alert"]',
+    ];
+    for (const sel of errorSelectors) {
+      const els = document.querySelectorAll(sel);
+      for (const el of els) {
+        const text = (el as HTMLElement).innerText?.trim() || '';
+        if (text.length > 5 && text.length < 200) {
+          const style = window.getComputedStyle(el as HTMLElement);
+          if (style.display !== 'none' && style.visibility !== 'hidden') {
+            return true;
+          }
+        }
+      }
+    }
+
+    // Check 3: Native HTML5 validation
+    const inputs = document.querySelectorAll('input, textarea');
+    for (const input of inputs) {
+      if (!(input as HTMLInputElement).checkValidity()) return true;
+    }
+
+    return false;
+  });
+}
 const INPUT_SELECTOR = 'textarea, [contenteditable="true"], input[type="text"], input[type="search"], input[placeholder*="search" i], input[placeholder*="find" i], [role="searchbox"], .search-input, input[class*="search" i]';
 const MEDIA_SELECTOR = 'video, iframe, img';
 
@@ -456,16 +512,25 @@ export async function recordWebsiteScroll(
 
       const hasInput = (await inputLocator.count()) > 0;
       if (hasInput) {
-        console.log('[Playwright] Input Hunter found input, typing query...');
+        // Step 1: Detect input type from DOM attributes
+        const inputAttrs = await inputLocator.evaluate((el) => ({
+          type: el.getAttribute('type') || '',
+          placeholder: el.getAttribute('placeholder') || '',
+          name: el.getAttribute('name') || '',
+          'aria-label': el.getAttribute('aria-label') || '',
+        }));
+        const inputType = detectInputType(inputAttrs);
+        const query = searchQuery || SMART_QUERIES[inputType];
+        console.log(`[Input Hunter] Detected type: ${inputType}, query: "${query}"`);
+
         await inputLocator.waitFor({ state: 'visible', timeout: 5000 });
         await inputLocator.click({ force: true });
         await page.waitForTimeout(400);
 
-        const query = searchQuery || DEFAULT_QUERY;
         await inputLocator.pressSequentially(query, { delay: 120 });
         await inputLocator.press('Enter');
-        console.log(`[Playwright] Pressed Enter on input`);
-        
+        console.log(`[Input Hunter] Pressed Enter on input`);
+
         await page.waitForTimeout(1000);
         try {
           // Scope button search tightly to the input's vicinity to avoid clicking random CTAs
@@ -484,29 +549,49 @@ export async function recordWebsiteScroll(
             }
             return clicked;
           });
-          
+
           if (wasClicked) {
-            console.log('[Playwright] Submit clicked within input container');
+            console.log('[Input Hunter] Submit clicked within input container');
           }
         } catch (sendErr: unknown) {
-          console.warn('[Playwright] Dual-Submit Engine failed.', sendErr);
-        }
-        await page.waitForTimeout(10000);
-
-        const elapsedBeforeWait = (Date.now() - startMs) / 1000;
-        const remainingBudget = Math.max(1, durationSec - elapsedBeforeWait);
-        let responseWait = Math.min(10, Math.max(8, remainingBudget));
-        responseWait = Math.min(responseWait, remainingBudget);
-
-        await page.waitForTimeout(responseWait * 1000);
-
-        const elapsedAfter = (Date.now() - startMs) / 1000;
-        const remaining = Math.max(0, durationSec - elapsedAfter);
-        if (remaining > 0) {
-          await page.waitForTimeout(remaining * 1000);
+          console.warn('[Input Hunter] Dual-Submit Engine failed.', sendErr);
         }
 
-        phaseACompleted = true;
+        // Step 4: Validation check — wait for error to appear then scan DOM
+        await page.waitForTimeout(1500);
+        const hasError = await detectValidationError(page);
+
+        if (hasError) {
+          console.warn('[Input Hunter] ⚠️ Validation error detected! Falling back to Demo Hunter.');
+          // Clear input to remove error state from screen
+          try {
+            await inputLocator.fill('');
+            await page.waitForTimeout(300);
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(500);
+          } catch {
+            // Input may have become detached — ignore
+          }
+          // DO NOT set phaseACompleted — allows Demo Hunter fallback
+        } else {
+          console.log('[Input Hunter] ✅ No validation error — continuing recording.');
+          await page.waitForTimeout(10000);
+
+          const elapsedBeforeWait = (Date.now() - startMs) / 1000;
+          const remainingBudget = Math.max(1, durationSec - elapsedBeforeWait);
+          let responseWait = Math.min(10, Math.max(8, remainingBudget));
+          responseWait = Math.min(responseWait, remainingBudget);
+
+          await page.waitForTimeout(responseWait * 1000);
+
+          const elapsedAfter = (Date.now() - startMs) / 1000;
+          const remaining = Math.max(0, durationSec - elapsedAfter);
+          if (remaining > 0) {
+            await page.waitForTimeout(remaining * 1000);
+          }
+
+          phaseACompleted = true;
+        }
       }
     } catch (err: unknown) {
       console.warn('[Playwright] Input Hunter failed, switching to Demo Hunter.', err);
