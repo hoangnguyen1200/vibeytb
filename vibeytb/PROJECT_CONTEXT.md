@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-26 (Batch 1 quick wins)
+> Cập nhật lần cuối: 2026-03-26 (Batch 2 — subtitles, outro, thumbnail)
 
 ---
 
@@ -98,7 +98,9 @@ Final video 1080×1920 9:16
 | `src/agents/agent-3-producer/tts-client.ts` | Edge TTS voice |
 | `src/agents/agent-3-producer/pixabay-client.ts` | Local BGM picker (chọn random từ `assets/bgm/`) |
 | `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (center-crop 1080×1920, BGM 15%) |
-| `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA |
+| `src/agents/agent-3-producer/outro-generator.ts` | 3s outro CTA clip (FFmpeg drawtext) |
+| `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
+| `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame |
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (13 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
@@ -150,6 +152,9 @@ Final video 1080×1920 9:16
 19. **Caption timing ≥1.5s**: Min caption duration raised from 0.8s to 1.5s for readable subtitles (2026-03-26)
 20. **BGM volume 5%→15%**: Background music now audible without overpowering voice (2026-03-26)
 21. **Pinned comment CTA**: Auto-posts engagement comment with tool link after upload (2026-03-26)
+22. **Subtitle styling v2**: Opaque black box (BorderStyle=3) + 36px bold — readable on mobile over bright backgrounds (2026-03-26)
+23. **Outro CTA clip**: Auto-generated 3s outro appended to every video — "Follow @TechHustleLabs" branding (2026-03-26)
+24. **Auto thumbnail**: 1280×720 thumbnail extracted from video frame with tool name overlay, uploaded via YouTube API (2026-03-26)
 
 ## 🔄 Đang Xem Xét
 

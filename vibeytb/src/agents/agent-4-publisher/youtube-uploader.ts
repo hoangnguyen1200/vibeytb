@@ -111,6 +111,22 @@ export async function uploadToYouTube(
       const videoUrl = `https://youtu.be/${videoId}`;
       console.log(`🎉 [SUCCESS] Upload hoàn tất. Video URL: ${videoUrl}`);
 
+      // Upload custom thumbnail (best-effort)
+      try {
+        if (toolName) {
+          const { generateThumbnail } = await import('./thumbnail-generator.js');
+          const thumbPath = await generateThumbnail(videoPath, toolName, projectId);
+          await youtube.thumbnails.set({
+            videoId,
+            media: { body: fs.createReadStream(thumbPath) },
+          });
+          console.log(`🖼️ [Thumbnail] Custom thumbnail uploaded for ${videoId}`);
+        }
+      } catch (thumbErr) {
+        const msg = thumbErr instanceof Error ? thumbErr.message : String(thumbErr);
+        console.warn(`⚠️ [Thumbnail] Failed (non-fatal): ${msg}`);
+      }
+
       // Post pinned comment (best-effort, non-blocking for return)
       await postPinnedComment(youtube, videoId, toolUrl, toolName);
 

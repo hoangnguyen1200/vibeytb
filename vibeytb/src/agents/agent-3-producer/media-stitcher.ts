@@ -41,7 +41,7 @@ export async function mergeAudioVideoScene(
         },
         {
           filter: 'subtitles',
-          options: `'${escapedVttPath}':force_style='Fontname=Impact,Fontsize=24,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H80000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=120,Bold=1'`,
+          options: `'${escapedVttPath}':force_style='Fontname=Impact,Fontsize=36,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&HC0000000,BorderStyle=3,Outline=0,Shadow=0,Alignment=2,MarginV=120,Bold=1'`,
           inputs: 'padded_v',
           outputs: 'sub_v'
         },
@@ -103,6 +103,17 @@ export async function concatScenes(
   bgmPath: string | null = null
 ): Promise<string> {
   console.log(`[FFmpeg] Concatenating ${sceneFiles.length} scenes...`);
+
+  // Append outro CTA scene (best-effort)
+  try {
+    const { generateOutro } = await import('./outro-generator.js');
+    const outroPath = await generateOutro(projectId);
+    sceneFiles = [...sceneFiles, outroPath];
+    console.log(`[CONCAT] Appended outro CTA → ${sceneFiles.length} total scenes`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[CONCAT] Outro generation failed (non-fatal): ${msg}`);
+  }
 
   const tmpDir = path.join(process.cwd(), 'tmp', projectId);
   if (!fs.existsSync(tmpDir)) {
