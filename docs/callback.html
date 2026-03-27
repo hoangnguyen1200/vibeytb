@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TikTok Authorization - TechHustleLabs</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+      color: #fff;
+    }
+    .container {
+      text-align: center; padding: 3rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px); max-width: 480px;
+    }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+    p { color: #aaa; margin-bottom: 1.5rem; line-height: 1.6; }
+    .code-box {
+      background: rgba(0,0,0,0.3); padding: 1rem;
+      border-radius: 8px; font-family: monospace;
+      font-size: 0.85rem; word-break: break-all;
+      color: #69ff69; margin-bottom: 1rem;
+    }
+    .status { color: #4ecdc4; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">✅</div>
+    <h1>Authorization Successful</h1>
+    <p>TikTok account has been connected to TechHustleLabs Auto Publisher.</p>
+    <div id="code-display" class="code-box" style="display:none;">
+      Authorization code: <span id="auth-code"></span>
+    </div>
+    <p class="status" id="status">Processing...</p>
+    <p style="font-size:0.8rem; color:#666;">You can close this window.</p>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+    const statusEl = document.getElementById('status');
+
+    if (error) {
+      document.querySelector('.icon').textContent = '❌';
+      document.querySelector('h1').textContent = 'Authorization Failed';
+      statusEl.textContent = 'Error: ' + (params.get('error_description') || error);
+      statusEl.style.color = '#ff6b6b';
+    } else if (code) {
+      document.getElementById('code-display').style.display = 'block';
+      document.getElementById('auth-code').textContent = code;
+      statusEl.textContent = 'Authorization complete!';
+    } else {
+      statusEl.textContent = 'Waiting for authorization...';
+    }
+  </script>
+</body>
+</html>
