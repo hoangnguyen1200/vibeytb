@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-27 (FFmpeg crop fix for small videos)
+> Cập nhật lần cuối: 2026-03-27 (Layer 2 cascade tool_name recovery)
 
 ---
 
@@ -189,6 +189,7 @@ Final video 1080×1920 9:16
 - **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase)
 - **Login Detection threshold**: score >= 2 (URL pattern `/signup` đủ trigger)
 - **Visual cascade**: Website Recording → Product Hunt → Pexels Stock (3 layers)
+- **Layer 2 recovery**: `__tool_name` backup at script_json top-level + URL-based extraction ensures PH cascade is never skipped (2026-03-27)
 - **DuckDuckGo**: Block automated HTTP requests — KHÔNG dùng cho URL lookup
 - **Gemini URL lookup**: Chỉ gọi 1 lần cho tool được chọn (tiết kiệm quota)
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions

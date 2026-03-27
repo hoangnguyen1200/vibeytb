@@ -265,6 +265,12 @@ export class TheMasterOrchestrator {
     const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
     const normalized = this.normalizeScript(aiOutput);
 
+    // Persist tool_name at TOP LEVEL of script_json (backup for Phase 3 recovery)
+    // This guarantees Phase 3 can always recover tool_name even if LLM omits it
+    if (toolData?.name) {
+      (normalized as Record<string, unknown>).__tool_name = toolData.name;
+    }
+
     // Force-inject PH tool name into ALL scenes (LLM often omits tool_name)
     // This ensures Layer 2 cascade (PH page recording) always works
     if (toolData?.name) {
@@ -323,14 +329,23 @@ export class TheMasterOrchestrator {
       (s: Record<string, unknown>) => typeof s.tool_name === 'string' && s.tool_name
     )?.tool_name as string | undefined;
 
-    if (sharedUrl || sharedToolName) {
+    // Recovery: if no scene has tool_name, recover from top-level backup
+    const recoveredToolName =
+      sharedToolName ||
+      ((scriptData as Record<string, unknown>).__tool_name as string | undefined);
+
+    if (recoveredToolName && !sharedToolName) {
+      console.log(`[TOOL NAME RECOVERY] Recovered "${recoveredToolName}" from __tool_name backup`);
+    }
+
+    if (sharedUrl || recoveredToolName) {
       for (const scene of scriptData.scenes) {
         if (!scene.target_website_url && sharedUrl) {
           scene.target_website_url = sharedUrl;
           console.log(`[URL PROPAGATE] Scene ${scene.scene_index} → inherited URL: ${sharedUrl}`);
         }
-        if (!scene.tool_name && sharedToolName) {
-          scene.tool_name = sharedToolName;
+        if (!scene.tool_name && recoveredToolName) {
+          scene.tool_name = recoveredToolName;
         }
       }
     }
@@ -397,17 +412,28 @@ export class TheMasterOrchestrator {
       // === LAYER 2: Product Hunt fallback (works even when URL is blacklisted!) ===
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const toolName = (scene as any).tool_name as string | null | undefined;
-      if (!websiteRecorded && toolName) {
+
+      // Fallback: extract tool name from URL domain (e.g. "https://cockpit.ai" → "cockpit-ai")
+      let effectiveToolName = toolName;
+      if (!effectiveToolName && scene.target_website_url) {
         try {
-          console.log(`[PHASE 3] Layer 2 → Recording Product Hunt page for: ${toolName}`);
+          effectiveToolName = new URL(scene.target_website_url)
+            .hostname.replace(/^www\./, '').replace(/\.[^.]+$/, '');
+          console.log(`[LAYER 2] Extracted tool name from URL: "${effectiveToolName}"`);
+        } catch { /* invalid URL, skip */ }
+      }
+
+      if (!websiteRecorded && effectiveToolName) {
+        try {
+          console.log(`[PHASE 3] Layer 2 → Recording Product Hunt page for: ${effectiveToolName}`);
           videoPath = await recordProductHuntPage(
-            toolName,
+            effectiveToolName,
             duration,
             path.join(tmpDir, `scene_${sceneIndex}_ph.webm`)
           );
 
           console.log(`[PHASE 3] Running Visual QC on Product Hunt recording...`);
-          const phPass = await runVisualQC(videoPath, jobId, `producthunt.com/products/${toolName}`);
+          const phPass = await runVisualQC(videoPath, jobId, `producthunt.com/products/${effectiveToolName}`);
           if (phPass) {
             websiteRecorded = true;
             console.log('[LAYER 2] ✅ Product Hunt recording passed Visual QC!');
