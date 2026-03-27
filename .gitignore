@@ -24,6 +24,3 @@ node_modules/
 youtube-cookies.json
 temp_error.txt
 test-output.txt
-
-# Large assets (BGM mp3)
-vibeytb/assets/bgm/
