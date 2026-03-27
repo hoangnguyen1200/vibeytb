@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-26 (Batch 3 — TikTok cross-posting)
+> Cập nhật lần cuối: 2026-03-27 (Anti-bot stealth hardening)
 
 ---
 
@@ -158,6 +158,7 @@ Final video 1080×1920 9:16
 23. **Outro CTA clip**: Auto-generated 3s outro appended to every video — "Follow @TechHustleLabs" branding (2026-03-26)
 24. **Auto thumbnail**: 1280×720 thumbnail extracted from video frame with tool name overlay, uploaded via YouTube API (2026-03-26)
 25. **TikTok cross-post**: Content Posting API via OAuth2 FILE_UPLOAD flow, best-effort after YouTube upload — graceful skip when creds missing (2026-03-26)
+26. **Anti-bot stealth hardening**: Pure Playwright stealth in `playwright.ts` — WebDriver evasion, Chrome args, navigator fingerprint overrides (plugins/languages/platform/hwConcurrency/deviceMemory), WebGL spoofing, chrome.runtime mock, permission query override (2026-03-27)
 
 ## 🔄 Đang Xem Xét
 
@@ -169,6 +170,7 @@ Final video 1080×1920 9:16
 
 - **Google Cloud Console** phải giữ dù chạy ở đâu (YouTube API OAuth)
 - **playwright-extra + stealth plugin** KHÔNG tương thích — đừng gợi ý lại
+- **Stealth hardening**: Tất cả anti-bot patches nằm trong `playwright.ts` via `addInitScript` — Agent-1 và Agent-3 tự kế thừa
 - **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase)
 - **Login Detection threshold**: score >= 2 (URL pattern `/signup` đủ trigger)
 - **Visual cascade**: Website Recording → Product Hunt → Pexels Stock (3 layers)
