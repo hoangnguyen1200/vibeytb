@@ -38,6 +38,7 @@ describe('Status Transitions', () => {
     'approved_for_synthesis',
     'ready_for_video',
     'ready_for_upload',
+    'upload_pending',
     'published',
     'failed',
   ];

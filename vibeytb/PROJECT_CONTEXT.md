@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-27 (Cập nhật Platform Status)
+> Cập nhật lần cuối: 2026-03-27 (Dead code cleanup)
 
 ---
 
@@ -160,6 +160,7 @@ Final video 1080×1920 9:16
 25. **TikTok cross-post**: Content Posting API via OAuth2 FILE_UPLOAD flow, best-effort after YouTube upload — graceful skip when creds missing (2026-03-26)
 26. **Anti-bot stealth hardening**: Pure Playwright stealth in `playwright.ts` — WebDriver evasion, Chrome args, navigator fingerprint overrides (plugins/languages/platform/hwConcurrency/deviceMemory), WebGL spoofing, chrome.runtime mock, permission query override (2026-03-27)
 27. **Sequential upload + UPLOAD_PENDING**: Phase 4 rewritten — pre-flight credential check, YouTube→TikTok sequential upload with independent try/catch, `UPLOAD_PENDING` status for videos produced but not uploaded, Discord warning notification for upload-skipped/failed (2026-03-27)
+28. **Dead code cleanup**: Deleted `youtube-login.ts`, `save-auth.ts` (replaced by OAuth). Archived 5 legacy test scripts to `src/scripts/legacy-tests/`. Fixed smoke test for `UPLOAD_PENDING` enum (2026-03-27)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -168,7 +169,7 @@ Final video 1080×1920 9:16
 | **YouTube** | ✅ **RESTORED** | Appeal approved 20:43 27/03. Cần verify: đăng nhập lại + kiểm tra refresh token |
 | **TikTok** | ⏳ **PENDING APPROVAL** | Content Posting API đã submit — đang chờ TikTok approve |
 
-> **YouTube**: Account khôi phục nhưng cần kiểm tra OAuth refresh token có còn valid không. Nếu bị revoke → chạy lại `youtube-login.ts` để lấy token mới.
+> **YouTube**: Account khôi phục nhưng cần kiểm tra OAuth refresh token có còn valid không. Nếu bị revoke → chạy lại OAuth flow để lấy token mới.
 > **TikTok**: Vẫn chờ approve — pipeline tự skip graceful.
 
 ## 🔄 Đang Xem Xét
