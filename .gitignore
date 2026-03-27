@@ -1,4 +1,3 @@
-```
 # Antigravity / AI config
 .agent/
 GEMINI.md
@@ -14,16 +13,17 @@ db-errors.json
 gemini-error.txt
 models.json
 
-# Env
+# Env & secrets
 .env
+.env.*
 
 # Node
 node_modules/
 
-```
+# Temp/debug files
 youtube-cookies.json
 temp_error.txt
 test-output.txt
 
-```
+# Large assets (BGM mp3)
 vibeytb/assets/bgm/
