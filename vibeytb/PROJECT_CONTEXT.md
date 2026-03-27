@@ -87,9 +87,11 @@ Final video 1080×1920 9:16
 
 ### Các File Quan Trọng
 
+> ⚠️ **LƯU Ý**: `.github/workflows/` nằm ở **REPO ROOT** (`VibeYtb/.github/`), KHÔNG phải trong `vibeytb/`. Khi search file workflow, phải search từ root repo.
+
 | File | Vai trò |
 |---|---|
-| `.github/workflows/daily-pipeline.yml` | GitHub Actions workflow (self-hosted runner) |
+| `/.github/workflows/daily-pipeline.yml` | **Full pipeline** — chạy daily (cron) hoặc manual (workflow_dispatch), self-hosted runner |
 | `src/scripts/the-orchestrator.ts` | Main pipeline orchestrator |
 | `src/agents/agent-1-data-miner/scraper-producthunt.ts` | PH RSS scraper + Gemini URL resolution |
 | `src/agents/agent-2-strategist/generator.ts` | Gemini script generator |
