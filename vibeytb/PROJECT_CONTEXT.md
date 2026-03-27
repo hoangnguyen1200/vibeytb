@@ -161,15 +161,15 @@ Final video 1080×1920 9:16
 26. **Anti-bot stealth hardening**: Pure Playwright stealth in `playwright.ts` — WebDriver evasion, Chrome args, navigator fingerprint overrides (plugins/languages/platform/hwConcurrency/deviceMemory), WebGL spoofing, chrome.runtime mock, permission query override (2026-03-27)
 27. **Sequential upload + UPLOAD_PENDING**: Phase 4 rewritten — pre-flight credential check, YouTube→TikTok sequential upload with independent try/catch, `UPLOAD_PENDING` status for videos produced but not uploaded, Discord warning notification for upload-skipped/failed (2026-03-27)
 
-## 🚨 Platform Status (tính đến 2026-03-27)
+## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
 | Platform | Trạng thái | Chi tiết |
 |---|---|---|
-| **YouTube** | ❌ **DISABLED** | Kênh @TechHustleLabs bị disable — đang chờ appeal |
+| **YouTube** | ✅ **RESTORED** | Appeal approved 20:43 27/03. Cần verify: đăng nhập lại + kiểm tra refresh token |
 | **TikTok** | ⏳ **PENDING APPROVAL** | Content Posting API đã submit — đang chờ TikTok approve |
 
-> **Hệ quả**: Pipeline Phase 1–3 chạy bình thường (tạo video), nhưng Phase 4 sẽ tự set `UPLOAD_PENDING` cho mọi video.
-> Khi platform nào được khôi phục, chỉ cần bổ sung credentials vào `.env` → pipeline tự upload.
+> **YouTube**: Account khôi phục nhưng cần kiểm tra OAuth refresh token có còn valid không. Nếu bị revoke → chạy lại `youtube-login.ts` để lấy token mới.
+> **TikTok**: Vẫn chờ approve — pipeline tự skip graceful.
 
 ## 🔄 Đang Xem Xét
 
