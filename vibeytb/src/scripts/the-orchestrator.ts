@@ -12,6 +12,7 @@ import { downloadBGMFromPixabay } from '../agents/agent-3-producer/pixabay-clien
 import { recordWebsiteScroll, recordProductHuntPage } from '../agents/agent-3-producer/playwright-recorder';
 import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/media-stitcher';
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
+import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { scrapeProductHuntToday, pickBestTool, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
 import { validateVideo } from './qc-video';
@@ -509,14 +510,28 @@ export class TheMasterOrchestrator {
     console.log('[PHASE 4] QC passed. Launching browser for upload...');
     const youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName);
 
+    // ── TikTok cross-post (best-effort, won't block pipeline) ──────────────
+    let tiktokUrl = '';
+    try {
+      tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, toolUrl, toolName);
+    } catch (ttErr: unknown) {
+      const ttMsg = ttErr instanceof Error ? ttErr.message : String(ttErr);
+      console.error(`[PHASE 4] TikTok upload failed (non-blocking): ${ttMsg}`);
+    }
+
     await this.cleanupTmp(jobId);
-    await this.updateJob(jobId, { status: VideoStatus.PUBLISHED, youtube_url: youtubeUrl });
+    await this.updateJob(jobId, {
+      status: VideoStatus.PUBLISHED,
+      youtube_url: youtubeUrl,
+      ...(tiktokUrl ? { tiktok_url: tiktokUrl } : {}),
+    });
 
     console.log('[DONE] Pipeline complete.');
     console.log(`Video URL: ${youtubeUrl}`);
+    if (tiktokUrl) console.log(`TikTok URL: ${tiktokUrl}`);
 
     // Send success notification
-    await notifyDiscord({ status: 'success', jobId, title, youtubeUrl, durationMs: Date.now() - this.pipelineStartMs });
+    await notifyDiscord({ status: 'success', jobId, title, youtubeUrl, tiktokUrl: tiktokUrl || undefined, durationMs: Date.now() - this.pipelineStartMs });
   }
 
   // Expose start time for notifications

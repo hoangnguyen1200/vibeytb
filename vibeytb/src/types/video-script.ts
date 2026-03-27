@@ -42,6 +42,7 @@ export interface VideoProject {
   youtube_description?: string | null;
   youtube_tags?: string[] | null;
   youtube_url?: string | null;
+  tiktok_url?: string | null;
   error_logs?: string | null;
   created_at?: string | null;
   updated_at?: string | null;

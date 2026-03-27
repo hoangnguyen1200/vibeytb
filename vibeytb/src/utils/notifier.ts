@@ -11,6 +11,7 @@ interface NotifyPayload {
   jobId: string;
   title?: string;
   youtubeUrl?: string;
+  tiktokUrl?: string;
   error?: string;
   durationMs?: number;
 }
@@ -36,6 +37,7 @@ export async function notifyDiscord(payload: NotifyPayload): Promise<void> {
       { name: 'Duration', value: durationStr, inline: true },
       ...(payload.title ? [{ name: 'Video Title', value: payload.title, inline: false }] : []),
       ...(payload.youtubeUrl ? [{ name: '🎬 YouTube', value: payload.youtubeUrl, inline: false }] : []),
+      ...(payload.tiktokUrl ? [{ name: '🎵 TikTok', value: payload.tiktokUrl, inline: false }] : []),
       ...(payload.error ? [{ name: '🔥 Error', value: `\`\`\`${payload.error.slice(0, 500)}\`\`\``, inline: false }] : []),
     ],
     timestamp: new Date().toISOString(),

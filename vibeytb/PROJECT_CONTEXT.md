@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-26 (Batch 2 — subtitles, outro, thumbnail)
+> Cập nhật lần cuối: 2026-03-26 (Batch 3 — TikTok cross-posting)
 
 ---
 
@@ -44,7 +44,7 @@ GitHub Actions Cron (daily-pipeline.yml)
   ├── Phase 1: PH RSS Feed → pickBestTool() → Gemini URL Resolution
   ├── Phase 2: Gemini script generation (với real tool data)
   ├── Phase 3: Edge TTS + Playwright 1920×1080 + FFmpeg center-crop → 1080×1920
-  └── Phase 4: YouTube upload via OAuth (skippable: SKIP_UPLOAD=true)
+  └── Phase 4: YouTube upload via OAuth + TikTok cross-post (best-effort)
 ```
 
 ### URL Resolution Chain (Phase 1)
@@ -101,6 +101,7 @@ Final video 1080×1920 9:16
 | `src/agents/agent-3-producer/outro-generator.ts` | 3s outro CTA clip (FFmpeg drawtext) |
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
 | `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame |
+| `src/agents/agent-4-publisher/tiktok-uploader.ts` | TikTok cross-post via Content Posting API (OAuth2 + FILE_UPLOAD) |
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (13 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
@@ -114,6 +115,7 @@ Final video 1080×1920 9:16
 | Gemini API (2.5 Flash) | Script gen + Visual QC + URL lookup | `GEMINI_API_KEY` |
 | Pexels | Stock footage fallback (Layer 3) | `PEXELS_API_KEY` |
 | Discord | Pipeline monitoring webhook | `DISCORD_WEBHOOK_URL` |
+| TikTok Content API | TikTok cross-post (optional) | `TIKTOK_CLIENT_KEY`, `CLIENT_SECRET`, `REFRESH_TOKEN` |
 
 > ~~Pixabay~~ — ĐÃ XÓA (2026-03-25). Giờ dùng local BGM từ `assets/bgm/`.
 
@@ -155,6 +157,7 @@ Final video 1080×1920 9:16
 22. **Subtitle styling v2**: Opaque black box (BorderStyle=3) + 36px bold — readable on mobile over bright backgrounds (2026-03-26)
 23. **Outro CTA clip**: Auto-generated 3s outro appended to every video — "Follow @TechHustleLabs" branding (2026-03-26)
 24. **Auto thumbnail**: 1280×720 thumbnail extracted from video frame with tool name overlay, uploaded via YouTube API (2026-03-26)
+25. **TikTok cross-post**: Content Posting API via OAuth2 FILE_UPLOAD flow, best-effort after YouTube upload — graceful skip when creds missing (2026-03-26)
 
 ## 🔄 Đang Xem Xét
 
