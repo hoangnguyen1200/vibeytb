@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-27 (Dead code cleanup)
+> Cập nhật lần cuối: 2026-03-27 (FFmpeg crop fix for small videos)
 
 ---
 
@@ -163,6 +163,7 @@ Final video 1080×1920 9:16
 26. **Anti-bot stealth hardening**: Pure Playwright stealth in `playwright.ts` — WebDriver evasion, Chrome args, navigator fingerprint overrides (plugins/languages/platform/hwConcurrency/deviceMemory), WebGL spoofing, chrome.runtime mock, permission query override (2026-03-27)
 27. **Sequential upload + UPLOAD_PENDING**: Phase 4 rewritten — pre-flight credential check, YouTube→TikTok sequential upload with independent try/catch, `UPLOAD_PENDING` status for videos produced but not uploaded, Discord warning notification for upload-skipped/failed (2026-03-27)
 28. **Dead code cleanup**: Deleted `youtube-login.ts`, `save-auth.ts` (replaced by OAuth). Archived 5 legacy test scripts to `src/scripts/legacy-tests/`. Fixed smoke test for `UPLOAD_PENDING` enum (2026-03-27)
+29. **FFmpeg crop fix**: Added `scale` filter before `crop` in `media-stitcher.ts` — handles any input resolution (was crashing on Pexels 360×640 videos). Changed Pexels API `size: 'medium'` → `'large'` (2026-03-27)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -192,7 +193,7 @@ Final video 1080×1920 9:16
 - **Gemini URL lookup**: Chỉ gọi 1 lần cho tool được chọn (tiết kiệm quota)
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
-- **Video recording**: Viewport 1920×1080 desktop → FFmpeg crop center → pad 1080×1920 (9:16)
+- **Video recording**: Viewport 1920×1080 desktop → FFmpeg scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
 - **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng
 

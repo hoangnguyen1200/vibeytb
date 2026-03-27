@@ -89,7 +89,7 @@ export async function downloadStockVideo(
           query, 
           per_page: 5,
           orientation: 'portrait',
-          size: 'medium'
+          size: 'large'
       }) as unknown as PexelsResponse;
 
       if (!response || !response.videos || response.videos.length === 0) {

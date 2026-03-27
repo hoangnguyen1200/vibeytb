@@ -27,10 +27,25 @@ export async function mergeAudioVideoScene(
       .inputOptions(['-stream_loop', '-1'])
       .input(audioPath)
       .complexFilter([
+        // Scale UP to at least 1080px wide before cropping (handles any input size)
+        {
+          filter: 'scale',
+          options: {
+            w: 'if(lt(iw,1080),1080,-2)',
+            h: 'if(lt(iw,1080),-2,ih)'
+          },
+          inputs: '0:v',
+          outputs: 'scaled_v'
+        },
         {
           filter: 'crop',
-          options: '1080:1080:(iw-1080)/2:0',
-          inputs: '0:v',
+          options: {
+            w: 'min(iw,1080)',
+            h: 'min(ih,1080)',
+            x: '(iw-min(iw,1080))/2',
+            y: 0
+          },
+          inputs: 'scaled_v',
           outputs: 'cropped_v'
         },
         {
