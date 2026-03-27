@@ -40,12 +40,14 @@ const ACTIVE_STATUSES: VideoStatus[] = [
   VideoStatus.APPROVED_FOR_SYNTHESIS,
   VideoStatus.READY_FOR_VIDEO,
   VideoStatus.READY_FOR_UPLOAD,
+  VideoStatus.UPLOAD_PENDING,
 ];
 
 const WORKER_STATUSES: VideoStatus[] = [
   VideoStatus.APPROVED_FOR_SYNTHESIS,
   VideoStatus.READY_FOR_VIDEO,
   VideoStatus.READY_FOR_UPLOAD,
+  VideoStatus.UPLOAD_PENDING,
 ];
 
 const envFlag = (key: string, defaultValue = false): boolean => {
@@ -96,7 +98,7 @@ export class TheMasterOrchestrator {
         currentStatus = VideoStatus.READY_FOR_UPLOAD;
       }
 
-      if (currentStatus === VideoStatus.READY_FOR_UPLOAD) {
+      if (currentStatus === VideoStatus.READY_FOR_UPLOAD || currentStatus === VideoStatus.UPLOAD_PENDING) {
         // Self-healing: if video file is missing (e.g. ephemeral CI runner), re-run Phase 3
         const videoPath = this.getFinalVideoPath(job.id);
         if (!(await this.fileExists(videoPath))) {
@@ -445,23 +447,36 @@ export class TheMasterOrchestrator {
 
   private async runPhase4(job: VideoProject): Promise<void> {
     const jobId = job.id;
-    console.log('[PHASE 4] Publisher (YouTube upload)');
+    console.log('[PHASE 4] Publisher — Sequential upload with pre-flight check');
 
+    // ── Pre-flight: check which platforms have credentials ──────────────
+    const hasYouTube = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN);
+    const hasTikTok = !!(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET && process.env.TIKTOK_REFRESH_TOKEN);
+
+    console.log(`[PHASE 4] Pre-flight → YouTube: ${hasYouTube ? '✅ creds OK' : '❌ missing creds'} | TikTok: ${hasTikTok ? '✅ creds OK' : '❌ missing creds'}`);
+
+    if (!hasYouTube && !hasTikTok) {
+      console.warn('[PHASE 4] ⚠️ No platform credentials configured. Video saved, marking as UPLOAD_PENDING.');
+      await this.updateJob(jobId, {
+        status: VideoStatus.UPLOAD_PENDING,
+        error_logs: 'UPLOAD_PENDING: No platform credentials available (both YouTube and TikTok missing)',
+      });
+      await notifyDiscord({ status: 'warning', jobId, title: 'Upload skipped — no platform creds', durationMs: Date.now() - this.pipelineStartMs });
+      return;
+    }
+
+    // ── Prepare metadata ────────────────────────────────────────────────
     const meta = this.extractScriptMeta(job.script_json);
     const title = meta.title || 'Auto Generated YouTube Short';
     const rawDesc = meta.description || 'Auto upload from orchestrator';
     const tags = meta.tags || ['shorts', 'automation', 'tech'];
 
-    // Extract tool URL from script for description link
     const scriptData = this.parseJsonMaybe(job.script_json) as Record<string, unknown> | null;
     const scenes = (scriptData?.scenes as Array<Record<string, unknown>>) || [];
     const toolUrl = scenes.find(s => typeof s.target_website_url === 'string')?.target_website_url as string | undefined;
     const toolName = scenes.find(s => typeof s.tool_name === 'string')?.tool_name as string | undefined;
 
-    // Strip hashtags from LLM description (we add our own at the bottom)
     const cleanDesc = rawDesc.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
-
-    // Build enriched description
     const descParts = [
       cleanDesc,
       '',
@@ -477,14 +492,15 @@ export class TheMasterOrchestrator {
     ].filter(Boolean);
     const desc = descParts.join('\n');
 
+    // ── Video file check ────────────────────────────────────────────────
     const finalVideoOutput = this.getFinalVideoPath(jobId);
     if (!(await this.fileExists(finalVideoOutput))) {
       throw new Error('Final video output missing. Phase 3 must complete before upload.');
     }
 
-    // Auto-trim: ensure video ≤ 59 seconds for YouTube Shorts
     await this.trimIfTooLong(finalVideoOutput, 59);
 
+    // ── QC validation ───────────────────────────────────────────────────
     let qcPassed = false;
     try {
       qcPassed = await validateVideo(finalVideoOutput);
@@ -507,31 +523,71 @@ export class TheMasterOrchestrator {
       return;
     }
 
-    console.log('[PHASE 4] QC passed. Launching browser for upload...');
-    const youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName);
-
-    // ── TikTok cross-post (best-effort, won't block pipeline) ──────────────
+    // ── Sequential upload: YouTube first, then TikTok ───────────────────
+    console.log('[PHASE 4] QC passed. Starting sequential upload...');
+    let youtubeUrl = '';
     let tiktokUrl = '';
-    try {
-      tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, toolUrl, toolName);
-    } catch (ttErr: unknown) {
-      const ttMsg = ttErr instanceof Error ? ttErr.message : String(ttErr);
-      console.error(`[PHASE 4] TikTok upload failed (non-blocking): ${ttMsg}`);
+    const uploadErrors: string[] = [];
+
+    // 1) YouTube
+    if (hasYouTube) {
+      try {
+        console.log('[PHASE 4] ▶ Uploading to YouTube...');
+        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName);
+        console.log(`[PHASE 4] ✅ YouTube upload OK: ${youtubeUrl}`);
+      } catch (ytErr: unknown) {
+        const ytMsg = ytErr instanceof Error ? ytErr.message : String(ytErr);
+        console.error(`[PHASE 4] ❌ YouTube upload failed: ${ytMsg}`);
+        uploadErrors.push(`YouTube: ${ytMsg}`);
+      }
+    } else {
+      console.log('[PHASE 4] ⏭ YouTube skipped (no credentials)');
     }
 
-    await this.cleanupTmp(jobId);
-    await this.updateJob(jobId, {
-      status: VideoStatus.PUBLISHED,
-      youtube_url: youtubeUrl,
-      ...(tiktokUrl ? { tiktok_url: tiktokUrl } : {}),
-    });
+    // 2) TikTok
+    if (hasTikTok) {
+      try {
+        console.log('[PHASE 4] ▶ Uploading to TikTok...');
+        tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, toolUrl, toolName);
+        console.log(`[PHASE 4] ✅ TikTok upload OK: ${tiktokUrl}`);
+      } catch (ttErr: unknown) {
+        const ttMsg = ttErr instanceof Error ? ttErr.message : String(ttErr);
+        console.error(`[PHASE 4] ❌ TikTok upload failed: ${ttMsg}`);
+        uploadErrors.push(`TikTok: ${ttMsg}`);
+      }
+    } else {
+      console.log('[PHASE 4] ⏭ TikTok skipped (no credentials)');
+    }
 
-    console.log('[DONE] Pipeline complete.');
-    console.log(`Video URL: ${youtubeUrl}`);
-    if (tiktokUrl) console.log(`TikTok URL: ${tiktokUrl}`);
+    // ── Determine final status ──────────────────────────────────────────
+    const hasAnyUrl = !!(youtubeUrl || tiktokUrl);
 
-    // Send success notification
-    await notifyDiscord({ status: 'success', jobId, title, youtubeUrl, tiktokUrl: tiktokUrl || undefined, durationMs: Date.now() - this.pipelineStartMs });
+    if (hasAnyUrl) {
+      // At least one platform succeeded → PUBLISHED
+      await this.cleanupTmp(jobId);
+      await this.updateJob(jobId, {
+        status: VideoStatus.PUBLISHED,
+        ...(youtubeUrl ? { youtube_url: youtubeUrl } : {}),
+        ...(tiktokUrl ? { tiktok_url: tiktokUrl } : {}),
+        ...(uploadErrors.length > 0 ? { error_logs: `PARTIAL_UPLOAD: ${uploadErrors.join(' | ')}` } : {}),
+      });
+
+      console.log('[DONE] Pipeline complete.');
+      if (youtubeUrl) console.log(`YouTube URL: ${youtubeUrl}`);
+      if (tiktokUrl) console.log(`TikTok URL: ${tiktokUrl}`);
+      if (uploadErrors.length > 0) console.warn(`[PHASE 4] Partial upload — some platforms failed: ${uploadErrors.join(' | ')}`);
+
+      await notifyDiscord({ status: 'success', jobId, title, youtubeUrl: youtubeUrl || undefined, tiktokUrl: tiktokUrl || undefined, durationMs: Date.now() - this.pipelineStartMs });
+    } else {
+      // All platforms failed → UPLOAD_PENDING (video is saved, can retry later)
+      console.warn('[PHASE 4] ⚠️ All platform uploads failed. Video preserved for retry. Marking as UPLOAD_PENDING.');
+      await this.updateJob(jobId, {
+        status: VideoStatus.UPLOAD_PENDING,
+        error_logs: `UPLOAD_PENDING: ${uploadErrors.join(' | ')}`,
+      });
+
+      await notifyDiscord({ status: 'warning', jobId, title: `Upload failed (retry later): ${title}`, durationMs: Date.now() - this.pipelineStartMs });
+    }
   }
 
   // Expose start time for notifications

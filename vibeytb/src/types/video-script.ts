@@ -7,6 +7,7 @@ export enum VideoStatus {
   APPROVED_FOR_SYNTHESIS = 'approved_for_synthesis',
   READY_FOR_VIDEO = 'ready_for_video',
   READY_FOR_UPLOAD = 'ready_for_upload',
+  UPLOAD_PENDING = 'upload_pending',
   PUBLISHED = 'published',
   FAILED = 'failed',
 }

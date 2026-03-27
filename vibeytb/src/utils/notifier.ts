@@ -7,7 +7,7 @@
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 interface NotifyPayload {
-  status: 'success' | 'failure';
+  status: 'success' | 'failure' | 'warning';
   jobId: string;
   title?: string;
   youtubeUrl?: string;
@@ -23,14 +23,16 @@ export async function notifyDiscord(payload: NotifyPayload): Promise<void> {
   }
 
   const isSuccess = payload.status === 'success';
-  const emoji = isSuccess ? '✅' : '❌';
-  const color = isSuccess ? 0x00ff00 : 0xff0000;
+  const isWarning = payload.status === 'warning';
+  const emoji = isSuccess ? '✅' : isWarning ? '⚠️' : '❌';
+  const color = isSuccess ? 0x00ff00 : isWarning ? 0xffaa00 : 0xff0000;
+  const statusLabel = isSuccess ? 'Success' : isWarning ? 'Warning' : 'Failed';
   const durationStr = payload.durationMs
     ? `${(payload.durationMs / 1000 / 60).toFixed(1)} min`
     : 'N/A';
 
   const embed = {
-    title: `${emoji} Pipeline ${isSuccess ? 'Success' : 'Failed'}`,
+    title: `${emoji} Pipeline ${statusLabel}`,
     color,
     fields: [
       { name: 'Job ID', value: `\`${payload.jobId}\``, inline: true },

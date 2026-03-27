@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-27 (Anti-bot stealth hardening)
+> Cập nhật lần cuối: 2026-03-27 (Sequential upload + UPLOAD_PENDING fallback)
 
 ---
 
@@ -13,7 +13,7 @@ Pipeline 4 phase:
 1. **Data Mining**: Tìm tool AI mới (Product Hunt RSS → fallback LLM keyword)
 2. **Strategist**: Gemini viết script video
 3. **Producer**: TTS + Playwright recording + FFmpeg stitching
-4. **Publisher**: Upload lên YouTube tự động
+4. **Publisher**: Upload lên YouTube + TikTok (sequential, graceful fallback)
 
 ## 💰 Ngân Sách
 
@@ -159,6 +159,7 @@ Final video 1080×1920 9:16
 24. **Auto thumbnail**: 1280×720 thumbnail extracted from video frame with tool name overlay, uploaded via YouTube API (2026-03-26)
 25. **TikTok cross-post**: Content Posting API via OAuth2 FILE_UPLOAD flow, best-effort after YouTube upload — graceful skip when creds missing (2026-03-26)
 26. **Anti-bot stealth hardening**: Pure Playwright stealth in `playwright.ts` — WebDriver evasion, Chrome args, navigator fingerprint overrides (plugins/languages/platform/hwConcurrency/deviceMemory), WebGL spoofing, chrome.runtime mock, permission query override (2026-03-27)
+27. **Sequential upload + UPLOAD_PENDING**: Phase 4 rewritten — pre-flight credential check, YouTube→TikTok sequential upload with independent try/catch, `UPLOAD_PENDING` status for videos produced but not uploaded, Discord warning notification for upload-skipped/failed (2026-03-27)
 
 ## 🔄 Đang Xem Xét
 
@@ -177,6 +178,7 @@ Final video 1080×1920 9:16
 - **DuckDuckGo**: Block automated HTTP requests — KHÔNG dùng cho URL lookup
 - **Gemini URL lookup**: Chỉ gọi 1 lần cho tool được chọn (tiết kiệm quota)
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
+- **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg crop center → pad 1080×1920 (9:16)
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
 - **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng
