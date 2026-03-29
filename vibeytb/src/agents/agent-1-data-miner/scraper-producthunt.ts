@@ -126,28 +126,22 @@ async function resolveUrlViaGemini(
       tools: [{ googleSearch: {} } as any],
     });
 
-    // Build context-rich prompt that guides Gemini's search
+    // Build context-rich prompt with the EXACT PH URL
     const phContext = productHuntUrl
       ? `\nProduct Hunt page: ${productHuntUrl}`
       : '';
 
-    const prompt = `Find the OFFICIAL website URL for this product that was recently launched on Product Hunt.
+    const prompt = `Find the OFFICIAL website URL for this product.
 
-Product name: "${name}"
-Description: "${tagline}"${phContext}
+Product: "${name}" — ${tagline}${phContext}
 
-Search strategy:
-1. First, search for the Product Hunt page of this product — the "Visit website" button or "Company Info" section on that page contains the real URL
-2. If that fails, search for: site:producthunt.com "${name}" to find cached product info
-3. As last resort, search for: "${name}" ${tagline.split(' ').slice(0, 3).join(' ')}
-
-Rules:
-- Respond with ONLY the URL, nothing else (e.g. https://sunapp.ai)
-- Must be the actual product website, NOT producthunt.com, twitter.com, github.com, or linkedin.com
-- If the product name looks like a domain (e.g. "jared.so", "bna.dev"), use https://[that domain]
-- If unsure, respond with exactly: UNKNOWN
-
-Example: If the Product Hunt page shows "Visit website" linking to sunapp.ai, respond: https://sunapp.ai`;
+Instructions:
+- Search Google for: ${productHuntUrl || `"${name}" "${tagline.split(' ').slice(0, 5).join(' ')}"`}
+- On the Product Hunt page, the website URL is shown in "Company Info" sidebar or "Visit website" button
+- Respond with ONLY the URL, nothing else
+- Do NOT respond with producthunt.com, twitter.com, github.com, or linkedin.com links
+- If the product name IS a domain (e.g. "bna.dev", "jared.so"), respond: https://[that domain]
+- If you cannot find the website, respond exactly: UNKNOWN`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
