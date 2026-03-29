@@ -2,7 +2,7 @@ import { chromium } from 'playwright-chromium';
 import type { Browser, BrowserContext, Page, LaunchOptions } from 'playwright';
 
 export const DEFAULT_USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
 /** Desktop viewport — websites render at full width, no mobile layout */
 export const DEFAULT_VIEWPORT = { width: 1920, height: 1080 };
@@ -207,7 +207,7 @@ export async function createStealthContext(
   // Extra HTTP headers for realistic browser fingerprint (Cloudflare checks these)
   await context.setExtraHTTPHeaders({
     'Accept-Language': 'en-US,en;q=0.9',
-    'Sec-Ch-Ua': '"Chromium";v="120", "Google Chrome";v="120", "Not.A/Brand";v="8"',
+    'Sec-Ch-Ua': '"Chromium";v="134", "Google Chrome";v="134", "Not.A/Brand";v="99"',
     'Sec-Ch-Ua-Mobile': '?0',
     'Sec-Ch-Ua-Platform': '"Windows"',
   });

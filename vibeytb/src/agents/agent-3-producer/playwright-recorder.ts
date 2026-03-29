@@ -63,6 +63,52 @@ async function detectValidationError(page: Page): Promise<boolean> {
 const INPUT_SELECTOR = 'textarea, [contenteditable="true"], input[type="text"], input[type="search"], input[placeholder*="search" i], input[placeholder*="find" i], [role="searchbox"], .search-input, input[class*="search" i]';
 const MEDIA_SELECTOR = 'video, iframe, img';
 
+/**
+ * Detect and wait for Cloudflare "Checking your browser" challenge to auto-pass.
+ * On residential IP, CF challenges resolve in 5-8 seconds automatically.
+ * Polls every 2s, max timeout configurable (default 15s).
+ */
+async function waitForCloudflarePass(page: Page, timeoutMs = 15000): Promise<void> {
+  const start = Date.now();
+  let cfDetected = false;
+
+  while (Date.now() - start < timeoutMs) {
+    const hasCF = await page.evaluate(() => {
+      const body = document.body?.innerText?.toLowerCase() || '';
+      const title = document.title?.toLowerCase() || '';
+      return (
+        body.includes('verify you are human') ||
+        body.includes('checking your browser') ||
+        body.includes('just a moment') ||
+        body.includes('attention required') ||
+        body.includes('enable javascript and cookies') ||
+        title.includes('just a moment') ||
+        !!document.querySelector('#challenge-running') ||
+        !!document.querySelector('#challenge-stage') ||
+        !!document.querySelector('.cf-browser-verification') ||
+        !!document.querySelector('#cf-challenge-running')
+      );
+    }).catch(() => false);
+
+    if (!hasCF) {
+      if (cfDetected) {
+        console.log('[Cloudflare] ✅ Challenge passed!');
+      }
+      return; // No CF or CF already passed
+    }
+
+    if (!cfDetected) {
+      cfDetected = true;
+      console.log('[Cloudflare] ⏳ Challenge detected, waiting for auto-pass...');
+    }
+    await page.waitForTimeout(2000);
+  }
+
+  if (cfDetected) {
+    console.warn('[Cloudflare] ⚠️ Challenge did not pass within timeout — continuing anyway');
+  }
+}
+
 function ensureDir(dirPath: string) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -484,7 +530,9 @@ export async function recordWebsiteScroll(
 
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForTimeout(3000);
+      // Wait for Cloudflare challenge to auto-pass (residential IP: 5-8s)
+      await waitForCloudflarePass(page, 15000);
+      await page.waitForTimeout(2000); // Buffer for JS render after CF pass
       await page.evaluate(() => {
         document.body.style.backgroundColor = document.body.style.backgroundColor || 'white';
       });

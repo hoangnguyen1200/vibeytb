@@ -56,7 +56,8 @@ async function extractFramesBase64(videoPath: string, outputDir: string): Promis
       })
       .on('error', (err) => reject(err))
       .screenshots({
-        timestamps: ['20%', '50%', '80%'], // 3 thời điểm giữa video
+        // Start from 50% — skip initial loading/Cloudflare challenge frames
+        timestamps: ['50%', '75%', '90%'],
         filename: 'frame_%i.jpg',
         folder: outputDir,
         size: '640x360' // Giảm dung lượng ảnh gửi API
