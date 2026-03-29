@@ -252,7 +252,7 @@ export class TheMasterOrchestrator {
       selectedTrend = `${phTool.name}: ${phTool.tagline}`;
       toolData = { name: phTool.name, tagline: phTool.tagline, url: phTool.websiteUrl };
       console.log(`[PHASE 1] 🎯 Product Hunt tool: "${phTool.name}" — ${phTool.tagline}`);
-      console.log(`[PHASE 1] 🔗 Website: ${phTool.websiteUrl}`);
+      console.log(`[PHASE 1] 🔗 Website: ${phTool.websiteUrl} (source: ${phTool.urlSource})`);
     } else {
       // FALLBACK: LLM keyword discovery
       selectedTrend = await this.discoverFreshTopic(recentTools);

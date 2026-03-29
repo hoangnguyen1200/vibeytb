@@ -19,10 +19,11 @@ export const CROP_OUTPUT = { width: 1080, height: 1920 };
  */
 const STEALTH_ARGS = [
   '--disable-blink-features=AutomationControlled',
-  '--disable-features=IsolateOrigins,site-per-process',
+  '--disable-features=IsolateOrigins,site-per-process,AutomationControlled',
   '--no-first-run',
   '--no-default-browser-check',
   '--disable-infobars',
+  '--window-size=1920,1080',
 ];
 
 export type StealthLaunchOptions = LaunchOptions;
@@ -142,6 +143,42 @@ const STEALTH_INIT_SCRIPT = `
     }
     return origQuery(params);
   };
+
+  // --- 10. Canvas fingerprint noise ---
+  const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+  HTMLCanvasElement.prototype.toDataURL = function(type) {
+    const ctx = this.getContext('2d');
+    if (ctx && this.width > 16 && this.height > 16) {
+      const style = ctx.fillStyle;
+      ctx.fillStyle = 'rgba(0,0,1,0.003)';
+      ctx.fillRect(0, 0, 1, 1);
+      ctx.fillStyle = style;
+    }
+    return origToDataURL.apply(this, arguments);
+  };
+
+  // --- 11. AudioContext fingerprint ---
+  if (typeof AudioContext !== 'undefined') {
+    const origGetFloatFreq = AnalyserNode.prototype.getFloatFrequencyData;
+    AnalyserNode.prototype.getFloatFrequencyData = function(array) {
+      origGetFloatFreq.call(this, array);
+      for (let i = 0; i < array.length; i++) {
+        array[i] += (Math.random() - 0.5) * 0.001;
+      }
+    };
+  }
+
+  // --- 12. chrome.csi mock (Cloudflare checks this) ---
+  if (window.chrome && !window.chrome.csi) {
+    window.chrome.csi = function() {
+      return {
+        onloadT: Date.now(),
+        startE: Date.now(),
+        pageT: 3947.235,
+        tran: 15,
+      };
+    };
+  }
 `;
 
 export async function createStealthContext(
@@ -166,6 +203,14 @@ export async function createStealthContext(
 
   // Inject stealth patches before any page script runs
   await context.addInitScript(STEALTH_INIT_SCRIPT);
+
+  // Extra HTTP headers for realistic browser fingerprint (Cloudflare checks these)
+  await context.setExtraHTTPHeaders({
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Sec-Ch-Ua': '"Chromium";v="120", "Google Chrome";v="120", "Not.A/Brand";v="8"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+  });
 
   return context;
 }

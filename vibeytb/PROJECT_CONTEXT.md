@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-27 (Layer 2 cascade tool_name recovery)
+> Cập nhật lần cuối: 2026-03-29 (URL Resolution v2 + Anti-Bot Hardening)
 
 ---
 
@@ -50,14 +50,18 @@ GitHub Actions Cron (daily-pipeline.yml)
 ### URL Resolution Chain (Phase 1)
 
 ```
-PH RSS Feed → tên tool + tagline
+PH RSS Feed → tên tool + PH product URL
   ↓
 pickBestTool() → chọn 1 tool (tránh trùng 7 ngày)
   ↓
-resolveUrlViaGemini(name, tagline) → URL thật (1 API call)
-  ↓ nếu Gemini fail (429/timeout)
-guessWebsiteUrl(name) → URL đoán từ tên (fallback)
+Plan A: Visit PH page → scrape "Visit website" href → URL thật
+  ↓ nếu PH bị Cloudflare/timeout (15s max)
+Plan B: resolveUrlViaGemini(name, tagline) → URL thật (1 API call)
+  ↓ nếu Gemini fail (429/timeout/UNKNOWN)
+Plan C: guessWebsiteUrl(name) → URL đoán từ tên (last resort)
 ```
+
+> `urlSource` field tracks which plan succeeded: `'ph-scrape'` | `'gemini'` | `'guess'`
 
 ### Visual Cascade (Phase 3)
 
@@ -164,6 +168,8 @@ Final video 1080×1920 9:16
 27. **Sequential upload + UPLOAD_PENDING**: Phase 4 rewritten — pre-flight credential check, YouTube→TikTok sequential upload with independent try/catch, `UPLOAD_PENDING` status for videos produced but not uploaded, Discord warning notification for upload-skipped/failed (2026-03-27)
 28. **Dead code cleanup**: Deleted `youtube-login.ts`, `save-auth.ts` (replaced by OAuth). Archived 5 legacy test scripts to `src/scripts/legacy-tests/`. Fixed smoke test for `UPLOAD_PENDING` enum (2026-03-27)
 29. **FFmpeg crop fix**: Added `scale` filter before `crop` in `media-stitcher.ts` — handles any input resolution (was crashing on Pexels 360×640 videos). Changed Pexels API `size: 'medium'` → `'large'` (2026-03-27)
+30. **URL Resolution v2**: 3-tier fallback chain — Plan A: scrape "Visit website" href from PH page via Playwright stealth, Plan B: Gemini LLM lookup, Plan C: guessWebsiteUrl(). Added `urlSource` field to track resolution method (2026-03-29)
+31. **Anti-bot stealth v2**: 3 new vectors — canvas fingerprint noise, AudioContext spoof, chrome.csi mock. Added Sec-Ch-Ua HTTP headers. Total: 12 stealth vectors (2026-03-29)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -185,13 +191,13 @@ Final video 1080×1920 9:16
 
 - **Google Cloud Console** phải giữ dù chạy ở đâu (YouTube API OAuth)
 - **playwright-extra + stealth plugin** KHÔNG tương thích — đừng gợi ý lại
-- **Stealth hardening**: Tất cả anti-bot patches nằm trong `playwright.ts` via `addInitScript` — Agent-1 và Agent-3 tự kế thừa
+- **Stealth hardening**: 12 anti-bot vectors trong `playwright.ts` via `addInitScript` + Sec-Ch-Ua headers — Agent-1 và Agent-3 tự kế thừa
 - **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase)
 - **Login Detection threshold**: score >= 2 (URL pattern `/signup` đủ trigger)
 - **Visual cascade**: Website Recording → Product Hunt → Pexels Stock (3 layers)
 - **Layer 2 recovery**: `__tool_name` backup at script_json top-level + URL-based extraction ensures PH cascade is never skipped (2026-03-27)
 - **DuckDuckGo**: Block automated HTTP requests — KHÔNG dùng cho URL lookup
-- **Gemini URL lookup**: Chỉ gọi 1 lần cho tool được chọn (tiết kiệm quota)
+- **URL Resolution**: 3-tier: PH page scrape (Plan A, 15s timeout) → Gemini (Plan B) → guess (Plan C). `urlSource` field tracks which plan won
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
@@ -201,7 +207,7 @@ Final video 1080×1920 9:16
 ## 🧪 Testing
 
 ```bash
-npm run test:smoke   # 13 tests, <3s, zero API calls
+npm run test:smoke   # 15 tests, <4s, zero API calls
 npx vitest run       # Full test suite (pre-commit hook chạy cái này)
 ```
 

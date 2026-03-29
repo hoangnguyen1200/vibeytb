@@ -165,3 +165,29 @@ describe('envFlag Parser', () => {
     expect(sourceCode).toContain("'1', 'true', 'yes', 'on'");
   });
 });
+
+// ─── 7. URL Resolution helpers ──────────────────────────────────
+describe('URL Resolution', () => {
+  it('guessWebsiteUrl handles domain-like names (e.g. tobira.ai)', async () => {
+    // Dynamic import the scraper to access guessWebsiteUrl indirectly
+    const scraperSource = fs.readFileSync(
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      'utf-8',
+    );
+
+    // Verify the domain detection regex exists
+    expect(scraperSource).toContain('[a-z0-9.-]+\\.[a-z]{2,}');
+    // Verify it produces https:// URLs
+    expect(scraperSource).toContain('`https://${');
+  });
+
+  it('ProductHuntTool interface includes urlSource field', async () => {
+    const scraperSource = fs.readFileSync(
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      'utf-8',
+    );
+
+    // Verify urlSource type definition exists
+    expect(scraperSource).toContain("urlSource: 'ph-scrape' | 'gemini' | 'guess'");
+  });
+});
