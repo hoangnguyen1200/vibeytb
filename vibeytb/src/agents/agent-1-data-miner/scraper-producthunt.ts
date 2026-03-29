@@ -165,7 +165,12 @@ async function resolveUrlViaGemini(name: string, tagline: string): Promise<strin
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Enable Google Search grounding — lets Gemini search the web before answering
+    // Without this, Gemini only guesses from training data (often wrong for new products)
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      tools: [{ googleSearch: {} } as any],
+    });
 
     const prompt = `What is the OFFICIAL website URL for the product "${name}"?
 Description: "${tagline}"
@@ -181,6 +186,12 @@ Example response: https://teamprompt.ai`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
+
+    // Log grounding status for debugging
+    const grounding = (result.response as any).candidates?.[0]?.groundingMetadata;
+    if (grounding?.webSearchQueries?.length) {
+      console.log(`  🔍 [Gemini] Grounded via search: "${grounding.webSearchQueries.join('", "')}"`);
+    }
 
     // Validate the response is a URL
     if (text === 'UNKNOWN' || !text.startsWith('http')) {
