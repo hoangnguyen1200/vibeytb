@@ -19,9 +19,10 @@ export interface ProductHuntTool {
   name: string;
   tagline: string;
   websiteUrl: string;
-  urlSource: 'ph-scrape' | 'gemini' | 'guess';
+  urlSource: 'ph-redirect' | 'ph-scrape' | 'gemini' | 'guess';
   topics: string[];
   productHuntUrl: string;
+  redirectUrl?: string; // PH /r/p/<id> redirect link from RSS (302 → real website)
 }
 
 // AI/Tech topic keywords to filter relevant products
@@ -51,6 +52,55 @@ function extractTagline(content: string): string {
 function extractRedirectUrl(content: string): string | null {
   const match = content.match(/href="(https:\/\/www\.producthunt\.com\/r\/p\/[^"]+)"/);
   return match?.[1] || null;
+}
+
+/**
+ * Plan A (NEW): Follow PH redirect URL from RSS feed → actual website.
+ * PH redirect URLs (e.g. /r/p/1107440) do a 302 redirect to the real product site.
+ * Uses native fetch with redirect: 'manual' — NO browser, NO Cloudflare issue.
+ */
+async function resolveUrlViaPHRedirect(redirectUrl: string): Promise<string | null> {
+  if (!redirectUrl) return null;
+
+  try {
+    console.log(`  🔗 [Plan A] Following PH redirect: ${redirectUrl}`);
+    // fetch with redirect: 'manual' to capture the 302 Location header
+    const response = await fetch(redirectUrl, {
+      method: 'HEAD',
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      },
+    });
+
+    const location = response.headers.get('location');
+    if (location && !location.includes('producthunt.com')) {
+      const parsed = new URL(location);
+      console.log(`  ✅ [Plan A] Redirect resolved: ${parsed.origin}`);
+      return parsed.origin;
+    }
+
+    // If 302 didn't give us a non-PH URL, try following the full redirect chain
+    const followResponse = await fetch(redirectUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      },
+    });
+    const finalUrl = followResponse.url;
+    if (finalUrl && !finalUrl.includes('producthunt.com')) {
+      const parsed = new URL(finalUrl);
+      console.log(`  ✅ [Plan A] Follow-redirect resolved: ${parsed.origin}`);
+      return parsed.origin;
+    }
+
+    console.log(`  ⚠️ [Plan A] Redirect did not lead to external URL`);
+    return null;
+  } catch (err) {
+    console.warn(`  ⚠️ [Plan A] Redirect follow failed:`, (err as Error).message?.slice(0, 80));
+    return null;
+  }
 }
 
 /**
@@ -254,8 +304,7 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
       const rawContent = item.content || '';
       const tagline = extractTagline(rawContent);
       const productHuntUrl = item.link || '';
-      // Keep redirect URL as metadata but don't use as websiteUrl
-      extractRedirectUrl(rawContent);
+      const redirectUrl = extractRedirectUrl(rawContent) || undefined;
 
       tools.push({
         name,
@@ -264,6 +313,7 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
         urlSource: 'guess',
         topics: [],
         productHuntUrl,
+        redirectUrl,
       });
     }
 
@@ -295,7 +345,7 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
 
 /**
  * Pick the best tool from today's PH launches, avoiding recently used ones.
- * Also resolves the REAL website URL via Gemini for the selected tool.
+ * Also resolves the REAL website URL via a 4-tier fallback chain.
  * Returns null if no suitable tool found.
  */
 export async function pickBestTool(
@@ -313,21 +363,33 @@ export async function pickBestTool(
 
     console.log(`[PH Picker] 🎯 Selected: "${tool.name}" — ${tool.tagline.slice(0, 50)}`);
 
-    // === 3-Tier URL Resolution Chain ===
+    // === 4-Tier URL Resolution Chain ===
 
-    // Plan A: Scrape "Visit website" from PH page (most accurate)
-    if (tool.productHuntUrl) {
-      console.log(`[PH Picker] 🔗 Plan A: Scraping URL from PH page...`);
-      const phUrl = await resolveUrlViaPHPage(tool.productHuntUrl);
-      if (phUrl) {
-        tool.websiteUrl = phUrl;
-        tool.urlSource = 'ph-scrape';
-        console.log(`[PH Picker] ✅ Plan A success: ${phUrl}`);
+    // Plan A: Follow PH redirect URL from RSS feed (fastest, no browser, no Cloudflare)
+    if (tool.redirectUrl) {
+      console.log(`[PH Picker] 🔗 Plan A: Following RSS redirect URL...`);
+      const redirected = await resolveUrlViaPHRedirect(tool.redirectUrl);
+      if (redirected) {
+        tool.websiteUrl = redirected;
+        tool.urlSource = 'ph-redirect';
+        console.log(`[PH Picker] ✅ Plan A success: ${redirected}`);
         return tool;
       }
     }
 
-    // Plan B: Gemini LLM lookup (fallback)
+    // Plan A-bis: Scrape "Visit website" from PH page (often blocked by Cloudflare)
+    if (tool.productHuntUrl) {
+      console.log(`[PH Picker] 🔗 Plan A-bis: Scraping URL from PH page...`);
+      const phUrl = await resolveUrlViaPHPage(tool.productHuntUrl);
+      if (phUrl) {
+        tool.websiteUrl = phUrl;
+        tool.urlSource = 'ph-scrape';
+        console.log(`[PH Picker] ✅ Plan A-bis success: ${phUrl}`);
+        return tool;
+      }
+    }
+
+    // Plan B: Gemini LLM lookup with Google Search grounding
     console.log(`[PH Picker] 🔗 Plan B: Resolving URL via Gemini...`);
     const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline);
     if (realUrl) {

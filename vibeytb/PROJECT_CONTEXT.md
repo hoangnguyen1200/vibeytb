@@ -50,13 +50,15 @@ GitHub Actions Cron (daily-pipeline.yml)
 ### URL Resolution Chain (Phase 1)
 
 ```
-PH RSS Feed → tên tool + PH product URL
+PH RSS Feed → tên tool + PH product URL + redirect URL (/r/p/<id>)
   ↓
 pickBestTool() → chọn 1 tool (tránh trùng 7 ngày)
   ↓
-Plan A: Visit PH page → scrape "Visit website" href → URL thật
+Plan A: Follow /r/p/<id> redirect via HTTP fetch → URL thật (NO browser, NO Cloudflare)
+  ↓ nếu redirect fail
+Plan A-bis: Visit PH page → scrape "Visit website" href (often CF-blocked)
   ↓ nếu PH bị Cloudflare/timeout (15s max)
-Plan B: resolveUrlViaGemini(name, tagline) → URL thật (1 API call)
+Plan B: resolveUrlViaGemini(name, tagline) + Google Search grounding
   ↓ nếu Gemini fail (429/timeout/UNKNOWN)
 Plan C: guessWebsiteUrl(name) → URL đoán từ tên (last resort)
 ```
@@ -172,6 +174,7 @@ Final video 1080×1920 9:16
 31. **Anti-bot stealth v2**: 3 new vectors — canvas fingerprint noise, AudioContext spoof, chrome.csi mock. Added Sec-Ch-Ua HTTP headers. Total: 12 stealth vectors (2026-03-29)
 32. **Gemini Search grounding**: Enabled `googleSearch` tool for Plan B URL resolution — Gemini now searches Google before answering instead of guessing from training data. Fixes wrong TLD issues (e.g. `.ai` instead of `.sh`) (2026-03-29)
 33. **Cloudflare Auto-Wait**: `waitForCloudflarePass()` polls for CF challenge elements and waits up to 15s for auto-pass on residential IP. Updated Chrome fingerprint 120→134. Visual QC frame timestamps shifted to 50%/75%/90% to skip loading frames (2026-03-29)
+34. **URL Resolution via PH redirect**: New Plan A — follow `/r/p/<id>` redirect URLs from RSS feed via HTTP fetch (no browser, no Cloudflare). Completely bypasses PH's Cloudflare Turnstile. Old Plan A (page scrape) demoted to A-bis (2026-03-29)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
