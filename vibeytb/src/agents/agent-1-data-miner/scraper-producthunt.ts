@@ -106,34 +106,48 @@ async function resolveUrlViaPHRedirect(redirectUrl: string): Promise<string | nu
 
 
 /**
- * Plan B: Use Gemini to find the official website URL for a product.
- * This is more accurate than guessing because Gemini has web knowledge.
+ * Plan B: Use Gemini + Google Search grounding to find the official website URL.
+ * Strategy: Give Gemini the PH page URL so it can find the website from Google's
+ * cached version of the PH page (bypasses Cloudflare since Google already indexed it).
  * Only called for the TOP selected tool (1 API call per pipeline run).
  */
-async function resolveUrlViaGemini(name: string, tagline: string): Promise<string | null> {
+async function resolveUrlViaGemini(
+  name: string,
+  tagline: string,
+  productHuntUrl?: string,
+): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Enable Google Search grounding — lets Gemini search the web before answering
-    // Without this, Gemini only guesses from training data (often wrong for new products)
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
       tools: [{ googleSearch: {} } as any],
     });
 
-    const prompt = `What is the OFFICIAL website URL for the product "${name}"?
-Description: "${tagline}"
-It was recently launched on Product Hunt.
+    // Build context-rich prompt that guides Gemini's search
+    const phContext = productHuntUrl
+      ? `\nProduct Hunt page: ${productHuntUrl}`
+      : '';
+
+    const prompt = `Find the OFFICIAL website URL for this product that was recently launched on Product Hunt.
+
+Product name: "${name}"
+Description: "${tagline}"${phContext}
+
+Search strategy:
+1. First, search for the Product Hunt page of this product — the "Visit website" button or "Company Info" section on that page contains the real URL
+2. If that fails, search for: site:producthunt.com "${name}" to find cached product info
+3. As last resort, search for: "${name}" ${tagline.split(' ').slice(0, 3).join(' ')}
 
 Rules:
-- Respond with ONLY the URL, nothing else
-- Must be the actual product website, NOT producthunt.com
-- If the product name contains a domain (like "jared.so"), use that
+- Respond with ONLY the URL, nothing else (e.g. https://sunapp.ai)
+- Must be the actual product website, NOT producthunt.com, twitter.com, github.com, or linkedin.com
+- If the product name looks like a domain (e.g. "jared.so", "bna.dev"), use https://[that domain]
 - If unsure, respond with exactly: UNKNOWN
 
-Example response: https://teamprompt.ai`;
+Example: If the Product Hunt page shows "Visit website" linking to sunapp.ai, respond: https://sunapp.ai`;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
@@ -165,6 +179,7 @@ Example response: https://teamprompt.ai`;
     return null;
   }
 }
+
 
 /**
  * Build a best-guess website URL from the product name.
@@ -280,7 +295,7 @@ export async function pickBestTool(
 
     // Plan B: Gemini LLM lookup with Google Search grounding
     console.log(`[PH Picker] 🔗 Plan B: Resolving URL via Gemini...`);
-    const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline);
+    const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline, tool.productHuntUrl);
     if (realUrl) {
       console.log(`[PH Picker] ✅ Plan B success: ${realUrl}`);
       tool.websiteUrl = realUrl;
