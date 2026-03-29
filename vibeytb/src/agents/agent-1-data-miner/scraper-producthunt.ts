@@ -3,15 +3,15 @@
  *
  * Strategy: Use Product Hunt's public RSS feed (no API key needed).
  * URL Resolution Chain:
- *   1. Gemini LLM lookup (uses existing API key, 1 query/day)
- *   2. URL guessing from product name (fallback)
+ *   1. PH redirect URL from RSS (/r/p/<id>) — follow HTTP redirect
+ *   2. Gemini LLM lookup with Google Search grounding
+ *   3. URL guessing from product name (fallback)
  *
  * Feed URL: https://www.producthunt.com/feed
  */
 import 'dotenv/config';
 import Parser from 'rss-parser';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { launchStealthPage } from '../../utils/playwright';
 
 const rssParser = new Parser();
 
@@ -19,7 +19,7 @@ export interface ProductHuntTool {
   name: string;
   tagline: string;
   websiteUrl: string;
-  urlSource: 'ph-redirect' | 'ph-scrape' | 'gemini' | 'guess';
+  urlSource: 'ph-redirect' | 'gemini' | 'guess';
   topics: string[];
   productHuntUrl: string;
   redirectUrl?: string; // PH /r/p/<id> redirect link from RSS (302 → real website)
@@ -103,106 +103,7 @@ async function resolveUrlViaPHRedirect(redirectUrl: string): Promise<string | nu
   }
 }
 
-/**
- * Plan A: Visit PH product page and scrape the "Visit website" link.
- * This gives us the REAL, verified URL directly from Product Hunt.
- * Timeout: 15s max. Uses stealth browser to bypass Cloudflare.
- */
-async function resolveUrlViaPHPage(productHuntUrl: string): Promise<string | null> {
-  if (!productHuntUrl) return null;
 
-  let browser;
-  try {
-    console.log(`  🔗 [Plan A] Visiting PH page: ${productHuntUrl}`);
-    const result = await launchStealthPage({ launch: { headless: true } });
-    browser = result.browser;
-    const page = result.page;
-
-    // Navigate with 15s timeout
-    await page.goto(productHuntUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-
-    // Wait briefly for dynamic content to render
-    await page.waitForTimeout(2000);
-
-    // Strategy 1: Find redirect links (PH uses /r/p/<id> redirects to actual site)
-    const redirectLink = await page.evaluate(() => {
-      // PH redirect links contain /r/p/ and point to the actual product
-      const links = Array.from(document.querySelectorAll('a[href*="/r/"]'));
-      for (const link of links) {
-        const href = link.getAttribute('href') || '';
-        // Match /r/p/<id> pattern (product redirect) — skip /r/u/ (user redirect)
-        if (href.includes('/r/p/') || href.match(/\/r\/[a-zA-Z0-9]+$/)) {
-          return href.startsWith('http') ? href : `https://www.producthunt.com${href}`;
-        }
-      }
-      return null;
-    });
-
-    // Strategy 2: Look for "Visit website", "Get it", or external link buttons
-    const externalLink = await page.evaluate(() => {
-      const selectors = [
-        'a[href^="http"]:not([href*="producthunt.com"])',
-      ];
-      // Look for links with text like "Visit", "Get it", "Website"
-      const allLinks = Array.from(document.querySelectorAll('a[href^="http"]'));
-      for (const link of allLinks) {
-        const href = link.getAttribute('href') || '';
-        const text = (link.textContent || '').toLowerCase();
-        if (
-          !href.includes('producthunt.com') &&
-          !href.includes('twitter.com') &&
-          !href.includes('x.com') &&
-          !href.includes('github.com') &&
-          (text.includes('visit') || text.includes('get it') || text.includes('website'))
-        ) {
-          return href;
-        }
-      }
-      return null;
-    });
-
-    // If we got a redirect link, follow it to get the final URL
-    if (redirectLink) {
-      try {
-        const redirectPage = await result.context.newPage();
-        const response = await redirectPage.goto(redirectLink, {
-          waitUntil: 'domcontentloaded',
-          timeout: 10000,
-        });
-        const finalUrl = redirectPage.url();
-        await redirectPage.close();
-
-        // Validate: not PH, not empty
-        const parsed = new URL(finalUrl);
-        if (!parsed.hostname.includes('producthunt.com')) {
-          console.log(`  ✅ [Plan A] Found via redirect: ${parsed.origin}`);
-          return parsed.origin;
-        }
-      } catch {
-        // Redirect follow failed, continue to next strategy
-      }
-    }
-
-    // Use the external link if found
-    if (externalLink) {
-      try {
-        const parsed = new URL(externalLink);
-        console.log(`  ✅ [Plan A] Found via external link: ${parsed.origin}`);
-        return parsed.origin;
-      } catch {
-        // Invalid URL, skip
-      }
-    }
-
-    console.log(`  ⚠️ [Plan A] No website link found on PH page`);
-    return null;
-  } catch (err) {
-    console.warn(`  ⚠️ [Plan A] PH page scrape failed:`, (err as Error).message?.slice(0, 80));
-    return null;
-  } finally {
-    await browser?.close().catch(() => {});
-  }
-}
 
 /**
  * Plan B: Use Gemini to find the official website URL for a product.
@@ -373,18 +274,6 @@ export async function pickBestTool(
         tool.websiteUrl = redirected;
         tool.urlSource = 'ph-redirect';
         console.log(`[PH Picker] ✅ Plan A success: ${redirected}`);
-        return tool;
-      }
-    }
-
-    // Plan A-bis: Scrape "Visit website" from PH page (often blocked by Cloudflare)
-    if (tool.productHuntUrl) {
-      console.log(`[PH Picker] 🔗 Plan A-bis: Scraping URL from PH page...`);
-      const phUrl = await resolveUrlViaPHPage(tool.productHuntUrl);
-      if (phUrl) {
-        tool.websiteUrl = phUrl;
-        tool.urlSource = 'ph-scrape';
-        console.log(`[PH Picker] ✅ Plan A-bis success: ${phUrl}`);
         return tool;
       }
     }

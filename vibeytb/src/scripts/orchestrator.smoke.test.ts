@@ -187,7 +187,7 @@ describe('URL Resolution', () => {
       'utf-8',
     );
 
-    // Verify urlSource type definition exists (includes ph-redirect)
-    expect(scraperSource).toContain("urlSource: 'ph-redirect' | 'ph-scrape' | 'gemini' | 'guess'");
+    // Verify urlSource type definition exists (ph-redirect + gemini + guess)
+    expect(scraperSource).toContain("urlSource: 'ph-redirect' | 'gemini' | 'guess'");
   });
 });

@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-29 (Cloudflare Auto-Wait + Chrome 134)
+> Cập nhật lần cuối: 2026-03-29 (Remove Plan A-bis dead code)
 
 ---
 
@@ -56,8 +56,6 @@ pickBestTool() → chọn 1 tool (tránh trùng 7 ngày)
   ↓
 Plan A: Follow /r/p/<id> redirect via HTTP fetch → URL thật (NO browser, NO Cloudflare)
   ↓ nếu redirect fail
-Plan A-bis: Visit PH page → scrape "Visit website" href (often CF-blocked)
-  ↓ nếu PH bị Cloudflare/timeout (15s max)
 Plan B: resolveUrlViaGemini(name, tagline) + Google Search grounding
   ↓ nếu Gemini fail (429/timeout/UNKNOWN)
 Plan C: guessWebsiteUrl(name) → URL đoán từ tên (last resort)
