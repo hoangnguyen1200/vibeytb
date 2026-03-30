@@ -9,12 +9,13 @@ import { generateScriptFromTrend } from '../agents/agent-2-strategist/generator'
 import { generateAudioFromText } from '../agents/agent-3-producer/tts-client';
 import { downloadStockVideo } from '../agents/agent-3-producer/pexels-client';
 import { downloadBGMFromPixabay } from '../agents/agent-3-producer/pixabay-client';
-import { recordWebsiteScroll, recordProductHuntPage } from '../agents/agent-3-producer/playwright-recorder';
+import { recordWebsiteScroll } from '../agents/agent-3-producer/playwright-recorder';
 import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/media-stitcher';
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
-import { scrapeProductHuntToday, pickBestTool, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
+import { scrapeProductHuntToday, pickBestTool, discoverViaGeminiSearch, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
+import { scrapeHackerNewsToday } from '../agents/agent-1-data-miner/scraper-hackernews';
 import { validateVideo } from './qc-video';
 import { notifyDiscord } from '../utils/notifier';
 
@@ -242,17 +243,18 @@ export class TheMasterOrchestrator {
     // Content Memory: get tools to avoid (used by both topic discovery and script generation)
     const recentTools = await this.getRecentlyUsedTools();
 
-    // PRIMARY: Try Product Hunt for real tool data
-    const phTool = await this.discoverFromProductHunt(recentTools);
+    // MULTI-SOURCE: Discover from PH + HN + Gemini Search
+    const allTools = await this.discoverFromAllSources(recentTools);
+    const selectedTool = await pickBestTool(allTools, recentTools);
 
     let selectedTrend: string;
     let toolData: { name: string; tagline: string; url: string } | undefined;
 
-    if (phTool) {
-      selectedTrend = `${phTool.name}: ${phTool.tagline}`;
-      toolData = { name: phTool.name, tagline: phTool.tagline, url: phTool.websiteUrl };
-      console.log(`[PHASE 1] 🎯 Product Hunt tool: "${phTool.name}" — ${phTool.tagline}`);
-      console.log(`[PHASE 1] 🔗 Website: ${phTool.websiteUrl} (source: ${phTool.urlSource})`);
+    if (selectedTool) {
+      selectedTrend = `${selectedTool.name}: ${selectedTool.tagline}`;
+      toolData = { name: selectedTool.name, tagline: selectedTool.tagline, url: selectedTool.websiteUrl };
+      console.log(`[PHASE 1] 🎯 Selected: "${selectedTool.name}" — ${selectedTool.tagline}`);
+      console.log(`[PHASE 1] 🔗 Website: ${selectedTool.websiteUrl} (source: ${selectedTool.urlSource})`);
     } else {
       // FALLBACK: LLM keyword discovery
       selectedTrend = await this.discoverFreshTopic(recentTools);
@@ -412,48 +414,14 @@ export class TheMasterOrchestrator {
           if (isPass) {
             websiteRecorded = true;
           } else {
-            console.log('[VISUAL QC] ❌ Layer 1 FAIL → Trying Product Hunt cascade...');
+            console.log('[VISUAL QC] ❌ Layer 1 FAIL → Using stock video.');
           }
         } catch (error: unknown) {
-          console.log('[LAYER 1] Playwright failed → Trying Product Hunt cascade...');
+          console.log('[LAYER 1] Playwright failed → Using stock video.');
         }
       }
 
-      // === LAYER 2: Product Hunt fallback (works even when URL is blacklisted!) ===
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const toolName = (scene as any).tool_name as string | null | undefined;
-
-      // Fallback: extract tool name from URL domain (e.g. "https://cockpit.ai" → "cockpit-ai")
-      let effectiveToolName = toolName;
-      if (!effectiveToolName && scene.target_website_url) {
-        try {
-          effectiveToolName = new URL(scene.target_website_url)
-            .hostname.replace(/^www\./, '').replace(/\.[^.]+$/, '');
-          console.log(`[LAYER 2] Extracted tool name from URL: "${effectiveToolName}"`);
-        } catch { /* invalid URL, skip */ }
-      }
-
-      if (!websiteRecorded && effectiveToolName) {
-        try {
-          console.log(`[PHASE 3] Layer 2 → Recording Product Hunt page for: ${effectiveToolName}`);
-          videoPath = await recordProductHuntPage(
-            effectiveToolName,
-            duration,
-            path.join(tmpDir, `scene_${sceneIndex}_ph.webm`)
-          );
-
-          console.log(`[PHASE 3] Running Visual QC on Product Hunt recording...`);
-          const phPass = await runVisualQC(videoPath, jobId, `producthunt.com/products/${effectiveToolName}`);
-          if (phPass) {
-            websiteRecorded = true;
-            console.log('[LAYER 2] ✅ Product Hunt recording passed Visual QC!');
-          } else {
-            console.log('[LAYER 2] ❌ Product Hunt also failed QC → Using stock video.');
-          }
-        } catch (error: unknown) {
-          console.log('[LAYER 2] Product Hunt recording failed → Using stock video.');
-        }
-      }
+      // Layer 2 REMOVED (2026-03-30) — PH page recording always fails due to Cloudflare Turnstile
 
       // === LAYER 3: Stock video (last resort) ===
       if (!websiteRecorded) {
@@ -700,26 +668,38 @@ export class TheMasterOrchestrator {
   }
 
   /**
-   * PRIMARY data source: Product Hunt today's launches.
-   * Returns the best tool not recently used, or null if PH is unavailable.
+   * MULTI-SOURCE discovery: PH + HN + Gemini Search.
+   * Returns merged tool list (unpicked). pickBestTool() runs separately.
    */
-  private async discoverFromProductHunt(avoidTools: string[]): Promise<ProductHuntTool | null> {
+  private async discoverFromAllSources(avoidTools: string[]): Promise<ProductHuntTool[]> {
+    const allTools: ProductHuntTool[] = [];
+
+    // Source 1: Product Hunt RSS (primary — best for AI tools)
     try {
-      const tools = await scrapeProductHuntToday();
-      if (tools.length === 0) {
-        console.log('[PH DISCOVERY] No tools from Product Hunt, falling back to LLM');
-        return null;
-      }
-      const picked = await pickBestTool(tools, avoidTools);
-      if (!picked) {
-        console.log('[PH DISCOVERY] All PH tools already used recently, falling back to LLM');
-        return null;
-      }
-      return picked;
+      const phTools = await scrapeProductHuntToday();
+      allTools.push(...phTools);
     } catch (err) {
-      console.warn('[PH DISCOVERY] Product Hunt scrape failed, falling back to LLM', err);
-      return null;
+      console.warn('[SOURCE 1] Product Hunt failed:', (err as Error).message?.slice(0, 60));
     }
+
+    // Source 2: Hacker News "Show HN" (free API, URLs included)
+    try {
+      const hnTools = await scrapeHackerNewsToday();
+      allTools.push(...hnTools);
+    } catch (err) {
+      console.warn('[SOURCE 2] Hacker News failed:', (err as Error).message?.slice(0, 60));
+    }
+
+    // Source 3: Gemini AI Search (1 API call, finds recent launches)
+    try {
+      const geminiTools = await discoverViaGeminiSearch();
+      allTools.push(...geminiTools);
+    } catch (err) {
+      console.warn('[SOURCE 3] Gemini Search failed:', (err as Error).message?.slice(0, 60));
+    }
+
+    console.log(`[PHASE 1] Total tools from all sources: ${allTools.length} (PH + HN + Gemini)`);
+    return allTools;
   }
 
   /**

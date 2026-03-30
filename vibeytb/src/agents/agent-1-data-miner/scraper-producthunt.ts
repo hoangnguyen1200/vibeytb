@@ -19,7 +19,7 @@ export interface ProductHuntTool {
   name: string;
   tagline: string;
   websiteUrl: string;
-  urlSource: 'ph-redirect' | 'gemini' | 'guess';
+  urlSource: 'ph-redirect' | 'gemini' | 'guess' | 'hackernews' | 'gemini-search';
   topics: string[];
   productHuntUrl: string;
   redirectUrl?: string; // PH /r/p/<id> redirect link from RSS (302 → real website)
@@ -103,6 +103,143 @@ async function resolveUrlViaPHRedirect(redirectUrl: string): Promise<string | nu
   }
 }
 
+/**
+ * Verify a URL is alive AND belongs to the correct product.
+ * Layer 1: HTTP check — site responds (200-399, or 403/503 = CF but exists)
+ * Layer 2: Content relevance — page title/meta contains the tool name
+ */
+export async function verifyUrl(
+  url: string,
+  toolName: string,
+): Promise<{ alive: boolean; relevant: boolean; reason: string }> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const res = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+      },
+      redirect: 'follow',
+    });
+    clearTimeout(timeout);
+
+    // Layer 1: HTTP check
+    const status = res.status;
+    if (status === 404) {
+      return { alive: false, relevant: false, reason: `HTTP 404 — page not found` };
+    }
+    if (status >= 500 && status !== 503) {
+      return { alive: false, relevant: false, reason: `HTTP ${status} — server error` };
+    }
+
+    // Status 200-399 or 403/503 (Cloudflare) = site exists
+    const alive = true;
+
+    // Layer 2: Content relevance — check <title> and <meta description>
+    const html = await res.text().catch(() => '');
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const metaMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+    const ogMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']*)["']/i);
+
+    const pageTitle = (titleMatch?.[1] || '').toLowerCase();
+    const metaDesc = (metaMatch?.[1] || '').toLowerCase();
+    const ogTitle = (ogMatch?.[1] || '').toLowerCase();
+    const allContent = `${pageTitle} ${metaDesc} ${ogTitle}`;
+
+    // Normalize tool name for matching (e.g. "GuideYou" → "guideyou")
+    const nameWords = toolName.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+    const relevant = nameWords.some(word => allContent.includes(word));
+
+    if (!relevant && allContent.length > 0) {
+      console.log(`  ⚠️ [Verify] Page title: "${pageTitle.slice(0, 60)}" — no match for "${toolName}"`);
+    }
+
+    return {
+      alive,
+      relevant: relevant || allContent.length === 0, // If no content (CF block), assume relevant
+      reason: relevant ? 'content matches tool name' : `title/meta does not mention "${toolName}"`,
+    };
+  } catch (err) {
+    const msg = (err as Error).message || '';
+    if (msg.includes('abort')) {
+      return { alive: false, relevant: false, reason: 'timeout (8s)' };
+    }
+    return { alive: false, relevant: false, reason: msg.slice(0, 60) };
+  }
+}
+
+/**
+ * Source 3: Use Gemini + Google Search to discover AI tools launched today.
+ * Returns tools with URLs already resolved (no need for Plan A/B/C).
+ * Costs 1 API call.
+ */
+export async function discoverViaGeminiSearch(): Promise<ProductHuntTool[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    console.log('[Gemini Search] 🔍 Discovering AI tools launched today...');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      tools: [{ googleSearch: {} } as any],
+    });
+
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const prompt = `Search for AI tools or SaaS products that were launched or announced today (${today}).
+
+For each tool found, provide:
+- Name
+- One-line description
+- Official website URL
+
+Respond in this exact JSON format (array of objects):
+[{"name": "ToolName", "tagline": "Short description", "url": "https://example.com"}]
+
+Rules:
+- Only include tools with a real website URL (not producthunt.com, twitter.com, github.com)
+- Maximum 5 tools
+- If you cannot find any tools launched today, respond with: []
+- Respond with ONLY the JSON array, no other text`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    // Extract JSON from response (may be wrapped in ```json blocks)
+    const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/)
+    if (!jsonMatch) {
+      console.log('[Gemini Search] No tools found or invalid response');
+      return [];
+    }
+
+    const parsed: Array<{ name: string; tagline: string; url: string }> = JSON.parse(jsonMatch[0]);
+    const tools: ProductHuntTool[] = parsed
+      .filter(t => t.name && t.url && t.url.startsWith('http'))
+      .map(t => ({
+        name: t.name,
+        tagline: t.tagline || '',
+        websiteUrl: t.url,
+        urlSource: 'gemini-search' as const,
+        topics: [],
+        productHuntUrl: '',
+        redirectUrl: undefined,
+      }));
+
+    console.log(`[Gemini Search] ✅ Found ${tools.length} AI tools`);
+    for (const tool of tools) {
+      console.log(`  → ${tool.name} — ${tool.tagline.slice(0, 50)}`);
+    }
+
+    return tools;
+  } catch (err) {
+    console.warn('[Gemini Search] Failed:', (err as Error).message?.slice(0, 80));
+    return [];
+  }
+}
 
 
 /**
@@ -254,8 +391,10 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
 }
 
 /**
- * Pick the best tool from today's PH launches, avoiding recently used ones.
- * Also resolves the REAL website URL via a 4-tier fallback chain.
+ * Pick the best tool from a merged list, avoiding recently used ones.
+ * For PH tools: resolves URL via redirect → Gemini → guess chain.
+ * For HN/Gemini-search tools: URL already present.
+ * After resolving, verifies the URL is alive and relevant.
  * Returns null if no suitable tool found.
  */
 export async function pickBestTool(
@@ -267,39 +406,57 @@ export async function pickBestTool(
   for (const tool of tools) {
     const nameLower = tool.name.toLowerCase().trim();
     if (avoidLower.some(avoid => nameLower.includes(avoid) || avoid.includes(nameLower))) {
-      console.log(`[PH Picker] Skipping "${tool.name}" (recently used)`);
+      console.log(`[Picker] Skipping "${tool.name}" (recently used)`);
       continue;
     }
 
-    console.log(`[PH Picker] 🎯 Selected: "${tool.name}" — ${tool.tagline.slice(0, 50)}`);
+    console.log(`[Picker] 🎯 Selected: "${tool.name}" — ${tool.tagline.slice(0, 50)} [source: ${tool.urlSource}]`);
 
-    // === 4-Tier URL Resolution Chain ===
+    // HN/Gemini-search tools already have URLs — skip resolution
+    if (tool.urlSource !== 'hackernews' && tool.urlSource !== 'gemini-search') {
+      // === URL Resolution Chain (PH tools only) ===
 
-    // Plan A: Follow PH redirect URL from RSS feed (fastest, no browser, no Cloudflare)
-    if (tool.redirectUrl) {
-      console.log(`[PH Picker] 🔗 Plan A: Following RSS redirect URL...`);
-      const redirected = await resolveUrlViaPHRedirect(tool.redirectUrl);
-      if (redirected) {
-        tool.websiteUrl = redirected;
-        tool.urlSource = 'ph-redirect';
-        console.log(`[PH Picker] ✅ Plan A success: ${redirected}`);
-        return tool;
+      // Plan A: Follow PH redirect URL from RSS feed
+      if (tool.redirectUrl) {
+        console.log(`[Picker] 🔗 Plan A: Following RSS redirect URL...`);
+        const redirected = await resolveUrlViaPHRedirect(tool.redirectUrl);
+        if (redirected) {
+          tool.websiteUrl = redirected;
+          tool.urlSource = 'ph-redirect';
+          console.log(`[Picker] ✅ Plan A success: ${redirected}`);
+        }
+      }
+
+      // Plan B: Gemini LLM lookup (if Plan A failed)
+      if (tool.urlSource !== 'ph-redirect') {
+        console.log(`[Picker] 🔗 Plan B: Resolving URL via Gemini...`);
+        const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline, tool.productHuntUrl);
+        if (realUrl) {
+          console.log(`[Picker] ✅ Plan B success: ${realUrl}`);
+          tool.websiteUrl = realUrl;
+          tool.urlSource = 'gemini';
+        } else {
+          console.log(`[Picker] 🔄 Plan B failed, using Plan C (guess): ${tool.websiteUrl}`);
+          tool.urlSource = 'guess';
+        }
       }
     }
 
-    // Plan B: Gemini LLM lookup with Google Search grounding
-    console.log(`[PH Picker] 🔗 Plan B: Resolving URL via Gemini...`);
-    const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline, tool.productHuntUrl);
-    if (realUrl) {
-      console.log(`[PH Picker] ✅ Plan B success: ${realUrl}`);
-      tool.websiteUrl = realUrl;
-      tool.urlSource = 'gemini';
-    } else {
-      // Plan C: guessWebsiteUrl already set as default
-      console.log(`[PH Picker] 🔄 Plan B failed, using Plan C (guess): ${tool.websiteUrl}`);
-      tool.urlSource = 'guess';
+    // === URL Verification (all sources) ===
+    console.log(`[Picker] 🔍 Verifying URL: ${tool.websiteUrl}`);
+    const verification = await verifyUrl(tool.websiteUrl, tool.name);
+
+    if (!verification.alive) {
+      console.log(`[Picker] ❌ URL dead: ${verification.reason} → trying next tool`);
+      continue; // Skip this tool, try next one
     }
 
+    if (!verification.relevant) {
+      console.log(`[Picker] ⚠️ URL alive but WRONG site: ${verification.reason} → trying next tool`);
+      continue; // Skip this tool, try next one
+    }
+
+    console.log(`[Picker] ✅ URL verified: alive + content matches`);
     return tool;
   }
 

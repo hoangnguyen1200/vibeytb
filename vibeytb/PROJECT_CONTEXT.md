@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-30 (Fix blacklist false-positive)
+> Cập nhật lần cuối: 2026-03-30 (Multi-source + remove Layer 2 + URL verify)
 
 ---
 
@@ -61,16 +61,26 @@ Plan B: resolveUrlViaGemini(name, tagline) + Google Search grounding
 Plan C: guessWebsiteUrl(name) → URL đoán từ tên (last resort)
 ```
 
-> `urlSource` field tracks which plan succeeded: `'ph-redirect'` | `'gemini'` | `'guess'`
+> `urlSource` field tracks which plan succeeded: `'ph-redirect'` | `'gemini'` | `'guess'` | `'hackernews'` | `'gemini-search'`
+
+### URL Verification (2-layer)
+
+```
+verifyUrl(url, toolName):
+  Layer 1: HTTP check → site alive? (200-399 or 403/503 = CF but exists)
+  Layer 2: Content relevance → page <title>/<meta> chứa tên tool?
+  → ✅ alive + relevant → OK
+  → ❌ dead or wrong site → skip, try next tool
+```
 
 ### Visual Cascade (Phase 3)
 
 ```
-Layer 1: Playwright recording website thật (URL từ Gemini)
-  ↓ nếu Visual QC fail
-Layer 2: Playwright recording trang Product Hunt (cần tool_name)
-  ↓ nếu fail
-Layer 3: Pexels stock footage (keywords)
+Layer 1: Record actual website (Playwright) → Visual QC
+  ↓ if fail
+Layer 2: REMOVED (2026-03-30) — PH page always blocked by Cloudflare Turnstile
+  ↓
+Layer 3: Pexels stock video (fallback)
 ```
 
 > `tool_name` được inject vào ALL scenes ở Phase 1-2 (không phụ thuộc LLM).
@@ -174,6 +184,9 @@ Final video 1080×1920 9:16
 33. **Cloudflare Auto-Wait**: `waitForCloudflarePass()` polls for CF challenge elements and waits up to 15s for auto-pass on residential IP. Updated Chrome fingerprint 120→134. Visual QC frame timestamps shifted to 50%/75%/90% to skip loading frames (2026-03-29)
 34. **URL Resolution via PH redirect**: New Plan A — follow `/r/p/<id>` redirect URLs from RSS feed via HTTP fetch (no browser, no Cloudflare). Completely bypasses PH's Cloudflare Turnstile. Old Plan A (page scrape) demoted to A-bis (2026-03-29)
 35. **Blacklist false-positive fix**: `BLOCKED_DOMAINS` check changed from `url.includes(domain)` to proper hostname matching (`hostname === domain || hostname.endsWith(.domain)`). Fixes `guideyou.com` being falsely blocked by `you.com` rule (2026-03-30)
+36. **Multi-source discovery**: Phase 1 now merges 3 sources — PH RSS + HN "Show HN" API + Gemini AI Search. Pool tăng từ ~25 → ~35 tools (2026-03-30)
+37. **Layer 2 removed**: PH page recording (Cloudflare Turnstile block 100%) removed. Layer 1 fail → thẳng Layer 3 stock (2026-03-30)
+38. **URL Verification**: 2-layer verify — HTTP alive check + content relevance (title/meta match tool name). Wrong URLs auto-skip to next tool (2026-03-30)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -198,10 +211,10 @@ Final video 1080×1920 9:16
 - **Stealth hardening**: 12 anti-bot vectors trong `playwright.ts` via `addInitScript` + Sec-Ch-Ua headers — Agent-1 và Agent-3 tự kế thừa
 - **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase)
 - **Login Detection threshold**: score >= 2 (URL pattern `/signup` đủ trigger)
-- **Visual cascade**: Website Recording → Product Hunt → Pexels Stock (3 layers)
-- **Layer 2 recovery**: `__tool_name` backup at script_json top-level + URL-based extraction ensures PH cascade is never skipped (2026-03-27)
-- **DuckDuckGo**: Block automated HTTP requests — KHÔNG dùng cho URL lookup
-- **URL Resolution**: 3-tier: PH redirect (Plan A) → Gemini + Google Search grounding (Plan B) → guess (Plan C). `urlSource` field tracks which plan won
+- **Data sources**: 3 sources — PH RSS (primary), HN "Show HN" API, Gemini AI Search
+- **URL Resolution**: PH tools: redirect → Gemini → guess. HN/Gemini tools: URL sẵn có
+- **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
+- **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
@@ -211,8 +224,7 @@ Final video 1080×1920 9:16
 ## 🧪 Testing
 
 ```bash
-npm run test:smoke   # 15 tests, <4s, zero API calls
-npx vitest run       # Full test suite (pre-commit hook chạy cái này)
+npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 ```
 
 | Test Group | Count | What it catches |

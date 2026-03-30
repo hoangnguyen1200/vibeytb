@@ -167,27 +167,58 @@ describe('envFlag Parser', () => {
 });
 
 // ─── 7. URL Resolution helpers ──────────────────────────────────
-describe('URL Resolution', () => {
+describe('URL Resolution & Multi-Source', () => {
   it('guessWebsiteUrl handles domain-like names (e.g. tobira.ai)', async () => {
-    // Dynamic import the scraper to access guessWebsiteUrl indirectly
     const scraperSource = fs.readFileSync(
       path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
       'utf-8',
     );
-
-    // Verify the domain detection regex exists
     expect(scraperSource).toContain('[a-z0-9.-]+\\.[a-z]{2,}');
-    // Verify it produces https:// URLs
     expect(scraperSource).toContain('`https://${');
   });
 
-  it('ProductHuntTool interface includes urlSource field', async () => {
+  it('urlSource supports all source types', async () => {
     const scraperSource = fs.readFileSync(
       path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
       'utf-8',
     );
+    // Must support all 5 source types
+    expect(scraperSource).toContain("'ph-redirect'");
+    expect(scraperSource).toContain("'gemini'");
+    expect(scraperSource).toContain("'guess'");
+    expect(scraperSource).toContain("'hackernews'");
+    expect(scraperSource).toContain("'gemini-search'");
+  });
 
-    // Verify urlSource type definition exists (ph-redirect + gemini + guess)
-    expect(scraperSource).toContain("urlSource: 'ph-redirect' | 'gemini' | 'guess'");
+  it('HN scraper module exists and exports scrapeHackerNewsToday', async () => {
+    const hnSource = fs.readFileSync(
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-hackernews.ts'),
+      'utf-8',
+    );
+    expect(hnSource).toContain('export async function scrapeHackerNewsToday');
+    expect(hnSource).toContain('hacker-news.firebaseio.com');
+  });
+
+  it('verifyUrl function exists with content relevance check', async () => {
+    const scraperSource = fs.readFileSync(
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      'utf-8',
+    );
+    expect(scraperSource).toContain('export async function verifyUrl');
+    expect(scraperSource).toContain('<title');
+    expect(scraperSource).toContain('relevant');
+  });
+
+  it('Layer 2 PH recording is removed from orchestrator', async () => {
+    const orchSource = fs.readFileSync(
+      path.join(__dirname, 'the-orchestrator.ts'),
+      'utf-8',
+    );
+    // Must NOT import recordProductHuntPage
+    expect(orchSource).not.toContain('recordProductHuntPage');
+    // Must have multi-source discovery
+    expect(orchSource).toContain('discoverFromAllSources');
+    // Must import HN scraper
+    expect(orchSource).toContain('scrapeHackerNewsToday');
   });
 });
