@@ -203,16 +203,23 @@ export class TheMasterOrchestrator {
   private async getRecentlyUsedTools(): Promise<string[]> {
     try {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Strategy: prefer top-level tool_name column, fallback to JSONB parsing
       const { data, error } = await supabase
         .from('video_projects')
-        .select('script_json')
-        .gte('created_at', sevenDaysAgo)
-        .not('script_json', 'is', null);
+        .select('tool_name, script_json')
+        .gte('created_at', sevenDaysAgo);
 
       if (error || !data) return [];
 
       const toolNames = new Set<string>();
       for (const row of data) {
+        // Prefer top-level column (fast, clean)
+        if (typeof row.tool_name === 'string' && row.tool_name.trim()) {
+          toolNames.add(row.tool_name.trim());
+          continue;
+        }
+        // Fallback: parse JSONB (legacy rows without tool_name column)
         const script = row.script_json as ScriptJson | null;
         if (!script?.scenes) continue;
         for (const scene of script.scenes) {
@@ -242,7 +249,7 @@ export class TheMasterOrchestrator {
     // Content Memory: get tools to avoid (used by both topic discovery and script generation)
     const recentTools = await this.getRecentlyUsedTools();
 
-    // MULTI-SOURCE: Discover from PH + HN + Gemini Search
+    // MULTI-SOURCE: Discover from Gemini Search + Google CSE
     const allTools = await this.discoverFromAllSources(recentTools);
     const selectedTool = await pickBestTool(allTools, recentTools);
 
@@ -254,10 +261,18 @@ export class TheMasterOrchestrator {
       toolData = { name: selectedTool.name, tagline: selectedTool.tagline, url: selectedTool.websiteUrl };
       console.log(`[PHASE 1] 🎯 Selected: "${selectedTool.name}" — ${selectedTool.tagline}`);
       console.log(`[PHASE 1] 🔗 Website: ${selectedTool.websiteUrl} (source: ${selectedTool.urlSource})`);
+
+      // Persist tool metadata to DB for Content Memory + analytics
+      await this.updateJob(jobId, {
+        tool_name: selectedTool.name,
+        tool_url: selectedTool.websiteUrl,
+        discovery_source: selectedTool.urlSource,
+      });
     } else {
       // FALLBACK: LLM keyword discovery
       selectedTrend = await this.discoverFreshTopic(recentTools);
       console.log(`[PHASE 1] 🔍 LLM keyword (fallback): "${selectedTrend}"`);
+      await this.updateJob(jobId, { discovery_source: 'fallback' });
     }
 
     console.log('[PHASE 2] Content Strategist (AI script generation)');
