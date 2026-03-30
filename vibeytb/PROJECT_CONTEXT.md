@@ -10,7 +10,7 @@
 **YouTube Automation Pipeline** — tự động tạo video Shorts review AI tools cho kênh **@TechHustleLabs**.
 
 Pipeline 4 phase:
-1. **Data Mining**: Tìm tool AI mới (Product Hunt RSS → fallback LLM keyword)
+1. **Data Mining**: Tìm tool AI mới (Gemini AI Search + Google Custom Search API)
 2. **Strategist**: Gemini viết script video
 3. **Producer**: TTS + Playwright recording + FFmpeg stitching
 4. **Publisher**: Upload lên YouTube + TikTok (sequential, graceful fallback)
