@@ -54,9 +54,13 @@ export async function mergeAudioVideoScene(
           inputs: 'cropped_v',
           outputs: 'padded_v'
         },
+        // Subtitles: compact, bottom-positioned, semi-transparent outline
+        // Fontsize=22 on 1080x1920 canvas = ~2% of height per line (readable but not intrusive)
+        // BorderStyle=1 = outline only (no opaque box that covers video content)
+        // MarginV=180 = pushed near bottom, above phone navigation bar area
         {
           filter: 'subtitles',
-          options: `'${escapedVttPath}':force_style='Fontname=Impact,Fontsize=36,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&HC0000000,BorderStyle=3,Outline=0,Shadow=0,Alignment=2,MarginV=120,Bold=1'`,
+          options: `'${escapedVttPath}':force_style='Fontname=Impact,Fontsize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=180,Bold=1'`,
           inputs: 'padded_v',
           outputs: 'sub_v'
         },
