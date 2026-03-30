@@ -44,6 +44,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
+          GOOGLE_CSE_API_KEY=${{ secrets.GOOGLE_CSE_API_KEY }}
+          GOOGLE_CSE_ID=${{ secrets.GOOGLE_CSE_ID }}
 
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
           "@ | Out-File -FilePath .env -Encoding utf8
