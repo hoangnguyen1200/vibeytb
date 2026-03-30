@@ -315,33 +315,42 @@ export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
       return [];
     }
 
-    // Parse search results into tools
+    // Parse search results into tools — CSE returns ARTICLE URLs (techcrunch.com/article...)
+    // We extract tool names, then resolve real product URLs via Gemini or guessing
     const tools: ProductHuntTool[] = [];
+    const seenNames = new Set<string>();
+
     for (const item of data.items) {
       // Extract tool name from title (often "ToolName - Description" or "ToolName | Site")
-      const titleParts = item.title.split(/\s*[\-\|–—:]\s*/);
+      const titleParts = item.title.split(/\s*[-|–—:]\s*/);
       const name = titleParts[0]?.trim() || item.title.trim();
       const tagline = item.snippet?.slice(0, 100) || titleParts.slice(1).join(' ').trim() || '';
 
-      // Skip if URL is a non-product platform
-      try {
-        const hostname = new URL(item.link).hostname.toLowerCase();
-        const isNonProduct = NON_PRODUCT_DOMAINS.some(
-          d => hostname === d || hostname.endsWith(`.${d}`)
-        );
-        // For CSE, we KEEP producthunt/techcrunch articles but extract the tool name from them
-        // Skip only code hosting, social media, etc.
-        const codeHosting = ['github.com', 'gitlab.com', 'bitbucket.org'];
-        if (codeHosting.some(d => hostname === d || hostname.endsWith(`.${d}`))) continue;
-      } catch { continue; }
+      if (!name || name.length < 2 || name.length > 40) continue;
+      // Skip duplicate names
+      const nameLower = name.toLowerCase();
+      if (seenNames.has(nameLower)) continue;
+      seenNames.add(nameLower);
 
-      if (!name || name.length < 2) continue;
+      // Resolve REAL product URL (not the article URL)
+      let websiteUrl = '';
+      let urlSource: 'google-cse' | 'guess' = 'google-cse';
+
+      // Try Gemini to find real product website
+      const realUrl = await resolveUrlViaGemini(name, tagline);
+      if (realUrl) {
+        websiteUrl = realUrl;
+      } else {
+        // Fallback: guess URL from name
+        websiteUrl = guessWebsiteUrl(name);
+        urlSource = 'guess';
+      }
 
       tools.push({
         name,
         tagline,
-        websiteUrl: item.link,
-        urlSource: 'google-cse',
+        websiteUrl,
+        urlSource,
         topics: [],
         productHuntUrl: '',
         redirectUrl: undefined,
