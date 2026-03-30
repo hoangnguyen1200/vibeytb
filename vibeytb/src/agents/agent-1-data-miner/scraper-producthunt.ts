@@ -197,13 +197,15 @@ For each tool found, provide:
 - Name
 - One-line description
 - Official website URL
+- Popularity rating from 1-10 (based on how much buzz/coverage the tool has)
 
 Respond in this exact JSON format (array of objects):
-[{"name": "ToolName", "tagline": "Short description", "url": "https://example.com"}]
+[{"name": "ToolName", "tagline": "Short description", "url": "https://example.com", "popularity": 7}]
 
 Rules:
 - Only include tools with a real website URL (not producthunt.com, twitter.com, github.com)
 - Maximum 5 tools
+- popularity: 1=unknown niche tool, 5=moderate coverage, 10=viral/trending everywhere
 - If you cannot find any tools launched today, respond with: []
 - Respond with ONLY the JSON array, no other text`;
 
@@ -217,7 +219,7 @@ Rules:
       return [];
     }
 
-    const parsed: Array<{ name: string; tagline: string; url: string }> = JSON.parse(jsonMatch[0]);
+    const parsed: Array<{ name: string; tagline: string; url: string; popularity?: number }> = JSON.parse(jsonMatch[0]);
     const tools: ProductHuntTool[] = parsed
       .filter(t => t.name && t.url && t.url.startsWith('http'))
       .map(t => ({
@@ -228,6 +230,8 @@ Rules:
         topics: [],
         productHuntUrl: '',
         redirectUrl: undefined,
+        // Gemini popularity: 1-10 scale → multiply by 5 to match 0-50 range
+        popularityScore: Math.min(50, (t.popularity ?? 5) * 5),
       }));
 
     console.log(`[Gemini Search] ✅ Found ${tools.length} AI tools`);
