@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-29 (Remove Plan A-bis dead code)
+> Cập nhật lần cuối: 2026-03-30 (Fix blacklist false-positive)
 
 ---
 
@@ -61,7 +61,7 @@ Plan B: resolveUrlViaGemini(name, tagline) + Google Search grounding
 Plan C: guessWebsiteUrl(name) → URL đoán từ tên (last resort)
 ```
 
-> `urlSource` field tracks which plan succeeded: `'ph-scrape'` | `'gemini'` | `'guess'`
+> `urlSource` field tracks which plan succeeded: `'ph-redirect'` | `'gemini'` | `'guess'`
 
 ### Visual Cascade (Phase 3)
 
@@ -173,6 +173,7 @@ Final video 1080×1920 9:16
 32. **Gemini Search grounding**: Enabled `googleSearch` tool for Plan B URL resolution — Gemini now searches Google before answering instead of guessing from training data. Fixes wrong TLD issues (e.g. `.ai` instead of `.sh`) (2026-03-29)
 33. **Cloudflare Auto-Wait**: `waitForCloudflarePass()` polls for CF challenge elements and waits up to 15s for auto-pass on residential IP. Updated Chrome fingerprint 120→134. Visual QC frame timestamps shifted to 50%/75%/90% to skip loading frames (2026-03-29)
 34. **URL Resolution via PH redirect**: New Plan A — follow `/r/p/<id>` redirect URLs from RSS feed via HTTP fetch (no browser, no Cloudflare). Completely bypasses PH's Cloudflare Turnstile. Old Plan A (page scrape) demoted to A-bis (2026-03-29)
+35. **Blacklist false-positive fix**: `BLOCKED_DOMAINS` check changed from `url.includes(domain)` to proper hostname matching (`hostname === domain || hostname.endsWith(.domain)`). Fixes `guideyou.com` being falsely blocked by `you.com` rule (2026-03-30)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -200,7 +201,7 @@ Final video 1080×1920 9:16
 - **Visual cascade**: Website Recording → Product Hunt → Pexels Stock (3 layers)
 - **Layer 2 recovery**: `__tool_name` backup at script_json top-level + URL-based extraction ensures PH cascade is never skipped (2026-03-27)
 - **DuckDuckGo**: Block automated HTTP requests — KHÔNG dùng cho URL lookup
-- **URL Resolution**: 3-tier: PH page scrape (Plan A, 15s timeout) → Gemini (Plan B) → guess (Plan C). `urlSource` field tracks which plan won
+- **URL Resolution**: 3-tier: PH redirect (Plan A) → Gemini + Google Search grounding (Plan B) → guess (Plan C). `urlSource` field tracks which plan won
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)

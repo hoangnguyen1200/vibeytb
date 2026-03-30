@@ -377,7 +377,17 @@ export class TheMasterOrchestrator {
       ];
       const targetUrl = scene.target_website_url;
       if (targetUrl) {
-        const isBlocked = BLOCKED_DOMAINS.some(domain => targetUrl.includes(domain));
+        // Use proper hostname matching — prevents false positives like
+        // "guideyou.com" being blocked by "you.com" substring match
+        let isBlocked = false;
+        try {
+          const hostname = new URL(targetUrl).hostname.toLowerCase();
+          isBlocked = BLOCKED_DOMAINS.some(domain =>
+            hostname === domain || hostname.endsWith(`.${domain}`)
+          );
+        } catch {
+          // Invalid URL — don't block
+        }
         if (isBlocked) {
           console.log(`[GUARD] ⛔ URL bị chặn bởi blacklist: ${targetUrl} → Fallback sang stock video.`);
           scene.target_website_url = null;
