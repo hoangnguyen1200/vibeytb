@@ -372,15 +372,12 @@ export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
 
 
 /**
- * Plan B: Use Gemini + Google Search grounding to find the official website URL.
- * Strategy: Give Gemini the PH page URL so it can find the website from Google's
- * cached version of the PH page (bypasses Cloudflare since Google already indexed it).
- * Only called for the TOP selected tool (1 API call per pipeline run).
+ * Use Gemini + Google Search grounding to find the official website URL for a product.
+ * Called by Google CSE (to resolve article URLs → real product URLs) and as fallback.
  */
 async function resolveUrlViaGemini(
   name: string,
   tagline: string,
-  productHuntUrl?: string,
 ): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
@@ -392,20 +389,15 @@ async function resolveUrlViaGemini(
       tools: [{ googleSearch: {} } as any],
     });
 
-    // Build context-rich prompt with the EXACT PH URL
-    const phContext = productHuntUrl
-      ? `\nProduct Hunt page: ${productHuntUrl}`
-      : '';
+    const prompt = `Find the OFFICIAL website URL for this AI product.
 
-    const prompt = `Find the OFFICIAL website URL for this product.
-
-Product: "${name}" — ${tagline}${phContext}
+Product: "${name}" — ${tagline}
 
 Instructions:
-- Search Google for: ${productHuntUrl || `"${name}" "${tagline.split(' ').slice(0, 5).join(' ')}"`}
-- On the Product Hunt page, the website URL is shown in "Company Info" sidebar or "Visit website" button
+- Search Google for: "${name}" official website
+- Find the product's OWN domain (not a review site or article)
 - Respond with ONLY the URL, nothing else
-- Do NOT respond with producthunt.com, twitter.com, github.com, or linkedin.com links
+- Do NOT respond with producthunt.com, twitter.com, github.com, medium.com, or linkedin.com links
 - If the product name IS a domain (e.g. "bna.dev", "jared.so"), respond: https://[that domain]
 - If you cannot find the website, respond exactly: UNKNOWN`;
 
