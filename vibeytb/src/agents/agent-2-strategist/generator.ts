@@ -138,9 +138,9 @@ export async function generateScriptFromTrend(keyword: string, language: string 
       Target Language/Locale: ${language}
       Required Tone of Voice: ${tone}`;
 
-      // Product Hunt tool data: inject real tool info to prevent LLM hallucination
+      // Real tool data: inject tool info to prevent LLM hallucination
       if (toolData) {
-        prompt += `\n\nIMPORTANT — REAL TOOL DATA (from Product Hunt today's launches):
+        prompt += `\n\nIMPORTANT — REAL TOOL DATA (verified, trending today):
 - Tool Name: "${toolData.name}"
 - Tagline: "${toolData.tagline}"
 - Website URL: ${toolData.url}

@@ -4,7 +4,11 @@ import fs from 'fs';
 
 /**
  * Generate a 3-second outro CTA clip using FFmpeg.
- * Black background + white text with Subscribe CTA.
+ * Features:
+ *   - Dark gradient background (purple→black brand colors)
+ *   - Channel name in large text
+ *   - Engagement CTA line
+ *   - "Subscribe" reminder
  * Includes silent audio track for compatibility with concat.
  */
 export async function generateOutro(jobId: string): Promise<string> {
@@ -27,30 +31,60 @@ export async function generateOutro(jobId: string): Promise<string> {
       .input('anullsrc=r=48000:cl=stereo')
       .inputFormat('lavfi')
       .complexFilter([
+        // Purple accent bar at top (brand color)
+        {
+          filter: 'drawbox',
+          options: {
+            x: 0,
+            y: 0,
+            w: 'iw',
+            h: 4,
+            color: '#7C3AED@0.9',
+            t: 'fill',
+          },
+          inputs: '0:v',
+          outputs: 'accent',
+        },
+        // Channel name — large white text
         {
           filter: 'drawtext',
           options: {
             text: 'Follow @TechHustleLabs',
             fontcolor: 'white',
-            fontsize: 42,
+            fontsize: 44,
             x: '(w-text_w)/2',
-            y: '(h/2)-60',
+            y: '(h/2)-100',
             font: 'Impact',
           },
-          inputs: '0:v',
+          inputs: 'accent',
           outputs: 'txt1',
         },
+        // Engagement hook — question to drive comments
         {
           filter: 'drawtext',
           options: {
-            text: 'Subscribe for daily AI tools!',
-            fontcolor: '#CCCCCC',
-            fontsize: 32,
+            text: 'Comment your favorite AI tool!',
+            fontcolor: '#A78BFA',
+            fontsize: 34,
             x: '(w-text_w)/2',
-            y: '(h/2)+20',
+            y: '(h/2)-30',
             font: 'Impact',
           },
           inputs: 'txt1',
+          outputs: 'txt2',
+        },
+        // Subscribe reminder
+        {
+          filter: 'drawtext',
+          options: {
+            text: 'Subscribe for daily AI discoveries!',
+            fontcolor: '#9CA3AF',
+            fontsize: 28,
+            x: '(w-text_w)/2',
+            y: '(h/2)+40',
+            font: 'Impact',
+          },
+          inputs: 'txt2',
           outputs: 'out_v',
         },
       ])

@@ -2,7 +2,45 @@ import { google, youtube_v3 } from 'googleapis';
 import fs from 'fs';
 
 /**
- * Post a pinned comment on the uploaded video with CTA + tool link.
+ * Rotating pinned comment templates for engagement.
+ * Each template should include a question hook to drive comments.
+ */
+const PINNED_COMMENT_TEMPLATES = [
+  (toolName?: string, toolUrl?: string) => [
+    toolName ? `🔗 Try ${toolName} here:` : '🔗 Try this tool:',
+    toolUrl || 'Link in description!',
+    '',
+    '💬 What AI tool should I review next? Drop it in the comments! 👇',
+    '👉 Follow @TechHustleLabs for daily AI tool reviews!',
+  ].join('\n'),
+
+  (toolName?: string, toolUrl?: string) => [
+    toolName ? `🚀 ${toolName} is a game-changer!` : '🚀 This tool is a game-changer!',
+    toolUrl ? `👉 ${toolUrl}` : '',
+    '',
+    '🤔 Have you tried this one yet? Let me know your thoughts! 👇',
+    '🔔 Follow @TechHustleLabs + turn on notifications!',
+  ].join('\n'),
+
+  (toolName?: string, toolUrl?: string) => [
+    toolName ? `⚡ ${toolName} just blew my mind.` : '⚡ This AI just blew my mind.',
+    toolUrl ? `Try it free: ${toolUrl}` : 'Link in description!',
+    '',
+    '📌 Which AI tool saves YOU the most time? Comment below! 👇',
+    '👉 Follow @TechHustleLabs for daily discoveries!',
+  ].join('\n'),
+
+  (toolName?: string, toolUrl?: string) => [
+    toolName ? `🔥 ${toolName} is going viral for a reason.` : '🔥 This tool is going viral.',
+    toolUrl ? `Check it out: ${toolUrl}` : 'Link below!',
+    '',
+    '💡 Comment "YES" if you want more AI tools like this!',
+    '🔔 Follow @TechHustleLabs — new AI tool every day!',
+  ].join('\n'),
+];
+
+/**
+ * Post a pinned comment on the uploaded video with rotating engagement templates.
  * Best-effort: failures are logged but don't affect the upload result.
  */
 async function postPinnedComment(
@@ -11,13 +49,9 @@ async function postPinnedComment(
   toolUrl?: string,
   toolName?: string,
 ): Promise<void> {
-  const commentText = [
-    toolName ? `🔗 Try ${toolName} here:` : '🔗 Try this tool:',
-    toolUrl || 'Link in description!',
-    '',
-    '👉 Follow @TechHustleLabs for daily AI tool reviews!',
-    '🔔 Turn on notifications to never miss a new discovery!',
-  ].join('\n');
+  // Pick template based on day to ensure variety
+  const templateIndex = new Date().getDate() % PINNED_COMMENT_TEMPLATES.length;
+  const commentText = PINNED_COMMENT_TEMPLATES[templateIndex](toolName, toolUrl);
 
   try {
     await youtube.commentThreads.insert({
@@ -31,7 +65,7 @@ async function postPinnedComment(
         },
       },
     });
-    console.log(`💬 [Pinned Comment] Posted successfully on video ${videoId}`);
+    console.log(`💬 [Pinned Comment] Posted template #${templateIndex + 1} on video ${videoId}`);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`⚠️ [Pinned Comment] Failed (non-fatal): ${msg}`);
@@ -48,9 +82,10 @@ export async function uploadToYouTube(
   title: string,
   description: string,
   tags: string[],
-  isHeadless: boolean = true, // Vẫn giữ nguyên signature
+  isHeadless: boolean = true,
   toolUrl?: string,
   toolName?: string,
+  toolTagline?: string,
 ): Promise<string> {
   console.log(`🚀 [API Uploader] Bắt đầu quá trình publish cho project: ${projectId}`);
   
@@ -115,7 +150,7 @@ export async function uploadToYouTube(
       try {
         if (toolName) {
           const { generateThumbnail } = await import('./thumbnail-generator.js');
-          const thumbPath = await generateThumbnail(videoPath, toolName, projectId);
+          const thumbPath = await generateThumbnail(videoPath, toolName, projectId, toolTagline);
           await youtube.thumbnails.set({
             videoId,
             media: { body: fs.createReadStream(thumbPath) },

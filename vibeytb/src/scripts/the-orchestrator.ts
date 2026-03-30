@@ -281,14 +281,14 @@ export class TheMasterOrchestrator {
     const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
     const normalized = this.normalizeScript(aiOutput);
 
-    // Persist tool_name at TOP LEVEL of script_json (backup for Phase 3 recovery)
-    // This guarantees Phase 3 can always recover tool_name even if LLM omits it
+    // Persist tool metadata at TOP LEVEL of script_json (backup for Phase 3/4 recovery)
     if (toolData?.name) {
       (normalized as Record<string, unknown>).__tool_name = toolData.name;
+      (normalized as Record<string, unknown>).__tool_tagline = toolData.tagline;
     }
 
-    // Force-inject PH tool name into ALL scenes (LLM often omits tool_name)
-    // This ensures Layer 2 cascade (PH page recording) always works
+    // Force-inject tool name into ALL scenes (LLM often omits tool_name)
+    // This ensures website recording always has the correct tool context
     if (toolData?.name) {
       for (const scene of normalized.scenes) {
         if (!(scene as Record<string, unknown>).tool_name) {
@@ -494,7 +494,24 @@ export class TheMasterOrchestrator {
     const toolUrl = scenes.find(s => typeof s.target_website_url === 'string')?.target_website_url as string | undefined;
     const toolName = scenes.find(s => typeof s.tool_name === 'string')?.tool_name as string | undefined;
 
+    // SEO: Auto-inject tool name into tags if LLM forgot
+    if (toolName) {
+      const toolLower = toolName.toLowerCase();
+      const hasToolTag = tags.some(t => t.toLowerCase().includes(toolLower));
+      if (!hasToolTag) {
+        tags.unshift(toolLower);
+        tags.unshift(`${toolLower} ai`);
+        console.log(`[SEO] Auto-injected "${toolLower}" into tags`);
+      }
+    }
+
     const cleanDesc = rawDesc.replace(/#\w+/g, '').replace(/\s{2,}/g, ' ').trim();
+
+    // SEO: Build tool-specific hashtag (e.g., #gamma #boltnew)
+    const toolHashtag = toolName
+      ? `#${toolName.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+      : '';
+
     const descParts = [
       cleanDesc,
       '',
@@ -506,9 +523,12 @@ export class TheMasterOrchestrator {
       '📅 New AI tool review uploaded EVERY DAY',
       '🔗 All links: https://linktr.ee/techhustlelabs',
       '',
-      '#shorts #ai #aitools #tech #productivity #automation #free',
+      `#shorts #ai #aitools #tech #trending #productivity ${toolHashtag}`.trim(),
     ].filter(Boolean);
     const desc = descParts.join('\n');
+
+    // Extract tagline for thumbnail badge
+    const toolTagline = (scriptData as Record<string, unknown>)?.__tool_tagline as string | undefined;
 
     // ── Video file check ────────────────────────────────────────────────
     const finalVideoOutput = this.getFinalVideoPath(jobId);
@@ -551,7 +571,7 @@ export class TheMasterOrchestrator {
     if (hasYouTube) {
       try {
         console.log('[PHASE 4] ▶ Uploading to YouTube...');
-        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName);
+        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName, toolTagline);
         console.log(`[PHASE 4] ✅ YouTube upload OK: ${youtubeUrl}`);
       } catch (ytErr: unknown) {
         const ytMsg = ytErr instanceof Error ? ytErr.message : String(ytErr);
