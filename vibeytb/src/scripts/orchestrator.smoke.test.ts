@@ -170,7 +170,7 @@ describe('envFlag Parser', () => {
 describe('Tool Discovery & Verification', () => {
   it('guessWebsiteUrl handles domain-like names (e.g. tobira.ai)', async () => {
     const scraperSource = fs.readFileSync(
-      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'tool-discovery.ts'),
       'utf-8',
     );
     expect(scraperSource).toContain('[a-z0-9.-]+\\.[a-z]{2,}');
@@ -179,7 +179,7 @@ describe('Tool Discovery & Verification', () => {
 
   it('urlSource supports gemini-search and google-cse', async () => {
     const scraperSource = fs.readFileSync(
-      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'tool-discovery.ts'),
       'utf-8',
     );
     expect(scraperSource).toContain("'gemini-search'");
@@ -192,7 +192,7 @@ describe('Tool Discovery & Verification', () => {
 
   it('Google CSE function exists and uses Custom Search API', async () => {
     const scraperSource = fs.readFileSync(
-      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'tool-discovery.ts'),
       'utf-8',
     );
     expect(scraperSource).toContain('export async function discoverViaGoogleCSE');
@@ -203,7 +203,7 @@ describe('Tool Discovery & Verification', () => {
 
   it('verifyUrl function exists with non-product filter and content check', async () => {
     const scraperSource = fs.readFileSync(
-      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'tool-discovery.ts'),
       'utf-8',
     );
     expect(scraperSource).toContain('export async function verifyUrl');

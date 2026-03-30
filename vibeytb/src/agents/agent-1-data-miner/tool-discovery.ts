@@ -1,108 +1,26 @@
 /**
- * Product Hunt Data Source — Fetch today's top AI/Tech product launches.
+ * AI Tool Discovery Module
  *
- * Strategy: Use Product Hunt's public RSS feed (no API key needed).
- * URL Resolution Chain:
- *   1. PH redirect URL from RSS (/r/p/<id>) — follow HTTP redirect
- *   2. Gemini LLM lookup with Google Search grounding
- *   3. URL guessing from product name (fallback)
+ * Two sources for finding trending AI tools:
+ *   1. Gemini AI Search — uses Google Search grounding to find new tools
+ *   2. Google Custom Search API — searches tech/AI sites for launches
  *
- * Feed URL: https://www.producthunt.com/feed
+ * Scoring + URL verification ensures only quality, accessible tools
+ * are selected for video production.
  */
 import 'dotenv/config';
-import Parser from 'rss-parser';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const rssParser = new Parser();
-
-export interface ProductHuntTool {
+export interface DiscoveredTool {
   name: string;
   tagline: string;
   websiteUrl: string;
   urlSource: 'gemini-search' | 'google-cse' | 'guess';
   topics: string[];
-  productHuntUrl: string;
-  redirectUrl?: string; // PH /r/p/<id> redirect link from RSS (302 → real website)
-  popularityScore?: number; // HN upvotes, PH feed position, etc.
+  popularityScore?: number;
 }
 
-// AI/Tech topic keywords to filter relevant products
-const TECH_KEYWORDS = [
-  'ai', 'artificial intelligence', 'machine learning', 'developer',
-  'productivity', 'saas', 'automation', 'design', 'no-code',
-  'marketing', 'analytics', 'writing', 'coding', 'devops',
-  'chatbot', 'api', 'data', 'cloud', 'open source',
-  'workflow', 'tech', 'software', 'tool', 'app',
-  'generator', 'assistant', 'platform', 'builder',
-];
 
-/**
- * Extract tagline from RSS content (first <p> tag).
- */
-function extractTagline(content: string): string {
-  const match = content.match(/<p>\s*(.*?)\s*<\/p>/);
-  if (match?.[1]) {
-    return match[1].replace(/<[^>]*>/g, '').trim();
-  }
-  return '';
-}
-
-/**
- * Extract the PH redirect URL (/r/p/<id>) from RSS content.
- */
-function extractRedirectUrl(content: string): string | null {
-  const match = content.match(/href="(https:\/\/www\.producthunt\.com\/r\/p\/[^"]+)"/);
-  return match?.[1] || null;
-}
-
-/**
- * Plan A (NEW): Follow PH redirect URL from RSS feed → actual website.
- * PH redirect URLs (e.g. /r/p/1107440) do a 302 redirect to the real product site.
- * Uses native fetch with redirect: 'manual' — NO browser, NO Cloudflare issue.
- */
-async function resolveUrlViaPHRedirect(redirectUrl: string): Promise<string | null> {
-  if (!redirectUrl) return null;
-
-  try {
-    console.log(`  🔗 [Plan A] Following PH redirect: ${redirectUrl}`);
-    // fetch with redirect: 'manual' to capture the 302 Location header
-    const response = await fetch(redirectUrl, {
-      method: 'HEAD',
-      redirect: 'manual',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-      },
-    });
-
-    const location = response.headers.get('location');
-    if (location && !location.includes('producthunt.com')) {
-      const parsed = new URL(location);
-      console.log(`  ✅ [Plan A] Redirect resolved: ${parsed.origin}`);
-      return parsed.origin;
-    }
-
-    // If 302 didn't give us a non-PH URL, try following the full redirect chain
-    const followResponse = await fetch(redirectUrl, {
-      method: 'GET',
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-      },
-    });
-    const finalUrl = followResponse.url;
-    if (finalUrl && !finalUrl.includes('producthunt.com')) {
-      const parsed = new URL(finalUrl);
-      console.log(`  ✅ [Plan A] Follow-redirect resolved: ${parsed.origin}`);
-      return parsed.origin;
-    }
-
-    console.log(`  ⚠️ [Plan A] Redirect did not lead to external URL`);
-    return null;
-  } catch (err) {
-    console.warn(`  ⚠️ [Plan A] Redirect follow failed:`, (err as Error).message?.slice(0, 80));
-    return null;
-  }
-}
 
 /** Domains that are NOT product websites — alive but not suitable for video */
 const NON_PRODUCT_DOMAINS = [
@@ -200,11 +118,10 @@ export async function verifyUrl(
 }
 
 /**
- * Source 3: Use Gemini + Google Search to discover AI tools launched today.
- * Returns tools with URLs already resolved (no need for Plan A/B/C).
- * Costs 1 API call.
+ * Source 1: Gemini AI Search — discover trending AI tools via Google Search grounding.
+ * Returns tools with URLs already resolved. Costs 1 API call.
  */
-export async function discoverViaGeminiSearch(): Promise<ProductHuntTool[]> {
+export async function discoverViaGeminiSearch(): Promise<DiscoveredTool[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return [];
 
@@ -251,7 +168,7 @@ Rules:
     }
 
     const parsed: Array<{ name: string; tagline: string; url: string; popularity?: number }> = JSON.parse(jsonMatch[0]);
-    const tools: ProductHuntTool[] = parsed
+    const tools: DiscoveredTool[] = parsed
       .filter(t => t.name && t.url && t.url.startsWith('http'))
       .map(t => ({
         name: t.name,
@@ -259,8 +176,7 @@ Rules:
         websiteUrl: t.url,
         urlSource: 'gemini-search' as const,
         topics: [],
-        productHuntUrl: '',
-        redirectUrl: undefined,
+
         // Gemini popularity: 1-10 scale → multiply by 5 to match 0-50 range
         popularityScore: Math.min(50, (t.popularity ?? 5) * 5),
       }));
@@ -283,7 +199,7 @@ Rules:
  * techcrunch.com, theverge.com, venturebeat.com, etc.
  * Free: 100 queries/day. Pipeline uses 1-2/day.
  */
-export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
+export async function discoverViaGoogleCSE(): Promise<DiscoveredTool[]> {
   const apiKey = process.env.GOOGLE_CSE_API_KEY;
   const cx = process.env.GOOGLE_CSE_ID;
 
@@ -317,7 +233,7 @@ export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
 
     // Parse search results into tools — CSE returns ARTICLE URLs (techcrunch.com/article...)
     // We extract tool names, then resolve real product URLs via Gemini or guessing
-    const tools: ProductHuntTool[] = [];
+    const tools: DiscoveredTool[] = [];
     const seenNames = new Set<string>();
 
     for (const item of data.items) {
@@ -352,8 +268,8 @@ export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
         websiteUrl,
         urlSource,
         topics: [],
-        productHuntUrl: '',
-        redirectUrl: undefined,
+
+
         popularityScore: 25, // Moderate baseline — CSE doesn't provide popularity
       });
     }
@@ -452,67 +368,7 @@ function guessWebsiteUrl(name: string): string {
   return `https://${cleaned}.com`;
 }
 
-/**
- * Fetch today's Product Hunt launches via RSS feed.
- * Returns AI/Tech products sorted by position in feed (top = most popular).
- */
-export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
-  console.log('[PH Scraper] 🔍 Fetching today\'s launches via RSS feed...');
 
-  try {
-    const feed = await rssParser.parseURL('https://www.producthunt.com/feed');
-    console.log(`[PH Scraper] RSS returned ${feed.items.length} items`);
-
-    const tools: ProductHuntTool[] = [];
-
-    for (const item of feed.items) {
-      const name = item.title?.trim() || '';
-      if (!name) continue;
-
-      const rawContent = item.content || '';
-      const tagline = extractTagline(rawContent);
-      const productHuntUrl = item.link || '';
-      const redirectUrl = extractRedirectUrl(rawContent) || undefined;
-
-      tools.push({
-        name,
-        tagline: tagline.slice(0, 200),
-        websiteUrl: '', // Will be resolved after filtering
-        urlSource: 'guess',
-        topics: [],
-        productHuntUrl,
-        redirectUrl,
-      });
-    }
-
-    // Filter for tech/AI relevance FIRST (before URL resolution)
-    const filtered = tools.filter((p) => {
-      const text = `${p.name} ${p.tagline}`.toLowerCase();
-      return TECH_KEYWORDS.some(kw => text.includes(kw));
-    });
-
-    console.log(`[PH Scraper] ✅ ${filtered.length}/${tools.length} tech/AI products`);
-
-    // Log top 5 for debugging
-    for (const p of filtered.slice(0, 5)) {
-      console.log(`  → ${p.name} — ${p.tagline.slice(0, 60)}`);
-    }
-
-    // Set fallback URLs and popularity scores for all tools
-    for (let i = 0; i < filtered.length; i++) {
-      filtered[i].websiteUrl = guessWebsiteUrl(filtered[i].name);
-      filtered[i].urlSource = 'guess';
-      // PH popularity = feed position (top = most popular on PH today)
-      // Max 50 points for #1, decreasing linearly
-      filtered[i].popularityScore = Math.max(0, 50 - i * 2);
-    }
-
-    return filtered;
-  } catch (err) {
-    console.error('[PH Scraper] ❌ RSS feed failed:', err);
-    return [];
-  }
-}
 
 // ─── Scoring keywords for video-friendly content ───
 const VIDEO_BOOST_KEYWORDS = [
@@ -531,7 +387,7 @@ const VIDEO_BOOST_KEYWORDS = [
  *   Name quality:     0-10 based on memorability (short = better)
  *   Video keywords:   +5 if tagline contains video-friendly terms
  */
-function scoreTool(tool: ProductHuntTool): number {
+function scoreTool(tool: DiscoveredTool): number {
   let score = 0;
 
   // 1. URL reliability — pre-resolved URLs (gemini-search, google-cse) are reliable
@@ -571,9 +427,9 @@ function scoreTool(tool: ProductHuntTool): number {
  * Returns null if no suitable tool found.
  */
 export async function pickBestTool(
-  tools: ProductHuntTool[],
+  tools: DiscoveredTool[],
   avoidNames: string[]
-): Promise<ProductHuntTool | null> {
+): Promise<DiscoveredTool | null> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
   // Step 1: Filter out recently used tools

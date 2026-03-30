@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-30 (Trending-focused prompts)
+> Cập nhật lần cuối: 2026-03-30 (Major cleanup — removed 18 dead files, renamed module)
 
 ---
 
@@ -118,7 +118,7 @@ Final video 1080×1920 9:16
 |---|---|
 | `/.github/workflows/daily-pipeline.yml` | **Full pipeline** — chạy daily (cron) hoặc manual (workflow_dispatch), self-hosted runner |
 | `src/scripts/the-orchestrator.ts` | Main pipeline orchestrator |
-| `src/agents/agent-1-data-miner/scraper-producthunt.ts` | PH RSS scraper + Gemini URL resolution |
+| `src/agents/agent-1-data-miner/tool-discovery.ts` | AI tool discovery (Gemini Search + Google CSE) + scoring + URL verify |
 | `src/agents/agent-2-strategist/generator.ts` | Gemini script generator |
 | `src/agents/agent-3-producer/playwright-recorder.ts` | Website recording + Smart CTA Click |
 | `src/agents/agent-3-producer/visual-qc.ts` | Gemini Visual QC (kiểm tra video quality) |
@@ -129,7 +129,7 @@ Final video 1080×1920 9:16
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
 | `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame |
 | `src/agents/agent-4-publisher/tiktok-uploader.ts` | TikTok cross-post via Content Posting API (OAuth2 + FILE_UPLOAD) |
-| `src/scripts/orchestrator.smoke.test.ts` | Smoke test (13 tests, <3s, zero API calls) |
+| `src/scripts/orchestrator.smoke.test.ts` | Smoke test (18 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
 
@@ -143,6 +143,7 @@ Final video 1080×1920 9:16
 | Pexels | Stock footage fallback (Layer 3) | `PEXELS_API_KEY` |
 | Discord | Pipeline monitoring webhook | `DISCORD_WEBHOOK_URL` |
 | TikTok Content API | TikTok cross-post (optional) | `TIKTOK_CLIENT_KEY`, `CLIENT_SECRET`, `REFRESH_TOKEN` |
+| Google Custom Search | Tech site search (Source 2) | `GOOGLE_CSE_API_KEY`, `GOOGLE_CSE_ID` |
 
 > ~~Pixabay~~ — ĐÃ XÓA (2026-03-25). Giờ dùng local BGM từ `assets/bgm/`.
 
@@ -204,6 +205,7 @@ Final video 1080×1920 9:16
 42. **Google Custom Search API**: New Source 2 — searches producthunt.com, techcrunch.com, theverge.com, venturebeat.com for new AI tools. Free 100 queries/day. Env vars: `GOOGLE_CSE_API_KEY`, `GOOGLE_CSE_ID` (2026-03-30)
 43. **Trending-focused prompts**: Gemini Search prompt rewrote to emphasize "MOST TRENDING", "going viral", "RIGHT NOW". Google CSE query uses dynamic year. Both use dynamic date params for freshness (2026-03-30)
 44. **CSE URL resolution**: Google CSE returns article URLs (techcrunch.com/...), not product URLs. Fixed: extract tool NAME from article title → resolve real product URL via Gemini + Google Search grounding → fallback guessWebsiteUrl(). Prevents recording news articles instead of product demos (2026-03-30)
+45. **Major cleanup**: Deleted 18 dead files (PH/HN scrapers, legacy tests, debug scripts, queue-based tests). Renamed `scraper-producthunt.ts` → `tool-discovery.ts`, `ProductHuntTool` → `DiscoveredTool`. Removed ~200 lines dead PH code (RSS parser, redirect resolver, TECH_KEYWORDS). File count: 480 lines (was 623) (2026-03-30)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 

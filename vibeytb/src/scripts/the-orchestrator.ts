@@ -14,7 +14,7 @@ import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/m
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
-import { pickBestTool, discoverViaGeminiSearch, discoverViaGoogleCSE, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
+import { pickBestTool, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord } from '../utils/notifier';
 
@@ -667,11 +667,11 @@ export class TheMasterOrchestrator {
   }
 
   /**
-   * MULTI-SOURCE discovery: PH + HN + Gemini Search.
+   * MULTI-SOURCE discovery: Gemini AI Search + Google CSE.
    * Returns merged tool list (unpicked). pickBestTool() runs separately.
    */
-  private async discoverFromAllSources(avoidTools: string[]): Promise<ProductHuntTool[]> {
-    const allTools: ProductHuntTool[] = [];
+  private async discoverFromAllSources(avoidTools: string[]): Promise<DiscoveredTool[]> {
+    const allTools: DiscoveredTool[] = [];
 
     // Source 1: Gemini AI Search (primary — AI finds trending tools)
     try {
