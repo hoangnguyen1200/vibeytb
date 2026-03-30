@@ -217,7 +217,10 @@ export async function discoverViaGeminiSearch(): Promise<ProductHuntTool[]> {
     });
 
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const prompt = `Search Google for NEW AI tools, AI-powered SaaS products, or AI apps that were launched, announced, or trending today (${today}) or this week.
+    const year = new Date().getFullYear();
+    const prompt = `Search Google for the MOST TRENDING and NEWEST AI tools right now.
+Find AI tools, AI-powered apps, or AI SaaS products that are going viral, just launched, or getting massive attention today (${today}) or this week.
+Prioritize tools that people are talking about RIGHT NOW, not old established tools.
 
 For each tool found, provide:
 - Name (the product name, not company name)
@@ -229,11 +232,11 @@ Respond in this exact JSON format (array of objects):
 [{"name": "ToolName", "tagline": "Short description of what it does", "url": "https://example.com", "popularity": 7}]
 
 Rules:
-- Focus on AI/ML/LLM tools, not general software
+- Focus on AI/ML/LLM tools that are TRENDING or just LAUNCHED in ${year}
 - Only include tools with their OWN website URL (not github.com, twitter.com, producthunt.com, medium.com, linkedin.com)
 - Maximum 10 tools
 - popularity: 1=unknown niche tool, 5=moderate coverage, 10=viral/trending everywhere
-- If you find fewer than 3 tools from today, also include recent AI tools from this week
+- If you find fewer than 3 tools from today, also include trending AI tools from this week
 - If you cannot find any tools, respond with: []
 - Respond with ONLY the JSON array, no other text`;
 
@@ -292,8 +295,9 @@ export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
   try {
     console.log('[Google CSE] 🔍 Searching for new AI tools...');
 
-    // Search for recently launched AI tools (last 24h)
-    const query = 'new AI tool launched OR trending AI SaaS product OR AI app launch';
+    // Search for trending/newest AI tools
+    const year = new Date().getFullYear();
+    const query = `trending AI tool ${year} OR viral AI app OR new AI product launch this week`;
     const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&dateRestrict=d3&num=10`;
 
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
