@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-30 (Multi-source + remove Layer 2 + URL verify)
+> Cập nhật lần cuối: 2026-03-30 (Scoring system + non-product URL filter)
 
 ---
 
@@ -48,29 +48,40 @@ GitHub Actions Cron (daily-pipeline.yml)
 ```
 
 ### URL Resolution Chain (Phase 1)
+### Phase 1: Data Mining (3 sources)
 
 ```
-PH RSS Feed → tên tool + PH product URL + redirect URL (/r/p/<id>)
-  ↓
-pickBestTool() → chọn 1 tool (tránh trùng 7 ngày)
-  ↓
-Plan A: Follow /r/p/<id> redirect via HTTP fetch → URL thật (NO browser, NO Cloudflare)
-  ↓ nếu redirect fail
-Plan B: resolveUrlViaGemini(name, tagline) + Google Search grounding
-  ↓ nếu Gemini fail (429/timeout/UNKNOWN)
-Plan C: guessWebsiteUrl(name) → URL đoán từ tên (last resort)
+  Source 1: PH RSS → 25 AI tools → URL Resolution (redirect → Gemini → guess)
+  Source 2: HN "Show HN" API → 5-10 tech tools (URL sẵn có)
+  Source 3: Gemini + Google Search → 3-5 AI tools (URL sẵn có)
+  → Merge → Filter recently used
+  → Score (URL reliability + popularity + tagline + name + keywords)
+  → Sort by score → verifyUrl() → 1 winner
 ```
 
-> `urlSource` field tracks which plan succeeded: `'ph-redirect'` | `'gemini'` | `'guess'` | `'hackernews'` | `'gemini-search'`
+> `urlSource` field tracks which source: `'ph-redirect'` | `'gemini'` | `'guess'` | `'hackernews'` | `'gemini-search'`
 
-### URL Verification (2-layer)
+### Tool Selection Scoring
+
+```
+scoreTool():
+  URL reliability:  +40 if pre-resolved (HN/Gemini-search)
+  Popularity:       0-30 (HN upvotes / PH feed position / Gemini rating)
+  Tagline quality:  0-15 (length ≥ 40 = 15pts)
+  Name quality:     0-10 (length ≤ 12 = 10pts)
+  Video keywords:   +5 ("AI", "free", "automation", etc.)
+  Max: 100pts
+```
+
+### URL Verification (3-layer)
 
 ```
 verifyUrl(url, toolName):
+  Layer 0: Non-product check → reject GitHub, Twitter, Medium, Reddit…
   Layer 1: HTTP check → site alive? (200-399 or 403/503 = CF but exists)
   Layer 2: Content relevance → page <title>/<meta> chứa tên tool?
   → ✅ alive + relevant → OK
-  → ❌ dead or wrong site → skip, try next tool
+  → ❌ dead / wrong site / non-product → skip, try next tool
 ```
 
 ### Visual Cascade (Phase 3)
@@ -187,6 +198,8 @@ Final video 1080×1920 9:16
 36. **Multi-source discovery**: Phase 1 now merges 3 sources — PH RSS + HN "Show HN" API + Gemini AI Search. Pool tăng từ ~25 → ~35 tools (2026-03-30)
 37. **Layer 2 removed**: PH page recording (Cloudflare Turnstile block 100%) removed. Layer 1 fail → thẳng Layer 3 stock (2026-03-30)
 38. **URL Verification**: 2-layer verify — HTTP alive check + content relevance (title/meta match tool name). Wrong URLs auto-skip to next tool (2026-03-30)
+39. **Scoring-based tool selection**: `scoreTool()` — 5 criteria: URL reliability (+40), popularity (0-30 from HN upvotes/PH position/Gemini rating), tagline quality (0-15), name quality (0-10), video keywords (+5). Sort by score, try highest first (2026-03-30)
+40. **Non-product URL filter**: `verifyUrl()` Layer 0 rejects GitHub, Twitter, Medium, Reddit, YouTube, app stores, npm/PyPI. Prevents recording code repos or social media instead of product websites (2026-03-30)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
