@@ -104,8 +104,22 @@ async function resolveUrlViaPHRedirect(redirectUrl: string): Promise<string | nu
   }
 }
 
+/** Domains that are NOT product websites — alive but not suitable for video */
+const NON_PRODUCT_DOMAINS = [
+  'github.com', 'gitlab.com', 'bitbucket.org',         // Code hosting
+  'twitter.com', 'x.com', 'linkedin.com', 'facebook.com', // Social media
+  'reddit.com', 'news.ycombinator.com',                 // Forums
+  'medium.com', 'substack.com', 'dev.to',               // Blog platforms
+  'youtube.com', 'youtu.be', 'vimeo.com',               // Video platforms
+  'producthunt.com', 'betalist.com',                     // Launch directories
+  'docs.google.com', 'notion.so', 'notion.site',        // Doc platforms
+  'apps.apple.com', 'play.google.com',                   // App stores
+  'npmjs.com', 'pypi.org', 'crates.io',                 // Package registries
+];
+
 /**
  * Verify a URL is alive AND belongs to the correct product.
+ * Layer 0: Non-product check — reject GitHub, Twitter, etc.
  * Layer 1: HTTP check — site responds (200-399, or 403/503 = CF but exists)
  * Layer 2: Content relevance — page title/meta contains the tool name
  */
@@ -113,6 +127,18 @@ export async function verifyUrl(
   url: string,
   toolName: string,
 ): Promise<{ alive: boolean; relevant: boolean; reason: string }> {
+  // Layer 0: Reject non-product URLs (code hosting, social media, etc.)
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    const isNonProduct = NON_PRODUCT_DOMAINS.some(
+      domain => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+    if (isNonProduct) {
+      return { alive: true, relevant: false, reason: `non-product platform (${hostname})` };
+    }
+  } catch {
+    // Invalid URL
+  }
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
