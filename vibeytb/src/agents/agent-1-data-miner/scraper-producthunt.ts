@@ -19,7 +19,7 @@ export interface ProductHuntTool {
   name: string;
   tagline: string;
   websiteUrl: string;
-  urlSource: 'ph-redirect' | 'gemini' | 'guess' | 'hackernews' | 'gemini-search';
+  urlSource: 'gemini-search' | 'google-cse' | 'guess';
   topics: string[];
   productHuntUrl: string;
   redirectUrl?: string; // PH /r/p/<id> redirect link from RSS (302 → real website)
@@ -217,22 +217,24 @@ export async function discoverViaGeminiSearch(): Promise<ProductHuntTool[]> {
     });
 
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const prompt = `Search for AI tools or SaaS products that were launched or announced today (${today}).
+    const prompt = `Search Google for NEW AI tools, AI-powered SaaS products, or AI apps that were launched, announced, or trending today (${today}) or this week.
 
 For each tool found, provide:
-- Name
-- One-line description
-- Official website URL
+- Name (the product name, not company name)
+- One-line description of what the tool does
+- Official website URL (the product's own domain)
 - Popularity rating from 1-10 (based on how much buzz/coverage the tool has)
 
 Respond in this exact JSON format (array of objects):
-[{"name": "ToolName", "tagline": "Short description", "url": "https://example.com", "popularity": 7}]
+[{"name": "ToolName", "tagline": "Short description of what it does", "url": "https://example.com", "popularity": 7}]
 
 Rules:
-- Only include tools with a real website URL (not producthunt.com, twitter.com, github.com)
-- Maximum 5 tools
+- Focus on AI/ML/LLM tools, not general software
+- Only include tools with their OWN website URL (not github.com, twitter.com, producthunt.com, medium.com, linkedin.com)
+- Maximum 10 tools
 - popularity: 1=unknown niche tool, 5=moderate coverage, 10=viral/trending everywhere
-- If you cannot find any tools launched today, respond with: []
+- If you find fewer than 3 tools from today, also include recent AI tools from this week
+- If you cannot find any tools, respond with: []
 - Respond with ONLY the JSON array, no other text`;
 
     const result = await model.generateContent(prompt);
@@ -268,6 +270,89 @@ Rules:
     return tools;
   } catch (err) {
     console.warn('[Gemini Search] Failed:', (err as Error).message?.slice(0, 80));
+    return [];
+  }
+}
+
+/**
+ * Source 2: Google Custom Search API — search tech/AI sites for new tools.
+ * Uses Programmable Search Engine configured to search producthunt.com,
+ * techcrunch.com, theverge.com, venturebeat.com, etc.
+ * Free: 100 queries/day. Pipeline uses 1-2/day.
+ */
+export async function discoverViaGoogleCSE(): Promise<ProductHuntTool[]> {
+  const apiKey = process.env.GOOGLE_CSE_API_KEY;
+  const cx = process.env.GOOGLE_CSE_ID;
+
+  if (!apiKey || !cx) {
+    console.warn('[Google CSE] Missing GOOGLE_CSE_API_KEY or GOOGLE_CSE_ID');
+    return [];
+  }
+
+  try {
+    console.log('[Google CSE] 🔍 Searching for new AI tools...');
+
+    // Search for recently launched AI tools (last 24h)
+    const query = 'new AI tool launched OR trending AI SaaS product OR AI app launch';
+    const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&dateRestrict=d3&num=10`;
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) {
+      console.warn(`[Google CSE] API returned ${res.status}: ${res.statusText}`);
+      return [];
+    }
+
+    const data = await res.json() as {
+      items?: Array<{ title: string; link: string; snippet?: string }>;
+    };
+
+    if (!data.items || data.items.length === 0) {
+      console.log('[Google CSE] No results found');
+      return [];
+    }
+
+    // Parse search results into tools
+    const tools: ProductHuntTool[] = [];
+    for (const item of data.items) {
+      // Extract tool name from title (often "ToolName - Description" or "ToolName | Site")
+      const titleParts = item.title.split(/\s*[\-\|–—:]\s*/);
+      const name = titleParts[0]?.trim() || item.title.trim();
+      const tagline = item.snippet?.slice(0, 100) || titleParts.slice(1).join(' ').trim() || '';
+
+      // Skip if URL is a non-product platform
+      try {
+        const hostname = new URL(item.link).hostname.toLowerCase();
+        const isNonProduct = NON_PRODUCT_DOMAINS.some(
+          d => hostname === d || hostname.endsWith(`.${d}`)
+        );
+        // For CSE, we KEEP producthunt/techcrunch articles but extract the tool name from them
+        // Skip only code hosting, social media, etc.
+        const codeHosting = ['github.com', 'gitlab.com', 'bitbucket.org'];
+        if (codeHosting.some(d => hostname === d || hostname.endsWith(`.${d}`))) continue;
+      } catch { continue; }
+
+      if (!name || name.length < 2) continue;
+
+      tools.push({
+        name,
+        tagline,
+        websiteUrl: item.link,
+        urlSource: 'google-cse',
+        topics: [],
+        productHuntUrl: '',
+        redirectUrl: undefined,
+        popularityScore: 25, // Moderate baseline — CSE doesn't provide popularity
+      });
+    }
+
+    console.log(`[Google CSE] ✅ Found ${tools.length} results`);
+    for (const tool of tools.slice(0, 5)) {
+      console.log(`  → ${tool.name} — ${tool.tagline.slice(0, 50)}`);
+    }
+
+    return tools;
+  } catch (err) {
+    console.warn('[Google CSE] Failed:', (err as Error).message?.slice(0, 80));
     return [];
   }
 }
@@ -435,7 +520,7 @@ const VIDEO_BOOST_KEYWORDS = [
  * Higher = better candidate for a YouTube video.
  *
  * Scoring breakdown:
- *   URL reliability:  +40 if URL is pre-resolved (HN/Gemini-search)
+ *   URL reliability:  +40 if URL is pre-resolved (gemini-search/google-cse)
  *   Popularity:       0-30 normalized from popularityScore
  *   Tagline quality:  0-15 based on description length
  *   Name quality:     0-10 based on memorability (short = better)
@@ -444,9 +529,8 @@ const VIDEO_BOOST_KEYWORDS = [
 function scoreTool(tool: ProductHuntTool): number {
   let score = 0;
 
-  // 1. URL reliability — pre-resolved URLs are much more reliable
-  const hasPreResolvedUrl = tool.urlSource === 'hackernews' || tool.urlSource === 'gemini-search';
-  if (hasPreResolvedUrl) score += 40;
+  // 1. URL reliability — pre-resolved URLs (gemini-search, google-cse) are reliable
+  if (tool.urlSource === 'gemini-search' || tool.urlSource === 'google-cse') score += 40;
 
   // 2. Popularity — normalized to 0-30
   const rawPop = tool.popularityScore ?? 0;
@@ -477,7 +561,7 @@ function scoreTool(tool: ProductHuntTool): number {
  *   1. Filter out recently used tools
  *   2. Score all remaining tools
  *   3. Sort by score (highest first)
- *   4. Try each tool: resolve URL (PH only) → verify → return first valid
+ *   4. Try each tool: verify URL → return first valid
  *
  * Returns null if no suitable tool found.
  */
@@ -504,45 +588,14 @@ export async function pickBestTool(
   // Log top 5 candidates with scores
   console.log(`[Picker] 📊 Top candidates (${candidates.length} total):`);
   for (const { tool, score } of scored.slice(0, 5)) {
-    const urlTag = tool.urlSource === 'hackernews' || tool.urlSource === 'gemini-search' ? '🔗' : '🔄';
-    console.log(`  ${urlTag} [${score}pts] ${tool.name} — ${tool.tagline.slice(0, 45)} (${tool.urlSource})`);
+    console.log(`  🔗 [${score}pts] ${tool.name} — ${tool.tagline.slice(0, 45)} (${tool.urlSource})`);
   }
 
-  // Step 3: Try each candidate in score order
+  // Step 3: Try each candidate in score order — verify URL
   for (const { tool, score } of scored) {
     console.log(`[Picker] 🎯 Trying: "${tool.name}" (${score}pts, source: ${tool.urlSource})`);
 
-    // HN/Gemini-search tools already have URLs — skip resolution
-    if (tool.urlSource !== 'hackernews' && tool.urlSource !== 'gemini-search') {
-      // === URL Resolution Chain (PH tools only) ===
-
-      // Plan A: Follow PH redirect URL from RSS feed
-      if (tool.redirectUrl) {
-        console.log(`[Picker] 🔗 Plan A: Following RSS redirect URL...`);
-        const redirected = await resolveUrlViaPHRedirect(tool.redirectUrl);
-        if (redirected) {
-          tool.websiteUrl = redirected;
-          tool.urlSource = 'ph-redirect';
-          console.log(`[Picker] ✅ Plan A success: ${redirected}`);
-        }
-      }
-
-      // Plan B: Gemini LLM lookup (if Plan A failed)
-      if (tool.urlSource !== 'ph-redirect') {
-        console.log(`[Picker] 🔗 Plan B: Resolving URL via Gemini...`);
-        const realUrl = await resolveUrlViaGemini(tool.name, tool.tagline, tool.productHuntUrl);
-        if (realUrl) {
-          console.log(`[Picker] ✅ Plan B success: ${realUrl}`);
-          tool.websiteUrl = realUrl;
-          tool.urlSource = 'gemini';
-        } else {
-          console.log(`[Picker] 🔄 Plan B failed, using Plan C (guess): ${tool.websiteUrl}`);
-          tool.urlSource = 'guess';
-        }
-      }
-    }
-
-    // === URL Verification (all sources) ===
+    // === URL Verification ===
     console.log(`[Picker] 🔍 Verifying URL: ${tool.websiteUrl}`);
     const verification = await verifyUrl(tool.websiteUrl, tool.name);
 

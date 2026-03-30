@@ -167,7 +167,7 @@ describe('envFlag Parser', () => {
 });
 
 // ─── 7. URL Resolution helpers ──────────────────────────────────
-describe('URL Resolution & Multi-Source', () => {
+describe('Tool Discovery & Verification', () => {
   it('guessWebsiteUrl handles domain-like names (e.g. tobira.ai)', async () => {
     const scraperSource = fs.readFileSync(
       path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
@@ -177,48 +177,52 @@ describe('URL Resolution & Multi-Source', () => {
     expect(scraperSource).toContain('`https://${');
   });
 
-  it('urlSource supports all source types', async () => {
+  it('urlSource supports gemini-search and google-cse', async () => {
     const scraperSource = fs.readFileSync(
       path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
       'utf-8',
     );
-    // Must support all 5 source types
-    expect(scraperSource).toContain("'ph-redirect'");
-    expect(scraperSource).toContain("'gemini'");
-    expect(scraperSource).toContain("'guess'");
-    expect(scraperSource).toContain("'hackernews'");
     expect(scraperSource).toContain("'gemini-search'");
+    expect(scraperSource).toContain("'google-cse'");
+    expect(scraperSource).toContain("'guess'");
+    // PH and HN sources removed
+    expect(scraperSource).not.toContain("'ph-redirect'");
+    expect(scraperSource).not.toContain("'hackernews'");
   });
 
-  it('HN scraper module exists and exports scrapeHackerNewsToday', async () => {
-    const hnSource = fs.readFileSync(
-      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-hackernews.ts'),
+  it('Google CSE function exists and uses Custom Search API', async () => {
+    const scraperSource = fs.readFileSync(
+      path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
       'utf-8',
     );
-    expect(hnSource).toContain('export async function scrapeHackerNewsToday');
-    expect(hnSource).toContain('hacker-news.firebaseio.com');
+    expect(scraperSource).toContain('export async function discoverViaGoogleCSE');
+    expect(scraperSource).toContain('googleapis.com/customsearch');
+    expect(scraperSource).toContain('GOOGLE_CSE_API_KEY');
+    expect(scraperSource).toContain('GOOGLE_CSE_ID');
   });
 
-  it('verifyUrl function exists with content relevance check', async () => {
+  it('verifyUrl function exists with non-product filter and content check', async () => {
     const scraperSource = fs.readFileSync(
       path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'scraper-producthunt.ts'),
       'utf-8',
     );
     expect(scraperSource).toContain('export async function verifyUrl');
-    expect(scraperSource).toContain('<title');
+    expect(scraperSource).toContain('NON_PRODUCT_DOMAINS');
+    expect(scraperSource).toContain('github.com');
     expect(scraperSource).toContain('relevant');
   });
 
-  it('Layer 2 PH recording is removed from orchestrator', async () => {
+  it('orchestrator uses Gemini + Google CSE only (no PH/HN)', async () => {
     const orchSource = fs.readFileSync(
       path.join(__dirname, 'the-orchestrator.ts'),
       'utf-8',
     );
-    // Must NOT import recordProductHuntPage
+    // Must NOT import PH/HN scrapers
+    expect(orchSource).not.toContain('scrapeProductHuntToday');
+    expect(orchSource).not.toContain('scrapeHackerNewsToday');
     expect(orchSource).not.toContain('recordProductHuntPage');
-    // Must have multi-source discovery
-    expect(orchSource).toContain('discoverFromAllSources');
-    // Must import HN scraper
-    expect(orchSource).toContain('scrapeHackerNewsToday');
+    // Must import new sources
+    expect(orchSource).toContain('discoverViaGeminiSearch');
+    expect(orchSource).toContain('discoverViaGoogleCSE');
   });
 });

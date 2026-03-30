@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-30 (Scoring system + non-product URL filter)
+> Cập nhật lần cuối: 2026-03-30 (Gemini-only + Google CSE migration)
 
 ---
 
@@ -41,32 +41,32 @@ Cron: 0 23 * * *
 GitHub Actions Cron (daily-pipeline.yml)
   ├── runs-on: self-hosted (máy cá nhân, Windows, PowerShell)
   ├── Node.js 22 + FORCE_JAVASCRIPT_ACTIONS_TO_NODE24
-  ├── Phase 1: PH RSS Feed → pickBestTool() → Gemini URL Resolution
+  ├── Phase 1: Gemini AI Search + Google Custom Search API → pickBestTool()
   ├── Phase 2: Gemini script generation (với real tool data)
   ├── Phase 3: Edge TTS + Playwright 1920×1080 + FFmpeg center-crop → 1080×1920
   └── Phase 4: YouTube upload via OAuth + TikTok cross-post (best-effort)
 ```
 
-### URL Resolution Chain (Phase 1)
-### Phase 1: Data Mining (3 sources)
+### Phase 1: Data Mining (2 sources)
 
 ```
-  Source 1: PH RSS → 25 AI tools → URL Resolution (redirect → Gemini → guess)
-  Source 2: HN "Show HN" API → 5-10 tech tools (URL sẵn có)
-  Source 3: Gemini + Google Search → 3-5 AI tools (URL sẵn có)
+  Source 1 (Primary):   Gemini AI Search → 5-10 AI tools + URLs
+  Source 2 (Secondary): Google Custom Search API → 5-10 results from tech sites
   → Merge → Filter recently used
   → Score (URL reliability + popularity + tagline + name + keywords)
   → Sort by score → verifyUrl() → 1 winner
+  Fallback: discoverFreshTopic() → guessWebsiteUrl()
 ```
 
-> `urlSource` field tracks which source: `'ph-redirect'` | `'gemini'` | `'guess'` | `'hackernews'` | `'gemini-search'`
+> `urlSource` field tracks which source: `'gemini-search'` | `'google-cse'` | `'guess'`
+> PH RSS + HN scrapers **removed** (2026-03-30): PH blocked by CF, HN = GitHub repos + non-AI
 
 ### Tool Selection Scoring
 
 ```
 scoreTool():
-  URL reliability:  +40 if pre-resolved (HN/Gemini-search)
-  Popularity:       0-30 (HN upvotes / PH feed position / Gemini rating)
+  URL reliability:  +40 if pre-resolved (gemini-search/google-cse)
+  Popularity:       0-30 (Gemini rating / CSE baseline)
   Tagline quality:  0-15 (length ≥ 40 = 15pts)
   Name quality:     0-10 (length ≤ 12 = 10pts)
   Video keywords:   +5 ("AI", "free", "automation", etc.)
@@ -200,6 +200,8 @@ Final video 1080×1920 9:16
 38. **URL Verification**: 2-layer verify — HTTP alive check + content relevance (title/meta match tool name). Wrong URLs auto-skip to next tool (2026-03-30)
 39. **Scoring-based tool selection**: `scoreTool()` — 5 criteria: URL reliability (+40), popularity (0-30 from HN upvotes/PH position/Gemini rating), tagline quality (0-15), name quality (0-10), video keywords (+5). Sort by score, try highest first (2026-03-30)
 40. **Non-product URL filter**: `verifyUrl()` Layer 0 rejects GitHub, Twitter, Medium, Reddit, YouTube, app stores, npm/PyPI. Prevents recording code repos or social media instead of product websites (2026-03-30)
+41. **PH RSS + HN removed**: Removed Product Hunt RSS and Hacker News scraper from Phase 1. PH: Cloudflare blocks all redirect URLs. HN: mostly GitHub repos + non-AI tools. Both replaced by Gemini AI Search + Google Custom Search API (2026-03-30)
+42. **Google Custom Search API**: New Source 2 — searches producthunt.com, techcrunch.com, theverge.com, venturebeat.com for new AI tools. Free 100 queries/day. Env vars: `GOOGLE_CSE_API_KEY`, `GOOGLE_CSE_ID` (2026-03-30)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 

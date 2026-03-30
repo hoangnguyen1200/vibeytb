@@ -14,8 +14,7 @@ import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/m
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
-import { scrapeProductHuntToday, pickBestTool, discoverViaGeminiSearch, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
-import { scrapeHackerNewsToday } from '../agents/agent-1-data-miner/scraper-hackernews';
+import { pickBestTool, discoverViaGeminiSearch, discoverViaGoogleCSE, type ProductHuntTool } from '../agents/agent-1-data-miner/scraper-producthunt';
 import { validateVideo } from './qc-video';
 import { notifyDiscord } from '../utils/notifier';
 
@@ -674,31 +673,23 @@ export class TheMasterOrchestrator {
   private async discoverFromAllSources(avoidTools: string[]): Promise<ProductHuntTool[]> {
     const allTools: ProductHuntTool[] = [];
 
-    // Source 1: Product Hunt RSS (primary — best for AI tools)
-    try {
-      const phTools = await scrapeProductHuntToday();
-      allTools.push(...phTools);
-    } catch (err) {
-      console.warn('[SOURCE 1] Product Hunt failed:', (err as Error).message?.slice(0, 60));
-    }
-
-    // Source 2: Hacker News "Show HN" (free API, URLs included)
-    try {
-      const hnTools = await scrapeHackerNewsToday();
-      allTools.push(...hnTools);
-    } catch (err) {
-      console.warn('[SOURCE 2] Hacker News failed:', (err as Error).message?.slice(0, 60));
-    }
-
-    // Source 3: Gemini AI Search (1 API call, finds recent launches)
+    // Source 1: Gemini AI Search (primary — AI finds trending tools)
     try {
       const geminiTools = await discoverViaGeminiSearch();
       allTools.push(...geminiTools);
     } catch (err) {
-      console.warn('[SOURCE 3] Gemini Search failed:', (err as Error).message?.slice(0, 60));
+      console.warn('[SOURCE 1] Gemini Search failed:', (err as Error).message?.slice(0, 60));
     }
 
-    console.log(`[PHASE 1] Total tools from all sources: ${allTools.length} (PH + HN + Gemini)`);
+    // Source 2: Google Custom Search API (searches tech/AI sites)
+    try {
+      const cseTools = await discoverViaGoogleCSE();
+      allTools.push(...cseTools);
+    } catch (err) {
+      console.warn('[SOURCE 2] Google CSE failed:', (err as Error).message?.slice(0, 60));
+    }
+
+    console.log(`[PHASE 1] Total tools from all sources: ${allTools.length} (Gemini + Google CSE)`);
     return allTools;
   }
 
