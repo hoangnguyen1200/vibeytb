@@ -118,6 +118,7 @@ export async function scrapeHackerNewsToday(): Promise<ProductHuntTool[]> {
         topics: [],
         productHuntUrl: `https://news.ycombinator.com/item?id=${item.id}`,
         redirectUrl: undefined,
+        popularityScore: Math.min(item.score, 100), // HN upvotes, capped at 100
       });
     }
 

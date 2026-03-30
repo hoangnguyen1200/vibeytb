@@ -23,6 +23,7 @@ export interface ProductHuntTool {
   topics: string[];
   productHuntUrl: string;
   redirectUrl?: string; // PH /r/p/<id> redirect link from RSS (302 → real website)
+  popularityScore?: number; // HN upvotes, PH feed position, etc.
 }
 
 // AI/Tech topic keywords to filter relevant products
@@ -377,10 +378,13 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
       console.log(`  → ${p.name} — ${p.tagline.slice(0, 60)}`);
     }
 
-    // Set fallback URLs for all tools (guessed from name)
-    for (const tool of filtered) {
-      tool.websiteUrl = guessWebsiteUrl(tool.name);
-      tool.urlSource = 'guess';
+    // Set fallback URLs and popularity scores for all tools
+    for (let i = 0; i < filtered.length; i++) {
+      filtered[i].websiteUrl = guessWebsiteUrl(filtered[i].name);
+      filtered[i].urlSource = 'guess';
+      // PH popularity = feed position (top = most popular on PH today)
+      // Max 50 points for #1, decreasing linearly
+      filtered[i].popularityScore = Math.max(0, 50 - i * 2);
     }
 
     return filtered;
@@ -390,11 +394,61 @@ export async function scrapeProductHuntToday(): Promise<ProductHuntTool[]> {
   }
 }
 
+// ─── Scoring keywords for video-friendly content ───
+const VIDEO_BOOST_KEYWORDS = [
+  'ai', 'automation', 'generate', 'build', 'create', 'launch',
+  'free', 'open source', 'no-code', 'workflow', 'agent',
+];
+
 /**
- * Pick the best tool from a merged list, avoiding recently used ones.
- * For PH tools: resolves URL via redirect → Gemini → guess chain.
- * For HN/Gemini-search tools: URL already present.
- * After resolving, verifies the URL is alive and relevant.
+ * Calculate a selection score for a tool.
+ * Higher = better candidate for a YouTube video.
+ *
+ * Scoring breakdown:
+ *   URL reliability:  +40 if URL is pre-resolved (HN/Gemini-search)
+ *   Popularity:       0-30 normalized from popularityScore
+ *   Tagline quality:  0-15 based on description length
+ *   Name quality:     0-10 based on memorability (short = better)
+ *   Video keywords:   +5 if tagline contains video-friendly terms
+ */
+function scoreTool(tool: ProductHuntTool): number {
+  let score = 0;
+
+  // 1. URL reliability — pre-resolved URLs are much more reliable
+  const hasPreResolvedUrl = tool.urlSource === 'hackernews' || tool.urlSource === 'gemini-search';
+  if (hasPreResolvedUrl) score += 40;
+
+  // 2. Popularity — normalized to 0-30
+  const rawPop = tool.popularityScore ?? 0;
+  score += Math.min(30, Math.round(rawPop * 0.3));
+
+  // 3. Tagline quality — longer descriptions = better video narration
+  const tagLen = (tool.tagline || '').length;
+  if (tagLen >= 40) score += 15;
+  else if (tagLen >= 25) score += 10;
+  else if (tagLen >= 15) score += 5;
+
+  // 4. Name quality — short memorable names are better for video
+  const nameLen = tool.name.length;
+  if (nameLen <= 12) score += 10;
+  else if (nameLen <= 20) score += 5;
+
+  // 5. Video-friendly keywords — tools that sound exciting
+  const tagLower = (tool.tagline || '').toLowerCase();
+  if (VIDEO_BOOST_KEYWORDS.some(kw => tagLower.includes(kw))) score += 5;
+
+  return score;
+}
+
+/**
+ * Pick the best tool from a merged list using multi-criteria scoring.
+ *
+ * Strategy:
+ *   1. Filter out recently used tools
+ *   2. Score all remaining tools
+ *   3. Sort by score (highest first)
+ *   4. Try each tool: resolve URL (PH only) → verify → return first valid
+ *
  * Returns null if no suitable tool found.
  */
 export async function pickBestTool(
@@ -403,14 +457,30 @@ export async function pickBestTool(
 ): Promise<ProductHuntTool | null> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
-  for (const tool of tools) {
+  // Step 1: Filter out recently used tools
+  const candidates = tools.filter(tool => {
     const nameLower = tool.name.toLowerCase().trim();
-    if (avoidLower.some(avoid => nameLower.includes(avoid) || avoid.includes(nameLower))) {
-      console.log(`[Picker] Skipping "${tool.name}" (recently used)`);
-      continue;
-    }
+    const isUsed = avoidLower.some(avoid => nameLower.includes(avoid) || avoid.includes(nameLower));
+    if (isUsed) console.log(`[Picker] Skipping "${tool.name}" (recently used)`);
+    return !isUsed;
+  });
 
-    console.log(`[Picker] 🎯 Selected: "${tool.name}" — ${tool.tagline.slice(0, 50)} [source: ${tool.urlSource}]`);
+  if (candidates.length === 0) return null;
+
+  // Step 2: Score and sort (highest score first)
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool) }));
+  scored.sort((a, b) => b.score - a.score);
+
+  // Log top 5 candidates with scores
+  console.log(`[Picker] 📊 Top candidates (${candidates.length} total):`);
+  for (const { tool, score } of scored.slice(0, 5)) {
+    const urlTag = tool.urlSource === 'hackernews' || tool.urlSource === 'gemini-search' ? '🔗' : '🔄';
+    console.log(`  ${urlTag} [${score}pts] ${tool.name} — ${tool.tagline.slice(0, 45)} (${tool.urlSource})`);
+  }
+
+  // Step 3: Try each candidate in score order
+  for (const { tool, score } of scored) {
+    console.log(`[Picker] 🎯 Trying: "${tool.name}" (${score}pts, source: ${tool.urlSource})`);
 
     // HN/Gemini-search tools already have URLs — skip resolution
     if (tool.urlSource !== 'hackernews' && tool.urlSource !== 'gemini-search') {
@@ -448,15 +518,15 @@ export async function pickBestTool(
 
     if (!verification.alive) {
       console.log(`[Picker] ❌ URL dead: ${verification.reason} → trying next tool`);
-      continue; // Skip this tool, try next one
+      continue;
     }
 
     if (!verification.relevant) {
       console.log(`[Picker] ⚠️ URL alive but WRONG site: ${verification.reason} → trying next tool`);
-      continue; // Skip this tool, try next one
+      continue;
     }
 
-    console.log(`[Picker] ✅ URL verified: alive + content matches`);
+    console.log(`[Picker] ✅ Winner: "${tool.name}" (${score}pts) — URL verified`);
     return tool;
   }
 
