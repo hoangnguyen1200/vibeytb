@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-30 (Subtitle overlay fix — text no longer covers video)
+> Cập nhật lần cuối: 2026-03-31 (Black screen fix + Thumbnail fix + OAuth scope fix)
 
 ---
 
@@ -209,6 +209,11 @@ Final video 1080×1920 9:16
 46. **DB audit + migration 04**: Added missing columns `tiktok_url`, `tool_name`, `tool_url`, `discovery_source`. Added indexes on `created_at`, `tool_name`, `status`. Orchestrator now writes tool metadata to top-level columns for fast Content Memory queries (2026-03-30)
 47. **Thumbnail + SEO + Engagement**: Thumbnail — gradient overlay + dynamic badge (FREE/NEW/TRENDING based on tagline) + emoji + subtitle. SEO — auto-inject `#toolname` hashtag + auto-add tool to tags + `#trending`. Engagement — 4 rotating pinned comment templates with question hooks + improved outro with engagement CTA. Fixed PH references in generator prompt (2026-03-30)
 48. **Subtitle overlay fix**: Text was covering ~40% of video screen. Root cause: `Fontsize=36` + `BorderStyle=3` (opaque box) on 1080×1920 canvas. Fix: `Fontsize=22` + `BorderStyle=1` (outline only) + `MarginV=180` (pushed to bottom). Text now compact and readable without blocking video content (2026-03-30)
+49. **Black screen fix — start**: Playwright records from browser launch (blank page during load). Fix: `-ss 2` skips first 2s of each recording. Scene 1 (2.95s TTS) was ENTIRELY blank before this fix (2026-03-31)
+50. **Black screen fix — end**: TTS trailing silence creating extra dead frames. Fix: `silenceremove` filter (stop_periods=1, stop_threshold=-50dB) trims dead air from each scene's audio before stitching (2026-03-31)
+51. **Thumbnail FFmpeg crash fix**: `force_original_aspect_ratio=increase` on portrait 1080×1920 → landscape 1280×720 caused `Error reinitializing filters`. Fix: direct `scale 1280:720` without aspect ratio constraint. Also removed broken Unicode emoji escape in drawtext (2026-03-31)
+52. **Pinned comment OAuth scope fix**: `Request had insufficient authentication scopes` — `get-youtube-token.ts` only requested `youtube.upload`. Fix: added `youtube.force-ssl` scope. Requires user to re-run token script and update .env + GitHub Secrets (2026-03-31)
+53. **Error logging improvements**: Pinned comment error now logs HTTP status code + actionable fix hint for scope issues (2026-03-31)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -240,7 +245,10 @@ Final video 1080×1920 9:16
 - **Subtitle overlay**: `Fontsize=22` + `BorderStyle=1` (outline, không opaque box) + `MarginV=180` — compact, không che nội dung video
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
-- **Video recording**: Viewport 1920×1080 desktop → FFmpeg scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
+- **Video recording**: Viewport 1920×1080 desktop → FFmpeg `-ss 2` (skip blank page load) → scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
+- **Audio processing**: TTS → `silenceremove` (trim trailing silence) → `aresample 48000` → stereo → AAC 128k
+- **OAuth scopes**: YouTube token needs BOTH `youtube.upload` + `youtube.force-ssl` (for comments). Run `get-youtube-token.ts` to regenerate
+- **Google CSE 403**: May be caused by expired/invalid API key or 100 queries/day free quota exceeded. Pipeline continues with Gemini Search only as fallback
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
 - **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng. Khi thêm item mới, **PHẢI kiểm tra** phần "Lưu Ý Quan Trọng" xem có dòng nào bị stale/mâu thuẫn với thay đổi mới → fix ngay trong cùng commit
 

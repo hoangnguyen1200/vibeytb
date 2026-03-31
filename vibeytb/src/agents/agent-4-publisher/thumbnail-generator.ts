@@ -76,18 +76,12 @@ export async function generateThumbnail(
       .seekInput(2)
       .frames(1)
       .complexFilter([
-        // Scale + crop to 1280x720
+        // Scale to fill 1280x720 (handles any input aspect ratio including portrait)
         {
           filter: 'scale',
-          options: '1280:720:force_original_aspect_ratio=increase',
+          options: '1280:720',
           inputs: '0:v',
           outputs: 'scaled',
-        },
-        {
-          filter: 'crop',
-          options: '1280:720',
-          inputs: 'scaled',
-          outputs: 'cropped',
         },
         // Gradient overlay — dark gradient bar at bottom (150px tall)
         {
@@ -100,7 +94,7 @@ export async function generateThumbnail(
             color: 'black@0.75',
             t: 'fill',
           },
-          inputs: 'cropped',
+          inputs: 'scaled',
           outputs: 'bar1',
         },
         // Purple tint on the gradient bar (subtle brand color)
@@ -145,11 +139,11 @@ export async function generateThumbnail(
           inputs: 'badge_bg',
           outputs: 'badged',
         },
-        // Tool name — large bold text with emoji
+        // Tool name — large bold text
         {
           filter: 'drawtext',
           options: {
-            text: `\\xF0\\x9F\\xA4\\xAF ${safeToolName}`,
+            text: safeToolName,
             fontcolor: 'white',
             fontsize: 56,
             x: '(w-text_w)/2',

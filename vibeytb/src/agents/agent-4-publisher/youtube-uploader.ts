@@ -67,8 +67,16 @@ async function postPinnedComment(
     });
     console.log(`💬 [Pinned Comment] Posted template #${templateIndex + 1} on video ${videoId}`);
   } catch (err: unknown) {
+    // Common cause: OAuth token missing youtube.force-ssl scope
+    // Fix: regenerate refresh token with scopes:
+    //   youtube.upload + youtube.force-ssl
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`⚠️ [Pinned Comment] Failed (non-fatal): ${msg}`);
+    const statusCode = (err as Record<string, unknown>)?.code ||
+                       (err as Record<string, unknown>)?.status || 'unknown';
+    console.warn(`⚠️ [Pinned Comment] Failed (non-fatal) [HTTP ${statusCode}]: ${msg}`);
+    if (msg.includes('insufficient authentication scopes')) {
+      console.warn('💡 [Pinned Comment] FIX: Regenerate OAuth refresh token with scope: https://www.googleapis.com/auth/youtube.force-ssl');
+    }
   }
 }
 

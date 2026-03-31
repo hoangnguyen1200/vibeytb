@@ -24,7 +24,8 @@ export async function mergeAudioVideoScene(
 
     ffmpeg()
       .input(videoPath)
-      .inputOptions(['-stream_loop', '-1'])
+      // Skip first 2s of Playwright recording (page load = blank frame)
+      .inputOptions(['-ss', '2', '-stream_loop', '-1'])
       .input(audioPath)
       .complexFilter([
         // Scale UP to at least 1080px wide before cropping (handles any input size)
@@ -64,10 +65,21 @@ export async function mergeAudioVideoScene(
           inputs: 'padded_v',
           outputs: 'sub_v'
         },
+        // Trim trailing silence from TTS audio (Edge TTS often adds 1-2s dead air)
+        {
+          filter: 'silenceremove',
+          options: {
+            stop_periods: 1,
+            stop_duration: '0.3',
+            stop_threshold: '-50dB',
+          },
+          inputs: '1:a',
+          outputs: 'trimmed_a'
+        },
         {
           filter: 'aresample',
           options: '48000',
-          inputs: '1:a',
+          inputs: 'trimmed_a',
           outputs: 'resample_a'
         },
         {
