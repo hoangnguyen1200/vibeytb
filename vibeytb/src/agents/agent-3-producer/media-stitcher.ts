@@ -28,31 +28,18 @@ export async function mergeAudioVideoScene(
       .inputOptions(['-ss', '2', '-stream_loop', '-1'])
       .input(audioPath)
       .complexFilter([
-        // Scale UP to at least 1080px wide before cropping (handles any input size)
+        // Scale to exactly 1080px wide (handles edge cases)
         {
           filter: 'scale',
-          options: {
-            w: 'if(lt(iw,1080),1080,-2)',
-            h: 'if(lt(iw,1080),-2,ih)'
-          },
+          options: { w: 1080, h: -2 },
           inputs: '0:v',
           outputs: 'scaled_v'
         },
-        {
-          filter: 'crop',
-          options: {
-            w: 'min(iw,1080)',
-            h: 'min(ih,1080)',
-            x: '(iw-min(iw,1080))/2',
-            y: 0
-          },
-          inputs: 'scaled_v',
-          outputs: 'cropped_v'
-        },
+        // Pad to 9:16 portrait (center vertically, black bars top/bottom)
         {
           filter: 'pad',
           options: '1080:1920:(ow-iw)/2:(oh-ih)/2:color=black',
-          inputs: 'cropped_v',
+          inputs: 'scaled_v',
           outputs: 'padded_v'
         },
         // Subtitles: modern viral-style (compact, semi-transparent bg, safe zone)

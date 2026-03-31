@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-31 (Subtitle redesign — modern viral style)
+> Cập nhật lần cuối: 2026-03-31 (Viewport 1080×1200 + interaction UX overhaul)
 
 ---
 
@@ -217,6 +217,8 @@ Final video 1080×1920 9:16
 53. **Error logging improvements**: Pinned comment error now logs HTTP status code + actionable fix hint for scope issues (2026-03-31)
 54. **Subtitle redesign v3**: From boring (Impact 22px, outline only, sát đáy) → modern viral style (Arial 14px bold, semi-transparent dark background box, MarginV=320 in bottom black zone, MarginL/R=80). Inspired by CapCut/Submagic trends. Subtitle now compact, không che website content, tránh YouTube UI (2026-03-31)
 55. **Video bitrate fix**: `mergeToFile()` re-encoded without bitrate settings (8M → 1.2M). Fixed: replaced with FFmpeg concat demuxer + `-c copy` (zero re-encoding, preserves original 8 Mbps, concat ~10x faster). QC soft threshold raised 2M → 4M (2026-03-31)
+56. **Viewport overhaul**: 1920×1080 → 1080×1200. Eliminates horizontal cropping (was cutting 420px each side → logo/nav invisible). Website now renders at 1080px width (still desktop layout), full view visible. Simplified FFmpeg: removed crop filter, just scale+pad (2026-03-31)
+57. **Interaction UX v2**: Cursor 30px→48px, added click ripple animation (white circle expand), hover 600ms→1200ms, click pause 300ms→500ms. Removed hero skip → 2.5s brand pause. Smoother cursor transition (ease-out) (2026-03-31)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -248,7 +250,8 @@ Final video 1080×1920 9:16
 - **Subtitle overlay**: `Fontname=Arial,Fontsize=14,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=320` (bottom black zone, y≈1600) + `MarginL/R=80` — modern viral style, không che website content
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
-- **Video recording**: Viewport 1920×1080 desktop → FFmpeg `-ss 2` (skip blank page load) → scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
+- **Video recording**: Viewport 1080×1200 compact desktop → FFmpeg `-ss 2` (skip blank page load) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
+- **Interaction UX**: Cursor 48px + click ripple animation, hover 1.2s, hero pause 2.5s. Step 0 shows brand instead of skipping
 - **Audio processing**: TTS → `silenceremove` (trim trailing silence) → `aresample 48000` → stereo → AAC 128k
 - **OAuth scopes**: YouTube token needs BOTH `youtube.upload` + `youtube.force-ssl` (for comments). Run `get-youtube-token.ts` to regenerate
 - **Google CSE**: **INACTIVE** — requires Google Cloud Billing account. Code kept, fails gracefully (pipeline uses Gemini Search only). To re-enable: activate billing → set `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID` in GitHub Secrets

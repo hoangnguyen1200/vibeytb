@@ -206,18 +206,18 @@ async function injectFakeCursor(page: Page) {
       const cursor = document.createElement('div');
       cursor.id = 'playwright-fake-cursor';
       const cursorSvgBase64 =
-        'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNyIgaGVpZ2h0PSIyNyIgZmlsbD0ibm9uZSI+PHBhdGggZD0iTTEuNjQ2IDExLjM0bDE5LjYyMiA1Ljk0YTEuNSAxLjUgMCAwMS0uMjE5IDIuNzgybC03LjA4IDIuMDkyYS41LjUgMCAwMC0uMzUuMzUxbC0yLjA5MiA3LjA4YTEuNSAxLjUgMCAwMS0yLjc4Mi4yMThMMS4zNCAxLjY0N2ExLjUgMS41IDAgMDEyLjcxMy0xLjk2OXoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+';
+        'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNyIgaGVpZ2h0PSIyNyIgZmlsbD0ibm9uZSI+PHBhdGggZD0iTTEuNjQ2IDExLjM0bDE5LjYyMiA1Ljk0YTEuNSAxLjUgMCAwMS0uMjE5IDIuNzgybC03LjA4IDIuMDkyYS41LjUgMCAwMC0uMzUuMzUxbC0yLjA5MiA3LjA0YTEuNSAxLjUgMCAwMS0yLjc4Mi4yMThMMS4zNCAxLjY0N2ExLjUgMS41IDAgMDEyLjcxMy0xLjk2OXoiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+';
 
-      cursor.style.width = '30px';
-      cursor.style.height = '30px';
+      cursor.style.width = '48px';
+      cursor.style.height = '48px';
       cursor.style.backgroundImage = `url(${cursorSvgBase64})`;
       cursor.style.backgroundSize = 'contain';
       cursor.style.backgroundRepeat = 'no-repeat';
       cursor.style.position = 'fixed';
       cursor.style.zIndex = '2147483647';
       cursor.style.pointerEvents = 'none';
-      cursor.style.transition = 'top 0.1s, left 0.1s';
-      cursor.style.filter = 'drop-shadow(2px 2px 4px rgba(0,0,0,0.4))';
+      cursor.style.transition = 'top 0.15s ease-out, left 0.15s ease-out';
+      cursor.style.filter = 'drop-shadow(2px 2px 6px rgba(0,0,0,0.5))';
 
       document.documentElement.appendChild(cursor);
       document.addEventListener('mousemove', (e) => {
@@ -226,6 +226,28 @@ async function injectFakeCursor(page: Page) {
           cursorElem.style.left = `${e.clientX}px`;
           cursorElem.style.top = `${e.clientY}px`;
         }
+      });
+
+      // Click ripple animation — visible white circle expanding on click
+      const style = document.createElement('style');
+      style.textContent = `@keyframes clickRipple {
+        0% { transform: scale(0.5); opacity: 1; }
+        100% { transform: scale(2.5); opacity: 0; }
+      }`;
+      document.head.appendChild(style);
+
+      document.addEventListener('mousedown', (e) => {
+        const ripple = document.createElement('div');
+        ripple.style.cssText = `
+          position: fixed; left: ${e.clientX - 20}px; top: ${e.clientY - 20}px;
+          width: 40px; height: 40px; border-radius: 50%;
+          border: 3px solid rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.15);
+          pointer-events: none; z-index: 2147483646;
+          animation: clickRipple 0.5s ease-out forwards;
+        `;
+        document.documentElement.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
       });
     });
   } catch {
@@ -260,7 +282,7 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
       const box = await el.boundingBox();
       if (!box) return false;
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 15 });
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
       await el.click({ force: true, timeout: 3000 });
       console.log(`[Smart Interact] ✅ Clicked: ${label}`);
       return true;
@@ -289,7 +311,7 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
         const box = await el.boundingBox();
         if (!box) continue;
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 12 });
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(1200);
       }
     } catch {
       // ignore hover errors
@@ -298,11 +320,10 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
 
   console.log(`[Smart Interact] 🧠 Starting smart interaction (${durationSec}s budget)...`);
 
-  // === STEP 0: Quick-scroll past hero to reach actual product content ===
-  if (getRemaining() > 4) {
-    console.log('[Smart Interact] Step 0: Quick-skip past hero section...');
-    await smoothScroll(1500, 40); // Fast scroll past hero text/CTA
-    await page.waitForTimeout(500);
+  // === STEP 0: Pause on hero to show brand name/UI ===
+  if (getRemaining() > 3) {
+    console.log('[Smart Interact] Step 0: Showing hero section (brand visible)...');
+    await page.waitForTimeout(2500); // Let viewer see brand/hero
   }
 
   // === STEP 0.5: Smart CTA Click — try entering app page ===

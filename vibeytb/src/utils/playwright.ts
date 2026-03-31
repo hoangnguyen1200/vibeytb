@@ -4,13 +4,13 @@ import type { Browser, BrowserContext, Page, LaunchOptions } from 'playwright';
 export const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
-/** Desktop viewport — websites render at full width, no mobile layout */
-export const DEFAULT_VIEWPORT = { width: 1920, height: 1080 };
+/** Compact desktop viewport — full width visible in 9:16 frame, no horizontal cropping */
+export const DEFAULT_VIEWPORT = { width: 1080, height: 1200 };
 
 /** Recording resolution — matches the viewport */
-export const RECORDING_SIZE = { width: 1920, height: 1080 };
+export const RECORDING_SIZE = { width: 1080, height: 1200 };
 
-/** Final 9:16 output dimensions (center-cropped in FFmpeg) */
+/** Final 9:16 output dimensions (padded vertically in FFmpeg) */
 export const CROP_OUTPUT = { width: 1080, height: 1920 };
 
 /**
@@ -23,7 +23,7 @@ const STEALTH_ARGS = [
   '--no-first-run',
   '--no-default-browser-check',
   '--disable-infobars',
-  '--window-size=1920,1080',
+  '--window-size=1080,1200',
 ];
 
 export type StealthLaunchOptions = LaunchOptions;
