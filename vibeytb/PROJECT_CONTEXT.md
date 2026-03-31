@@ -231,17 +231,18 @@ Final video 1080×1920 9:16
 - **Google Cloud Console** phải giữ dù chạy ở đâu (YouTube API OAuth)
 - **playwright-extra + stealth plugin** KHÔNG tương thích — đừng gợi ý lại
 - **Stealth hardening**: 12 anti-bot vectors trong `playwright.ts` via `addInitScript` + Sec-Ch-Ua headers — Agent-1 và Agent-3 tự kế thừa
-- **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase)
+- **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase cột `tool_name`)
 - **Login Detection threshold**: score >= 2 (URL pattern `/signup` đủ trigger)
-- **Data sources**: 3 sources — PH RSS (primary), HN "Show HN" API, Gemini AI Search
-- **URL Resolution**: PH tools: redirect → Gemini → guess. HN/Gemini tools: URL sẵn có
+- **Data sources**: 2 sources — Gemini AI Search (primary) + Google Custom Search API (secondary). PH RSS + HN đã bị xóa (2026-03-30)
+- **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
+- **Subtitle overlay**: `Fontsize=22` + `BorderStyle=1` (outline, không opaque box) + `MarginV=180` — compact, không che nội dung video
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
-- **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng
+- **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng. Khi thêm item mới, **PHẢI kiểm tra** phần "Lưu Ý Quan Trọng" xem có dòng nào bị stale/mâu thuẫn với thay đổi mới → fix ngay trong cùng commit
 
 ## 🧪 Testing
 
