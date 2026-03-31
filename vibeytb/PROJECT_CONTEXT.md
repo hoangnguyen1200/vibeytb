@@ -47,7 +47,7 @@ GitHub Actions Cron (daily-pipeline.yml)
   └── Phase 4: YouTube upload via OAuth + TikTok cross-post (best-effort)
 ```
 
-### Phase 1: Data Mining (2 sources)
+### Phase 1: Data Mining (1 active source)
 
 ```
   Source 1 (Primary):   Gemini AI Search → 5-10 AI tools + URLs
@@ -60,6 +60,7 @@ GitHub Actions Cron (daily-pipeline.yml)
 
 > `urlSource` field tracks which source: `'gemini-search'` | `'google-cse'` | `'guess'`
 > PH RSS + HN scrapers **removed** (2026-03-30): PH blocked by CF, HN = GitHub repos + non-AI
+> Google CSE **inactive** (2026-03-31): Requires Google Cloud Billing (user declined). Code kept for future use, fails gracefully → pipeline uses Gemini only
 
 ### Tool Selection Scoring
 
@@ -238,7 +239,7 @@ Final video 1080×1920 9:16
 - **Stealth hardening**: 12 anti-bot vectors trong `playwright.ts` via `addInitScript` + Sec-Ch-Ua headers — Agent-1 và Agent-3 tự kế thừa
 - **Content Memory**: Tránh trùng lặp tool trong 7 ngày (query Supabase cột `tool_name`)
 - **Login Detection threshold**: score >= 2 (URL pattern `/signup` đủ trigger)
-- **Data sources**: 2 sources — Gemini AI Search (primary) + Google Custom Search API (secondary). PH RSS + HN đã bị xóa (2026-03-30)
+- **Data sources**: 1 active source — Gemini AI Search (primary, finds 10+ tools/run). Google CSE code exists but **inactive** (requires Cloud Billing). PH RSS + HN đã bị xóa (2026-03-30)
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
@@ -248,7 +249,7 @@ Final video 1080×1920 9:16
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg `-ss 2` (skip blank page load) → scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
 - **Audio processing**: TTS → `silenceremove` (trim trailing silence) → `aresample 48000` → stereo → AAC 128k
 - **OAuth scopes**: YouTube token needs BOTH `youtube.upload` + `youtube.force-ssl` (for comments). Run `get-youtube-token.ts` to regenerate
-- **Google CSE 403**: May be caused by expired/invalid API key or 100 queries/day free quota exceeded. Pipeline continues with Gemini Search only as fallback
+- **Google CSE**: **INACTIVE** — requires Google Cloud Billing account. Code kept, fails gracefully (pipeline uses Gemini Search only). To re-enable: activate billing → set `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID` in GitHub Secrets
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
 - **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng. Khi thêm item mới, **PHẢI kiểm tra** phần "Lưu Ý Quan Trọng" xem có dòng nào bị stale/mâu thuẫn với thay đổi mới → fix ngay trong cùng commit
 
