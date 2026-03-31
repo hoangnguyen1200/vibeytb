@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-31 (Black screen fix + Thumbnail fix + OAuth scope fix)
+> Cập nhật lần cuối: 2026-03-31 (Subtitle redesign — modern viral style)
 
 ---
 
@@ -215,6 +215,7 @@ Final video 1080×1920 9:16
 51. **Thumbnail FFmpeg crash fix**: `force_original_aspect_ratio=increase` on portrait 1080×1920 → landscape 1280×720 caused `Error reinitializing filters`. Fix: direct `scale 1280:720` without aspect ratio constraint. Also removed broken Unicode emoji escape in drawtext (2026-03-31)
 52. **Pinned comment OAuth scope fix**: `Request had insufficient authentication scopes` — `get-youtube-token.ts` only requested `youtube.upload`. Fix: added `youtube.force-ssl` scope. Requires user to re-run token script and update .env + GitHub Secrets (2026-03-31)
 53. **Error logging improvements**: Pinned comment error now logs HTTP status code + actionable fix hint for scope issues (2026-03-31)
+54. **Subtitle redesign v3**: From boring (Impact 22px, outline only, sát đáy) → modern viral style (Arial 14px bold, semi-transparent dark background box, MarginV=320 in bottom black zone, MarginL/R=80). Inspired by CapCut/Submagic trends. Subtitle now compact, không che website content, tránh YouTube UI (2026-03-31)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -243,7 +244,7 @@ Final video 1080×1920 9:16
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
-- **Subtitle overlay**: `Fontsize=22` + `BorderStyle=1` (outline, không opaque box) + `MarginV=180` — compact, không che nội dung video
+- **Subtitle overlay**: `Fontname=Arial,Fontsize=14,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=320` (bottom black zone, y≈1600) + `MarginL/R=80` — modern viral style, không che website content
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1920×1080 desktop → FFmpeg `-ss 2` (skip blank page load) → scale-up (if <1080px) → crop center → pad 1080×1920 (9:16)
