@@ -1,4 +1,4 @@
-﻿import { ffmpeg } from '../utils/ffmpeg';
+import { ffmpeg } from '../utils/ffmpeg';
 import fs from 'fs';
 import path from 'path';
 
@@ -38,7 +38,7 @@ const MBPS = 1_000_000;
 const MIN_DURATION = 15;
 const MAX_DURATION = 60;
 const MIN_VIDEO_BITRATE = 0.2 * MBPS;
-const SOFT_VIDEO_BITRATE = 2 * MBPS;
+const SOFT_VIDEO_BITRATE = 4 * MBPS; // Raised: concat demuxer preserves 8M now
 
 const color = {
   reset: '\x1b[0m',

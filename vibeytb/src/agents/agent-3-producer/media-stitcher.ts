@@ -153,20 +153,27 @@ export async function concatScenes(
   const tempConcat = path.join(tmpDir, 'temp_concat_no_bgm.mp4');
 
   try {
-    // Phase 1: Concat video files
+    // Phase 1: Concat video files using demuxer (NO re-encode → preserves 8M bitrate)
+    const concatListPath = path.join(tmpDir, 'concat_list.txt');
+    const concatListContent = sceneFiles
+      .map(f => `file '${f.replace(/\\/g, '/')}'`)
+      .join('\n');
+    fs.writeFileSync(concatListPath, concatListContent);
+
     await new Promise<void>((resolve, reject) => {
-      const concatCommand = ffmpeg();
-      sceneFiles.forEach((file) => concatCommand.input(file));
-      concatCommand
-        .on('error', (err) => {
-          console.error(`[FFmpeg] Concat failed:`, err);
-          reject(err);
-        })
+      ffmpeg()
+        .input(concatListPath)
+        .inputOptions(['-f', 'concat', '-safe', '0'])
+        .outputOptions(['-c', 'copy'])
+        .save(tempConcat)
         .on('end', () => {
           console.log(`[FFmpeg] Concat complete.`);
           resolve();
         })
-        .mergeToFile(tempConcat, tmpDir);
+        .on('error', (err) => {
+          console.error(`[FFmpeg] Concat failed:`, err);
+          reject(err);
+        });
     });
 
     // Phase 2: Mix BGM + Loudnorm
@@ -225,6 +232,10 @@ export async function concatScenes(
     // Vệ sinh môi trường: Xóa file trung gian sau khi đã lưu xong video hoàn chỉnh
     if (fs.existsSync(tempConcat)) {
       try { fs.unlinkSync(tempConcat); } catch {}
+    }
+    const concatListCleanup = path.join(tmpDir, 'concat_list.txt');
+    if (fs.existsSync(concatListCleanup)) {
+      try { fs.unlinkSync(concatListCleanup); } catch {}
     }
   }
 }

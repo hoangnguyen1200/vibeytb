@@ -216,6 +216,7 @@ Final video 1080×1920 9:16
 52. **Pinned comment OAuth scope fix**: `Request had insufficient authentication scopes` — `get-youtube-token.ts` only requested `youtube.upload`. Fix: added `youtube.force-ssl` scope. Requires user to re-run token script and update .env + GitHub Secrets (2026-03-31)
 53. **Error logging improvements**: Pinned comment error now logs HTTP status code + actionable fix hint for scope issues (2026-03-31)
 54. **Subtitle redesign v3**: From boring (Impact 22px, outline only, sát đáy) → modern viral style (Arial 14px bold, semi-transparent dark background box, MarginV=320 in bottom black zone, MarginL/R=80). Inspired by CapCut/Submagic trends. Subtitle now compact, không che website content, tránh YouTube UI (2026-03-31)
+55. **Video bitrate fix**: `mergeToFile()` re-encoded without bitrate settings (8M → 1.2M). Fixed: replaced with FFmpeg concat demuxer + `-c copy` (zero re-encoding, preserves original 8 Mbps, concat ~10x faster). QC soft threshold raised 2M → 4M (2026-03-31)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
