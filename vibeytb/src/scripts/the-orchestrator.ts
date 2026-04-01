@@ -420,7 +420,8 @@ export class TheMasterOrchestrator {
             scene.target_website_url,
             duration,
             path.join(tmpDir, `scene_${sceneIndex}_raw.webm`),
-            scene.target_search_query || undefined
+            scene.target_search_query || undefined,
+            sceneIndex
           );
 
           console.log(`[PHASE 3] Running Visual QC on Layer 1 recording...`);

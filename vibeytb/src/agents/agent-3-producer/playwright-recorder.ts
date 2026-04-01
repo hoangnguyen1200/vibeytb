@@ -270,7 +270,7 @@ async function _tryUploadSampleFile(page: Page): Promise<void> {
   }
 }
 
-async function runDemoHunter(page: Page, durationSec: number, startMs: number): Promise<void> {
+async function runDemoHunter(page: Page, durationSec: number, startMs: number, sceneIndex: number = 0): Promise<void> {
   const getRemaining = () => Math.max(0, durationSec - (Date.now() - startMs) / 1000);
 
   // Helper: safely click an element with cursor movement
@@ -327,9 +327,11 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
   }
 
   // === STEP 0.5: Smart CTA Click — try entering app page ===
+  // Only attempt CTA on Scene 1 (sceneIndex=0). Scenes 2+ just scroll/hover — clicking
+  // CTA again leads to the same login page, wasting time and causing QC fail → stock fallback.
   let enteredAppPage = false;
-  if (getRemaining() > 6) {
-    console.log('[Smart CTA] Trying to enter app page via CTA button...');
+  if (sceneIndex === 0 && getRemaining() > 6) {
+    console.log('[Smart CTA] Scene 1 → Trying to enter app page via CTA button...');
     // Scroll back to top to find CTA buttons
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.waitForTimeout(500);
@@ -409,7 +411,7 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number): 
         } catch {
           await page.goto(originalUrl, { waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
         }
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(3000); // 3s stabilization after go-back (was 1s → QC was failing)
       } else {
         console.log('[Smart CTA] 🎯 Entered app page! Recording product UI...');
         enteredAppPage = true;
@@ -516,7 +518,8 @@ export async function recordWebsiteScroll(
   url: string,
   durationSec: number,
   outputFilePath: string,
-  searchQuery?: string
+  searchQuery?: string,
+  sceneIndex: number = 0
 ): Promise<string> {
   let browser: Browser | null = null;
   let context: BrowserContext | null = null;
@@ -667,7 +670,7 @@ export async function recordWebsiteScroll(
     }
 
     if (!phaseACompleted) {
-      await runDemoHunter(page, durationSec, startMs);
+      await runDemoHunter(page, durationSec, startMs, sceneIndex);
     }
   } catch (err: unknown) {
     console.error('[Playwright] Recording failed:', err);

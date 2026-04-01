@@ -225,6 +225,8 @@ Final video 1080×1920 9:16
 61. **Concat audio fix**: concat demuxer (`-c copy`) silently dropped audio from Scene 2+ (different AAC headers between website recording vs stock video). Replaced with concat FILTER (re-encode at 8M). Audio now continuous across all scenes. Slightly slower concat but 100% reliable (2026-04-01)
 62. **CRITICAL: silenceremove removed**: Filter was DESTROYING 75-87% of narration! TTS natural pauses (0.3s+ between sentences) triggered `stop_threshold=-50dB` → filter cut audio to 1.4-3.2s out of 10-13s scenes. Narration now plays full duration. Minor trailing dead air from Edge TTS is acceptable trade-off (2026-04-01)
 63. **amix normalize=0**: `amix` default divides all input volumes by number of inputs (2). Added `normalize=0` to preserve original narration volume when mixing with BGM (2026-04-01)
+64. **Smart CTA scene-gated**: CTA button click ("Try Free", "Get Started") now only fires on Scene 1. Scenes 2-4 skip CTA → just scroll/hover. Prevents repeated login-page fallback to stock video. Go-back stabilization delay increased 1s→3s (2026-04-01)
+65. **Outro audio fix**: Replaced `anullsrc` (dead silence -91dB) with inaudible 1Hz sine wave (-60dB). Keeps audio stream "active" so BGM naturally overlaps during Phase 2 amix. Outro no longer ends in abrupt dead silence (2026-04-01)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 

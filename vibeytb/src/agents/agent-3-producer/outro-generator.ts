@@ -28,7 +28,10 @@ export async function generateOutro(jobId: string): Promise<string> {
     ffmpeg()
       .input('color=c=black:s=1080x1920:d=3:r=30')
       .inputFormat('lavfi')
-      .input('anullsrc=r=48000:cl=stereo')
+      // Inaudible 1Hz sine (-60dB) instead of dead silence (anullsrc).
+      // This keeps the audio stream "active" so BGM naturally overlaps
+      // during Phase 2 amix — outro won't end in abrupt dead silence.
+      .input('sine=frequency=1:sample_rate=48000:duration=3')
       .inputFormat('lavfi')
       .complexFilter([
         // Purple accent bar at top (brand color)
