@@ -48,6 +48,10 @@ jobs:
           GOOGLE_CSE_ID=${{ secrets.GOOGLE_CSE_ID }}
 
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+
+          TIKTOK_CLIENT_KEY=${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET=${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN=${{ secrets.TIKTOK_REFRESH_TOKEN }}
           "@ | Out-File -FilePath .env -Encoding utf8
 
       - name: Run pipeline
