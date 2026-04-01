@@ -1,11 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>Privacy Policy</title></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — TechHustleLabs Auto Publisher</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #ddd; min-height: 100vh; display: flex; flex-direction: column; }
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px 40px; border-bottom: 1px solid #333; }
+    .logo { font-size: 22px; font-weight: 700; background: linear-gradient(90deg, #fe2c55, #25f4ee); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-decoration: none; }
+    .content { max-width: 720px; margin: 0 auto; padding: 48px 20px; flex: 1; line-height: 1.8; }
+    .content h1 { color: #fff; font-size: 32px; margin-bottom: 8px; }
+    .content .updated { color: #666; font-size: 14px; margin-bottom: 32px; }
+    .content h2 { color: #fff; font-size: 20px; margin-top: 32px; margin-bottom: 12px; }
+    .content p, .content li { color: #bbb; font-size: 15px; margin-bottom: 12px; }
+    .content ul { margin-left: 20px; margin-bottom: 16px; }
+    .content a { color: #25f4ee; }
+    footer { background: #111; border-top: 1px solid #333; padding: 24px 40px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    footer .copyright { color: #666; font-size: 13px; }
+    footer .links { display: flex; gap: 24px; }
+    footer .links a { color: #888; text-decoration: none; font-size: 13px; }
+    footer .links a:hover { color: #25f4ee; }
+  </style>
+</head>
 <body>
-<h1>Privacy Policy</h1>
-<p>Last updated: 2026-03-27</p>
-<p>This application does not collect personal user data. It uses TikTok's Content Posting API to publish videos to the developer's own account.</p>
-<p>No third-party data is collected, stored, or shared.</p>
-<p>Contact: hoangnguyen1200 (GitHub)</p>
+  <div class="header">
+    <a href="index.html" class="logo">⚡ TechHustleLabs Auto Publisher</a>
+  </div>
+
+  <div class="content">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: April 1, 2026</p>
+
+    <p>This Privacy Policy describes how <strong>TechHustleLabs Auto Publisher</strong> (the "App", "we", "us", or "our") collects, uses, and protects information when you use our application and services.</p>
+
+    <h2>1. About TechHustleLabs Auto Publisher</h2>
+    <p><strong>TechHustleLabs Auto Publisher</strong> is an automated video publishing application that discovers trending AI tools, generates short-form video reviews, and publishes them to social media platforms including YouTube and TikTok using their official APIs.</p>
+
+    <h2>2. Information We Collect</h2>
+    <p><strong>TechHustleLabs Auto Publisher</strong> collects minimal information necessary to operate:</p>
+    <ul>
+      <li><strong>OAuth Tokens</strong>: When you authorize <strong>TechHustleLabs Auto Publisher</strong> to access your TikTok or YouTube account, we receive and store OAuth access tokens and refresh tokens. These are used solely to publish videos on your behalf.</li>
+      <li><strong>Basic Profile Information</strong>: We may access your display name and account identifier as provided by the platform's API during the OAuth flow.</li>
+      <li><strong>Published Content Metadata</strong>: We store metadata about videos published through <strong>TechHustleLabs Auto Publisher</strong> (e.g., video ID, publish status, timestamp) for operational tracking.</li>
+    </ul>
+
+    <h2>3. Information We Do NOT Collect</h2>
+    <p><strong>TechHustleLabs Auto Publisher</strong> does not collect:</p>
+    <ul>
+      <li>Personal information such as email addresses, phone numbers, or physical addresses</li>
+      <li>User-generated content or private messages</li>
+      <li>Analytics data, browsing history, or device fingerprints</li>
+      <li>Financial or payment information</li>
+    </ul>
+
+    <h2>4. How We Use Information</h2>
+    <p>Information collected by <strong>TechHustleLabs Auto Publisher</strong> is used exclusively to:</p>
+    <ul>
+      <li>Authenticate with social media platform APIs (YouTube, TikTok)</li>
+      <li>Publish video content to authorized accounts</li>
+      <li>Monitor publishing status and handle errors</li>
+    </ul>
+
+    <h2>5. Data Storage and Security</h2>
+    <p><strong>TechHustleLabs Auto Publisher</strong> stores OAuth tokens securely using environment variables and encrypted secrets management. Tokens are never hardcoded, committed to source control, or shared with third parties.</p>
+
+    <h2>6. Third-Party Services</h2>
+    <p><strong>TechHustleLabs Auto Publisher</strong> integrates with the following third-party services:</p>
+    <ul>
+      <li><strong>TikTok Content Posting API</strong> — for publishing videos to TikTok</li>
+      <li><strong>YouTube Data API v3</strong> — for publishing videos to YouTube</li>
+      <li><strong>Google Gemini API</strong> — for AI-powered content generation</li>
+      <li><strong>Microsoft Edge TTS</strong> — for text-to-speech voiceover</li>
+    </ul>
+    <p>Each service is governed by its own privacy policy. <strong>TechHustleLabs Auto Publisher</strong> does not share your data with any other third parties.</p>
+
+    <h2>7. Data Retention</h2>
+    <p>OAuth tokens are retained only as long as necessary for <strong>TechHustleLabs Auto Publisher</strong> to function. You may revoke access at any time through your TikTok or YouTube account settings, which will invalidate the stored tokens.</p>
+
+    <h2>8. Children's Privacy</h2>
+    <p><strong>TechHustleLabs Auto Publisher</strong> is not directed at children under 13 and does not knowingly collect information from children.</p>
+
+    <h2>9. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated revision date.</p>
+
+    <h2>10. Contact</h2>
+    <p>If you have questions about this Privacy Policy or <strong>TechHustleLabs Auto Publisher</strong>'s data practices, please contact us via GitHub: <a href="https://github.com/hoangnguyen1200/vibeytb" target="_blank">github.com/hoangnguyen1200/vibeytb</a></p>
+  </div>
+
+  <footer>
+    <div class="copyright">© 2026 TechHustleLabs Auto Publisher. All rights reserved.</div>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="terms.html">Terms of Service</a>
+    </div>
+  </footer>
 </body>
 </html>
