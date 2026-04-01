@@ -201,7 +201,7 @@ export async function concatScenes(
           .inputOptions(['-stream_loop', '-1'])
           .complexFilter([
             '[1:a]volume=0.15[bgm]',
-            '[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a_mix]'
+            '[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a_mix]'
           ]);
       }
 
