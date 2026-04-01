@@ -43,12 +43,12 @@ export async function mergeAudioVideoScene(
           outputs: 'padded_v'
         },
         // Subtitles: modern viral-style (compact, semi-transparent bg, safe zone)
-        // Fontsize=14 on 1080x1920 = ~1.5% height per line (small, readable, non-intrusive)
+        // Fontsize=16 on 1080x1920 = readable on mobile without being intrusive
         // BorderStyle=4 = box + outline (semi-transparent dark background behind text)
-        // MarginV=320 = bottom black padding zone (y≈1600), avoids YouTube UI AND website content
+        // MarginV=120 = bottom black padding zone (y≈1800), avoids YouTube UI (buttons ~y1700) AND website content (ends ~y1560)
         {
           filter: 'subtitles',
-          options: `'${escapedVttPath}':force_style='Fontname=Arial,Fontsize=14,PrimaryColour=&H00FFFFFF,OutlineColour=&H40000000,BackColour=&H80000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=320,MarginL=80,MarginR=80,Bold=1'`,
+          options: `'${escapedVttPath}':force_style='Fontname=Arial,Fontsize=16,PrimaryColour=&H00FFFFFF,OutlineColour=&H40000000,BackColour=&H80000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=120,MarginL=80,MarginR=80,Bold=1'`,
           inputs: 'padded_v',
           outputs: 'sub_v'
         },

@@ -199,8 +199,8 @@ The tool_name field MUST be "${toolData.name}" for scenes where the tool is ment
       const errorMessage = error instanceof Error ? error.message : String(error);
       
       if (error.status === 429 || error.status === 404 || errorMessage.toLowerCase().includes('quota')) {
-        console.log('[MODEL FALLBACK] gemini-2.5-flash quota exceeded, switching to gemini-1.5-flash-latest');
-        currentModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        console.log('[MODEL FALLBACK] gemini-2.5-flash quota exceeded, switching to gemini-2.0-flash');
+        currentModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       } else {
         console.warn(`⚠️ Gemini API Lỗi/Malformed JSON. Đang thử lại... Chi tiết: ${errorMessage}`);
       }

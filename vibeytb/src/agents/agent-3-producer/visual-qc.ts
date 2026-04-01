@@ -66,7 +66,7 @@ async function extractFramesBase64(videoPath: string, outputDir: string): Promis
 }
 
 async function analyzeFramesWithGemini(base64Frames: string[], retryCount = 0): Promise<boolean> {
-  let currentModel = retryCount === 0 ? model : genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+  let currentModel = retryCount === 0 ? model : genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `Bạn là một Chuyên gia Kiểm duyệt Video tự động.
 Phân tích 3 khung hình (frames) được trích xuất từ Video quay một trang web Affiliate/Software.
@@ -92,7 +92,7 @@ CHỈ ĐƯỢC PHÉP TRẢ VỀ DUY NHẤT 1 TỪ:
     const errorMessage = err instanceof Error ? err.message : String(err);
     const isQuotaError = err.status === 429 || err.status === 404 || errorMessage.toLowerCase().includes('quota');
     if (retryCount === 0 && isQuotaError) {
-      console.log('[VISUAL QC MODEL FALLBACK] switching to gemini-1.5-flash-latest');
+      console.log('[VISUAL QC MODEL FALLBACK] switching to gemini-2.0-flash');
       return analyzeFramesWithGemini(base64Frames, 1);
     }
     if (isQuotaError) {

@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-03-31 (Viewport 1080×1200 + interaction UX overhaul)
+> Cập nhật lần cuối: 2026-04-01 (Gemini model fix + subtitle reposition + TTS retry)
 
 ---
 
@@ -43,7 +43,7 @@ GitHub Actions Cron (daily-pipeline.yml)
   ├── Node.js 22 + FORCE_JAVASCRIPT_ACTIONS_TO_NODE24
   ├── Phase 1: Gemini AI Search + Google Custom Search API → pickBestTool()
   ├── Phase 2: Gemini script generation (với real tool data)
-  ├── Phase 3: Edge TTS + Playwright 1920×1080 + FFmpeg center-crop → 1080×1920
+  ├── Phase 3: Edge TTS (retry) + Playwright 1080×1200 + FFmpeg scale+pad → 1080×1920
   └── Phase 4: YouTube upload via OAuth + TikTok cross-post (best-effort)
 ```
 
@@ -100,16 +100,16 @@ Layer 3: Pexels stock video (fallback)
 ### Video Pipeline (Phase 3 — FFmpeg)
 
 ```
-Playwright recording 1920×1080 (desktop viewport)
-  ↓ FFmpeg crop
-crop center 1080×1080 (cắt 2 bên, giữ trung tâm)
+Playwright recording 1080×1200 (compact desktop viewport)
+  ↓ FFmpeg scale
+scale to 1080px wide (ensure exact width)
   ↓ FFmpeg pad
-pad 1080×1920 (thêm đen trên/dưới → 9:16 portrait)
-  ↓ subtitles + silenceremove + concat
+pad 1080×1920 (black bars top/bottom → 9:16 portrait)
+  ↓ subtitles + silenceremove + concat demuxer (-c copy)
 Final video 1080×1920 9:16
 ```
 
-> Website hiển thị **desktop layout** (không mobile). Text/UI giữ nguyên resolution.
+> Website hiển thị **compact desktop layout** (1080px width > 1024px breakpoint). Full width visible, no horizontal cropping.
 
 ### Các File Quan Trọng
 
@@ -125,7 +125,7 @@ Final video 1080×1920 9:16
 | `src/agents/agent-3-producer/visual-qc.ts` | Gemini Visual QC (kiểm tra video quality) |
 | `src/agents/agent-3-producer/tts-client.ts` | Edge TTS voice |
 | `src/agents/agent-3-producer/pixabay-client.ts` | Local BGM picker (chọn random từ `assets/bgm/`) |
-| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (center-crop 1080×1920, BGM 15%) |
+| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (scale+pad 1080×1920, concat demuxer -c copy, BGM 15%) |
 | `src/agents/agent-3-producer/outro-generator.ts` | 3s outro CTA clip (FFmpeg drawtext) |
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
 | `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame |
@@ -158,7 +158,7 @@ Final video 1080×1920 9:16
 
 - Pipeline tiêu ~8-10 requests/run → nằm trong 20 RPD
 - Quota reset ~2:00 PM VN hàng ngày (12 AM Pacific)
-- Fallback model: `gemini-1.5-flash-latest` (khi 2.5 Flash bị 429)
+- Fallback model: `gemini-2.0-flash` (khi 2.5 Flash bị 429)
 
 ## ✅ Đã Hoàn Thành
 
@@ -219,6 +219,9 @@ Final video 1080×1920 9:16
 55. **Video bitrate fix**: `mergeToFile()` re-encoded without bitrate settings (8M → 1.2M). Fixed: replaced with FFmpeg concat demuxer + `-c copy` (zero re-encoding, preserves original 8 Mbps, concat ~10x faster). QC soft threshold raised 2M → 4M (2026-03-31)
 56. **Viewport overhaul**: 1920×1080 → 1080×1200. Eliminates horizontal cropping (was cutting 420px each side → logo/nav invisible). Website now renders at 1080px width (still desktop layout), full view visible. Simplified FFmpeg: removed crop filter, just scale+pad (2026-03-31)
 57. **Interaction UX v2**: Cursor 30px→48px, added click ripple animation (white circle expand), hover 600ms→1200ms, click pause 300ms→500ms. Removed hero skip → 2.5s brand pause. Smoother cursor transition (ease-out) (2026-03-31)
+58. **Gemini model fix**: `gemini-1.5-flash-latest` removed from Google API (404). Replaced fallback model with `gemini-2.0-flash` in generator.ts + visual-qc.ts (2026-04-01)
+59. **Subtitle reposition**: Font 14→16px (mobile readability), MarginV 320→120 (moved from top to bottom black zone, avoids YouTube UI overlay) (2026-04-01)
+60. **TTS retry logic**: Edge TTS often times out → added 3-attempt retry with exponential backoff (3s, 6s) in tts-client.ts. Prevents pipeline crash on transient network issues (2026-04-01)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -247,7 +250,7 @@ Final video 1080×1920 9:16
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
-- **Subtitle overlay**: `Fontname=Arial,Fontsize=14,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=320` (bottom black zone, y≈1600) + `MarginL/R=80` — modern viral style, không che website content
+- **Subtitle overlay**: `Fontname=Arial,Fontsize=16,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=120` (bottom black zone, y≈1800) + `MarginL/R=80` — modern viral style, không che website content, tránh YouTube UI
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1080×1200 compact desktop → FFmpeg `-ss 2` (skip blank page load) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible

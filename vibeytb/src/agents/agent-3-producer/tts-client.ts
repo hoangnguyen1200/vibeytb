@@ -119,16 +119,39 @@ export async function generateAudioFromText(
 
   try {
     console.log(`🎤 [TTS] Voice selected: ${selectedVoice}`);
-    const tts = new EdgeTTS({
-      voice: selectedVoice,
-      lang: 'en-US',
-      outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
-      saveSubtitles: true,
-      rate: '+15%',
-      pitch: '+2Hz'
-    });
 
-    await tts.ttsPromise(text, filePath);
+    // Retry logic — Edge TTS free service often times out
+    const MAX_RETRIES = 3;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const tts = new EdgeTTS({
+          voice: selectedVoice,
+          lang: 'en-US',
+          outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
+          saveSubtitles: true,
+          rate: '+15%',
+          pitch: '+2Hz'
+        });
+
+        await tts.ttsPromise(text, filePath);
+        lastError = null;
+        break; // Success — exit retry loop
+      } catch (retryErr: unknown) {
+        lastError = retryErr;
+        const msg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+        if (attempt < MAX_RETRIES) {
+          const delay = attempt * 3000; // 3s, 6s backoff
+          console.warn(`⚠️ [TTS] Attempt ${attempt}/${MAX_RETRIES} failed: ${msg}. Retrying in ${delay / 1000}s...`);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+
+    if (lastError) {
+      throw lastError; // All retries exhausted
+    }
 
     // Chuyển đổi JSON sinh ra (filePath + '.json') thành VTT cho FFmpeg đốt phụ đề
     const jsonSubPath = filePath + '.json';
@@ -144,7 +167,7 @@ export async function generateAudioFromText(
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`❌ [TTS Client] Lỗi khi tạo Audio cho Scene ${sceneIndex}:`, errorMessage);
+    console.error(`❌ [TTS Client] Lỗi khi tạo Audio cho Scene ${sceneIndex} (after retries):`, errorMessage);
     throw error;
   }
 }
