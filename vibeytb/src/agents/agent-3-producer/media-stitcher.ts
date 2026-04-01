@@ -15,7 +15,8 @@ export async function mergeAudioVideoScene(
   audioPath: string,
   outputScenePath: string,
   duration: number,
-  vttPath: string
+  vttPath: string,
+  hookText?: string
 ): Promise<string> {
   console.log(`[FFmpeg] Merging audio into video -> ${outputScenePath}`);
 
@@ -50,8 +51,29 @@ export async function mergeAudioVideoScene(
           filter: 'subtitles',
           options: `'${escapedVttPath}':force_style='Fontname=Arial,Fontsize=16,PrimaryColour=&H00FFFFFF,OutlineColour=&H40000000,BackColour=&H80000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=120,MarginL=80,MarginR=80,Bold=1'`,
           inputs: 'padded_v',
-          outputs: 'sub_v'
+          outputs: hookText ? 'sub_v_pre' : 'sub_v'
         },
+        // Viral hook overlay (Scene 1 only) — bold text in top safe zone
+        ...(hookText ? [{
+          filter: 'drawtext',
+          options: {
+            text: hookText.replace(/'/g, "'\\''"),
+            fontfile: '',
+            fontsize: 42,
+            fontcolor: 'white',
+            borderw: 3,
+            bordercolor: 'black',
+            shadowcolor: 'black@0.6',
+            shadowx: 2,
+            shadowy: 2,
+            x: '(w-text_w)/2',
+            y: 200,
+            // Fade in 0-0.5s, visible 0.5-2s, fade out 2-2.5s
+            alpha: "'if(lt(t,0.5),t/0.5,if(lt(t,2),1,if(lt(t,2.5),(2.5-t)/0.5,0)))'",
+          },
+          inputs: 'sub_v_pre',
+          outputs: 'sub_v'
+        }] : []),
         // NOTE: silenceremove was removed — it was cutting 75-87% of narration
         // because TTS has natural 0.3s+ pauses between sentences that the filter
         // treated as "trailing silence" and removed. Minor trailing dead air from

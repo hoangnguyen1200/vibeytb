@@ -8,8 +8,31 @@ if (!apiKey) {
 }
 
 const genAI = new GoogleGenerativeAI(apiKey);
-// Sử dụng model mới nhất và mạnh mẽ nhất cho suy luận logic phức tạp (Structured Output)
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+/**
+ * A/B Title Styles — randomly selected per run.
+ * Gemini is instructed to follow the pattern for youtube_title.
+ */
+const TITLE_STYLES = [
+  { id: 'question', directive: 'Write the title as a curiosity-gap QUESTION. Example: "Is {tool} the Best Free AI Tool for 2026?"' },
+  { id: 'bold_claim', directive: 'Write the title as a BOLD CLAIM. Example: "This AI Tool Does {feature} For FREE 🤯"' },
+  { id: 'listicle', directive: 'Write the title as a LISTICLE TEASE. Example: "{tool}: 3 Features That Will Blow Your Mind"' },
+  { id: 'urgency', directive: 'Write the title with URGENCY/FOMO. Example: "Stop Sleeping On {tool} — It Won\'t Be Free Forever"' },
+];
+
+/**
+ * Normalize Gemini's music_mood output to our 3 categories: upbeat | calm | energetic
+ */
+const MOOD_NORMALIZE: Record<string, string> = {
+  // → upbeat
+  upbeat: 'upbeat', funky: 'upbeat', happy: 'upbeat', groovy: 'upbeat', pop: 'upbeat',
+  // → calm
+  calm: 'calm', chill: 'calm', lofi: 'calm', ambient: 'calm', relaxed: 'calm', mellow: 'calm',
+  // → energetic
+  energetic: 'energetic', epic: 'energetic', synthwave: 'energetic', electronic: 'energetic',
+  intense: 'energetic', suspense: 'energetic', cinematic: 'energetic', dramatic: 'energetic',
+};
 
 // Schema định dạng dữ liệu trả về theo Zod để ép kiểu Output JSON
 export const VideoScriptSchema = z.object({
@@ -133,10 +156,16 @@ export async function generateScriptFromTrend(keyword: string, language: string 
   while (retries > 0) {
     try {
       console.log(`🧠 [Gemini] Scripting for keyword: "${keyword}" (Target: ${language}, Tone: ${tone})... (Remaining retries: ${retries})`);
+
+      // A/B Title Style — random per run
+      const titleStyle = TITLE_STYLES[Math.floor(Math.random() * TITLE_STYLES.length)];
+      console.log(`[A/B TITLE] Using style: "${titleStyle.id}"`);
       
       let prompt = `Current Trending Keyword: "${keyword}". Please craft an engaging video script immediately!
       Target Language/Locale: ${language}
-      Required Tone of Voice: ${tone}`;
+      Required Tone of Voice: ${tone}
+
+      TITLE STYLE DIRECTIVE: ${titleStyle.directive}`;
 
       // Real tool data: inject tool info to prevent LLM hallucination
       if (toolData) {
@@ -191,6 +220,12 @@ The tool_name field MUST be "${toolData.name}" for scenes where the tool is ment
 
       // Validate bằng Zod
       const validatedData = VideoScriptSchema.parse(parsedJson);
+
+      // Normalize music_mood to our 3 categories
+      const rawMood = (validatedData.music_mood || 'upbeat').toLowerCase().trim();
+      validatedData.music_mood = MOOD_NORMALIZE[rawMood] || 'upbeat';
+      console.log(`[BGM MOOD] Gemini said "${rawMood}" → normalized to "${validatedData.music_mood}"`);
+      console.log(`[A/B TITLE] Generated: "${validatedData.youtube_title}"`);
 
       return validatedData;
 

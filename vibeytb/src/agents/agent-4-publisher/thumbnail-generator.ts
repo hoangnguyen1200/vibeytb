@@ -83,28 +83,56 @@ export async function generateThumbnail(
           inputs: '0:v',
           outputs: 'scaled',
         },
-        // Gradient overlay — dark gradient bar at bottom (150px tall)
+        // Dark vignette overlay — cinematic depth around edges
         {
           filter: 'drawbox',
           options: {
             x: 0,
-            y: 'ih-150',
+            y: 0,
             w: 'iw',
-            h: 150,
-            color: 'black@0.75',
+            h: 80,
+            color: 'black@0.5',
             t: 'fill',
           },
           inputs: 'scaled',
-          outputs: 'bar1',
+          outputs: 'top_dim',
         },
-        // Purple tint on the gradient bar (subtle brand color)
+        // Purple accent bar — top edge (brand identity)
         {
           filter: 'drawbox',
           options: {
             x: 0,
-            y: 'ih-150',
+            y: 0,
             w: 'iw',
-            h: 4,
+            h: 5,
+            color: '#7C3AED@0.95',
+            t: 'fill',
+          },
+          inputs: 'top_dim',
+          outputs: 'accent',
+        },
+        // Gradient overlay — dark gradient bar at bottom (180px tall, more breathing room)
+        {
+          filter: 'drawbox',
+          options: {
+            x: 0,
+            y: 'ih-180',
+            w: 'iw',
+            h: 180,
+            color: 'black@0.8',
+            t: 'fill',
+          },
+          inputs: 'accent',
+          outputs: 'bar1',
+        },
+        // Purple accent line on gradient bar top
+        {
+          filter: 'drawbox',
+          options: {
+            x: 0,
+            y: 'ih-180',
+            w: 'iw',
+            h: 3,
             color: '#7C3AED@0.9',
             t: 'fill',
           },
@@ -147,8 +175,10 @@ export async function generateThumbnail(
             fontcolor: 'white',
             fontsize: 56,
             x: '(w-text_w)/2',
-            y: 'h-130',
+            y: 'h-155',
             font: 'Impact',
+            borderw: 2,
+            bordercolor: 'black',
           },
           inputs: 'badged',
           outputs: 'titled',

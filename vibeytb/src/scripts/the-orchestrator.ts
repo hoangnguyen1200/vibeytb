@@ -452,7 +452,13 @@ export class TheMasterOrchestrator {
         videoPath = await downloadStockVideo(keywords, jobId, sceneIndex);
       }
 
-      await mergeAudioVideoScene(videoPath, audioPath, sceneFinalPath, duration, vttPath);
+      // Viral hook overlay: extract first sentence of Scene 1 narration (under 40 chars)
+      const hookText = sceneIndex === 0
+        ? (scene.narration.split(/[.!?]/)[0] || '').trim().slice(0, 40)
+        : undefined;
+      if (hookText) console.log(`[PHASE 3] 🔥 Hook overlay: "${hookText}"`);
+
+      await mergeAudioVideoScene(videoPath, audioPath, sceneFinalPath, duration, vttPath, hookText);
       finalSceneFiles.push(sceneFinalPath);
     }
 

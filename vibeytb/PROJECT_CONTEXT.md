@@ -231,6 +231,12 @@ Final video 1080×1920 9:16
 63. **amix normalize=0**: `amix` default divides all input volumes by number of inputs (2). Added `normalize=0` to preserve original narration volume when mixing with BGM (2026-04-01)
 64. **Smart CTA scene-gated**: CTA button click ("Try Free", "Get Started") now only fires on Scene 1. Scenes 2-4 skip CTA → just scroll/hover. Prevents repeated login-page fallback to stock video. Go-back stabilization delay increased 1s→3s (2026-04-01)
 65. **Outro audio fix**: Replaced `anullsrc` (dead silence -91dB) with inaudible 1Hz sine wave (-60dB). Keeps audio stream "active" so BGM naturally overlaps during Phase 2 amix. Outro no longer ends in abrupt dead silence (2026-04-01)
+66. **Discord notifications enhanced**: Tool name, website URL, data source, clickable YouTube/TikTok links, thumbnail embed, pipeline duration. Failures include tool context too (2026-04-01)
+67. **Visual QC retry**: 1 retry for transient errors (timeout, ECONNRESET, 5xx) with 3s delay before falling back to stock video. Genuine QC failures (blank, Cloudflare) are NOT retried (2026-04-01)
+68. **A/B Title Templates**: 4 title styles (question, bold_claim, listicle, urgency) randomly selected per run. Injected as directive in Gemini prompt. Enables organic title variation (2026-04-01)
+69. **BGM Mood Matching**: `pixabay-client.ts` now matches mood keywords to file names via MOOD_MAP (upbeat/calm/energetic). Gemini's `music_mood` output is normalized to 3 categories via MOOD_NORMALIZE map. Falls back to random if no match (2026-04-01)
+70. **Viral Hook Overlay**: Scene 1 gets drawtext overlay with first sentence of narration (≤40 chars). Fade in 0-0.5s, visible 0.5-2s, fade out 2-2.5s. Position: y=200 (top safe zone). Other scenes unaffected (2026-04-01)
+71. **Premium Thumbnail**: Vignette overlay at top, purple accent bar, taller gradient (180px), text shadow/border on tool name, brand-consistent purple subtitle. Badge auto-detects FREE/NEW/TRENDING from tagline (2026-04-01)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
