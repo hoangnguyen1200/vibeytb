@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-01 (Gemini model fix + subtitle reposition + TTS retry)
+> Cập nhật lần cuối: 2026-04-01 (Phase 1-3: Discord, QC retry, A/B titles, BGM mood, hook overlay, thumbnail, analytics)
 
 ---
 
@@ -134,6 +134,7 @@ Final video 1080×1920 9:16
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
 | `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame |
 | `src/agents/agent-4-publisher/tiktok-uploader.ts` | TikTok cross-post via Content Posting API (OAuth2 + FILE_UPLOAD) |
+| `src/agents/agent-4-publisher/analytics-tracker.ts` | YouTube 24h analytics (views/likes/comments → Supabase + Discord) |
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (18 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
@@ -237,6 +238,8 @@ Final video 1080×1920 9:16
 69. **BGM Mood Matching**: `pixabay-client.ts` now matches mood keywords to file names via MOOD_MAP (upbeat/calm/energetic). Gemini's `music_mood` output is normalized to 3 categories via MOOD_NORMALIZE map. Falls back to random if no match (2026-04-01)
 70. **Viral Hook Overlay**: Scene 1 gets drawtext overlay with first sentence of narration (≤40 chars). Fade in 0-0.5s, visible 0.5-2s, fade out 2-2.5s. Position: y=200 (top safe zone). Other scenes unaffected (2026-04-01)
 71. **Premium Thumbnail**: Vignette overlay at top, purple accent bar, taller gradient (180px), text shadow/border on tool name, brand-consistent purple subtitle. Badge auto-detects FREE/NEW/TRENDING from tagline (2026-04-01)
+72. **YouTube Analytics Tracker**: New `analytics-tracker.ts` fetches 24h stats (views, likes, comments) via YouTube Data API. Stores to Supabase (`views_24h`, `likes_24h`, `comments_24h`). Sends Discord summary. Runs via separate `analytics-pipeline.yml` cron (UTC 0:00 = VN 7:00 AM) (2026-04-01)
+73. **TikTok dual-post ready**: Code fully integrated in orchestrator. Auto-activates when `TIKTOK_REFRESH_TOKEN` is set and TikTok approves the app. No code change needed (2026-04-01)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
