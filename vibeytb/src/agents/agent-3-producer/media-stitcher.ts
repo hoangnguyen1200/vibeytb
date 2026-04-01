@@ -52,21 +52,14 @@ export async function mergeAudioVideoScene(
           inputs: 'padded_v',
           outputs: 'sub_v'
         },
-        // Trim trailing silence from TTS audio (Edge TTS often adds 1-2s dead air)
-        {
-          filter: 'silenceremove',
-          options: {
-            stop_periods: 1,
-            stop_duration: '0.3',
-            stop_threshold: '-50dB',
-          },
-          inputs: '1:a',
-          outputs: 'trimmed_a'
-        },
+        // NOTE: silenceremove was removed — it was cutting 75-87% of narration
+        // because TTS has natural 0.3s+ pauses between sentences that the filter
+        // treated as "trailing silence" and removed. Minor trailing dead air from
+        // Edge TTS is acceptable vs losing narration.
         {
           filter: 'aresample',
           options: '48000',
-          inputs: 'trimmed_a',
+          inputs: '1:a',
           outputs: 'resample_a'
         },
         {
@@ -208,7 +201,7 @@ export async function concatScenes(
           .inputOptions(['-stream_loop', '-1'])
           .complexFilter([
             '[1:a]volume=0.15[bgm]',
-            '[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a_mix]'
+            '[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a_mix]'
           ]);
       }
 

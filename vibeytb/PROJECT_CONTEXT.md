@@ -223,6 +223,8 @@ Final video 1080×1920 9:16
 59. **Subtitle reposition**: Font 14→16px (mobile readability), MarginV 320→120 (moved from top to bottom black zone, avoids YouTube UI overlay) (2026-04-01)
 60. **TTS retry logic**: Edge TTS often times out → added 3-attempt retry with exponential backoff (3s, 6s) in tts-client.ts. Prevents pipeline crash on transient network issues (2026-04-01)
 61. **Concat audio fix**: concat demuxer (`-c copy`) silently dropped audio from Scene 2+ (different AAC headers between website recording vs stock video). Replaced with concat FILTER (re-encode at 8M). Audio now continuous across all scenes. Slightly slower concat but 100% reliable (2026-04-01)
+62. **CRITICAL: silenceremove removed**: Filter was DESTROYING 75-87% of narration! TTS natural pauses (0.3s+ between sentences) triggered `stop_threshold=-50dB` → filter cut audio to 1.4-3.2s out of 10-13s scenes. Narration now plays full duration. Minor trailing dead air from Edge TTS is acceptable trade-off (2026-04-01)
+63. **amix normalize=0**: `amix` default divides all input volumes by number of inputs (2). Added `normalize=0` to preserve original narration volume when mixing with BGM (2026-04-01)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
