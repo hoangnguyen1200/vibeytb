@@ -16,25 +16,41 @@ export async function runVisualQC(videoPath: string, jobId: string, sceneUrl: st
   }
 
   console.log(`[VISUAL QC] Trích xuất 3 khung hình từ Playwright Video để duyệt: ${sceneUrl}...`);
-  try {
-    const base64Frames = await extractFramesBase64(videoPath, outputDir);
-    console.log(`[VISUAL QC] Gửi ${base64Frames.length} khung hình lên Gemini 1.5 Flash...`);
-    const isPass = await analyzeFramesWithGemini(base64Frames);
-    
-    if (isPass) {
-        console.log(`[VISUAL QC] ✅ PASS: Website hiển thị bình thường.`);
-    } else {
-        console.log(`[VISUAL QC] ❌ FAIL: Kém chất lượng, dính Cloudflare/Captcha hoặc vỡ hình.`);
-    }
 
-    // Cleanup ảnh rác
-    fs.rmSync(outputDir, { recursive: true, force: true });
-    
-    return isPass;
-  } catch (error) {
-    console.error(`[VISUAL QC] Lỗi trong quá trình trích xuất/duyệt:`, error);
-    return false; // Fail an toàn
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const base64Frames = await extractFramesBase64(videoPath, outputDir);
+      console.log(`[VISUAL QC] Gửi ${base64Frames.length} khung hình lên Gemini (attempt ${attempt + 1}/2)...`);
+      const isPass = await analyzeFramesWithGemini(base64Frames);
+
+      if (isPass) {
+        console.log(`[VISUAL QC] ✅ PASS: Website hiển thị bình thường.`);
+      } else {
+        console.log(`[VISUAL QC] ❌ FAIL: Kém chất lượng, dính Cloudflare/Captcha hoặc vỡ hình.`);
+      }
+
+      // Cleanup QC frames
+      fs.rmSync(outputDir, { recursive: true, force: true });
+
+      return isPass;
+    } catch (error: any) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isTransient = /timeout|ECONNRESET|ENOTFOUND|500|502|503|504|fetch failed/i.test(msg);
+
+      if (attempt === 0 && isTransient) {
+        console.warn(`[VISUAL QC] ⚠️ Transient error (attempt 1/2): ${msg}. Retrying in 3s...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+
+      console.error(`[VISUAL QC] Lỗi trong quá trình trích xuất/duyệt:`, error);
+      // Cleanup on error
+      try { fs.rmSync(outputDir, { recursive: true, force: true }); } catch { /* ignore */ }
+      return false; // Fail an toàn
+    }
   }
+
+  return false;
 }
 
 async function extractFramesBase64(videoPath: string, outputDir: string): Promise<string[]> {

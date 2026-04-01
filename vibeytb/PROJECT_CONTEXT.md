@@ -105,7 +105,11 @@ Playwright recording 1080×1200 (compact desktop viewport)
 scale to 1080px wide (ensure exact width)
   ↓ FFmpeg pad
 pad 1080×1920 (black bars top/bottom → 9:16 portrait)
-  ↓ subtitles + silenceremove + concat demuxer (-c copy)
+  ↓ subtitles + aresample 48kHz stereo
+Per-scene merge (libx264 8M CBR)
+  ↓ concat FILTER (re-encode, NOT demuxer)
+All scenes merged with consistent audio
+  ↓ amix BGM (15%) + loudnorm (-16 LUFS)
 Final video 1080×1920 9:16
 ```
 
@@ -260,7 +264,7 @@ Final video 1080×1920 9:16
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1080×1200 compact desktop → FFmpeg `-ss 2` (skip blank page load) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
 - **Interaction UX**: Cursor 48px + click ripple animation, hover 1.2s, hero pause 2.5s. Step 0 shows brand instead of skipping
-- **Audio processing**: TTS → `silenceremove` (trim trailing silence) → `aresample 48000` → stereo → AAC 128k
+- **Audio processing**: TTS → `aresample 48000` → stereo → AAC 128k (silenceremove REMOVED — was destroying narration)
 - **OAuth scopes**: YouTube token needs BOTH `youtube.upload` + `youtube.force-ssl` (for comments). Run `get-youtube-token.ts` to regenerate
 - **Google CSE**: **INACTIVE** — requires Google Cloud Billing account. Code kept, fails gracefully (pipeline uses Gemini Search only). To re-enable: activate billing → set `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID` in GitHub Secrets
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`

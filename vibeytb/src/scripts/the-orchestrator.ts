@@ -57,6 +57,10 @@ const envFlag = (key: string, defaultValue = false): boolean => {
 };
 
 export class TheMasterOrchestrator {
+  private pipelineStartMs = 0;
+  private currentToolName = '';
+  private currentWebsiteUrl = '';
+  private currentDataSource = '';
   /**
    * Master loop
    * @param mode 'cron' (Phase 1+2 only), 'worker' (Phase 3+4 only), or 'all' (E2E)
@@ -122,7 +126,7 @@ export class TheMasterOrchestrator {
         try { await this.cleanupTmp(jobId); } catch { /* ignore cleanup errors */ }
       }
       const errorMsg = error instanceof Error ? error.message : String(error);
-      await notifyDiscord({ status: 'failure', jobId: jobId || 'unknown', error: errorMsg, durationMs: Date.now() - this.pipelineStartMs });
+      await notifyDiscord({ status: 'failure', jobId: jobId || 'unknown', error: errorMsg, toolName: this.currentToolName || undefined, websiteUrl: this.currentWebsiteUrl || undefined, dataSource: this.currentDataSource || undefined, durationMs: Date.now() - this.pipelineStartMs });
       throw error;
     }
   }
@@ -259,6 +263,9 @@ export class TheMasterOrchestrator {
     if (selectedTool) {
       selectedTrend = `${selectedTool.name}: ${selectedTool.tagline}`;
       toolData = { name: selectedTool.name, tagline: selectedTool.tagline, url: selectedTool.websiteUrl };
+      this.currentToolName = selectedTool.name;
+      this.currentWebsiteUrl = selectedTool.websiteUrl;
+      this.currentDataSource = selectedTool.urlSource;
       console.log(`[PHASE 1] 🎯 Selected: "${selectedTool.name}" — ${selectedTool.tagline}`);
       console.log(`[PHASE 1] 🔗 Website: ${selectedTool.websiteUrl} (source: ${selectedTool.urlSource})`);
 
@@ -616,7 +623,18 @@ export class TheMasterOrchestrator {
       if (tiktokUrl) console.log(`TikTok URL: ${tiktokUrl}`);
       if (uploadErrors.length > 0) console.warn(`[PHASE 4] Partial upload — some platforms failed: ${uploadErrors.join(' | ')}`);
 
-      await notifyDiscord({ status: 'success', jobId, title, youtubeUrl: youtubeUrl || undefined, tiktokUrl: tiktokUrl || undefined, durationMs: Date.now() - this.pipelineStartMs });
+      await notifyDiscord({
+        status: 'success',
+        jobId,
+        title,
+        toolName: this.currentToolName || undefined,
+        websiteUrl: this.currentWebsiteUrl || undefined,
+        dataSource: this.currentDataSource || undefined,
+        youtubeUrl: youtubeUrl || undefined,
+        tiktokUrl: tiktokUrl || undefined,
+        thumbnailUrl: youtubeUrl ? `https://img.youtube.com/vi/${youtubeUrl.split('v=')[1]?.split('&')[0] || youtubeUrl.split('/').pop()}/maxresdefault.jpg` : undefined,
+        durationMs: Date.now() - this.pipelineStartMs,
+      });
     } else {
       // All platforms failed → UPLOAD_PENDING (video is saved, can retry later)
       console.warn('[PHASE 4] ⚠️ All platform uploads failed. Video preserved for retry. Marking as UPLOAD_PENDING.');
@@ -629,8 +647,6 @@ export class TheMasterOrchestrator {
     }
   }
 
-  // Expose start time for notifications
-  private pipelineStartMs: number = Date.now();
 
   private normalizeScript(raw: unknown): ScriptJson {
     const parsed = this.parseJsonMaybe(raw);

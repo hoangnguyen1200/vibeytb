@@ -10,8 +10,12 @@ interface NotifyPayload {
   status: 'success' | 'failure' | 'warning';
   jobId: string;
   title?: string;
+  toolName?: string;
+  websiteUrl?: string;
+  dataSource?: string;
   youtubeUrl?: string;
   tiktokUrl?: string;
+  thumbnailUrl?: string;
   error?: string;
   durationMs?: number;
 }
@@ -31,20 +35,30 @@ export async function notifyDiscord(payload: NotifyPayload): Promise<void> {
     ? `${(payload.durationMs / 1000 / 60).toFixed(1)} min`
     : 'N/A';
 
-  const embed = {
+  const fields = [
+    { name: 'Job ID', value: `\`${payload.jobId}\``, inline: true },
+    { name: 'Duration', value: durationStr, inline: true },
+    ...(payload.dataSource ? [{ name: 'Source', value: `\`${payload.dataSource}\``, inline: true }] : []),
+    ...(payload.toolName ? [{ name: '🛠️ Tool', value: payload.toolName, inline: true }] : []),
+    ...(payload.websiteUrl ? [{ name: '🌐 Website', value: payload.websiteUrl, inline: true }] : []),
+    ...(payload.title ? [{ name: '📝 Video Title', value: payload.title, inline: false }] : []),
+    ...(payload.youtubeUrl ? [{ name: '🎬 YouTube', value: `[Watch on YouTube](${payload.youtubeUrl})`, inline: true }] : []),
+    ...(payload.tiktokUrl ? [{ name: '🎵 TikTok', value: `[Watch on TikTok](${payload.tiktokUrl})`, inline: true }] : []),
+    ...(payload.error ? [{ name: '🔥 Error', value: `\`\`\`${payload.error.slice(0, 500)}\`\`\``, inline: false }] : []),
+  ];
+
+  const embed: Record<string, unknown> = {
     title: `${emoji} Pipeline ${statusLabel}`,
     color,
-    fields: [
-      { name: 'Job ID', value: `\`${payload.jobId}\``, inline: true },
-      { name: 'Duration', value: durationStr, inline: true },
-      ...(payload.title ? [{ name: 'Video Title', value: payload.title, inline: false }] : []),
-      ...(payload.youtubeUrl ? [{ name: '🎬 YouTube', value: payload.youtubeUrl, inline: false }] : []),
-      ...(payload.tiktokUrl ? [{ name: '🎵 TikTok', value: payload.tiktokUrl, inline: false }] : []),
-      ...(payload.error ? [{ name: '🔥 Error', value: `\`\`\`${payload.error.slice(0, 500)}\`\`\``, inline: false }] : []),
-    ],
+    fields,
     timestamp: new Date().toISOString(),
-    footer: { text: 'VibeYtb Pipeline' },
+    footer: { text: 'VibeYtb Pipeline • @TechHustleLabs' },
   };
+
+  // Embed YouTube thumbnail as image if available
+  if (payload.thumbnailUrl) {
+    embed.image = { url: payload.thumbnailUrl };
+  }
 
   try {
     const response = await fetch(WEBHOOK_URL, {
