@@ -4,7 +4,7 @@ import path from 'path';
 
 /**
  * Step 1: Merge audio + video per scene
- * - Center-crop 1920×1080 → 1080×1080, then pad to 1080×1920
+ * - Scale to 1080px wide, pad to 1080x1920
  * - Burn subtitles
  * - Trim dead air (silenceremove)
  * - Force stereo 48kHz / 128k
@@ -45,7 +45,7 @@ export async function mergeAudioVideoScene(
         // Subtitles: modern viral-style (compact, semi-transparent bg, safe zone)
         // Fontsize=16 on 1080x1920 = readable on mobile without being intrusive
         // BorderStyle=4 = box + outline (semi-transparent dark background behind text)
-        // MarginV=120 = bottom black padding zone (y≈1800), avoids YouTube UI (buttons ~y1700) AND website content (ends ~y1560)
+        // MarginV=120 = bottom black padding zone (y~1800), avoids YouTube UI (buttons ~y1700) AND website content (ends ~y1560)
         {
           filter: 'subtitles',
           options: `'${escapedVttPath}':force_style='Fontname=Arial,Fontsize=16,PrimaryColour=&H00FFFFFF,OutlineColour=&H40000000,BackColour=&H80000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=120,MarginL=80,MarginR=80,Bold=1'`,
@@ -110,6 +110,7 @@ export async function mergeAudioVideoScene(
 
 /**
  * Step 2: Concatenate scenes into final video
+ * - Uses concat FILTER (not demuxer) to handle different codec params across scenes
  * - Mix BGM if provided
  * - Loudnorm AFTER mix to hit -16 LUFS
  * - Force stereo 48kHz / 128k
@@ -127,7 +128,7 @@ export async function concatScenes(
     const { generateOutro } = await import('./outro-generator.js');
     const outroPath = await generateOutro(projectId);
     sceneFiles = [...sceneFiles, outroPath];
-    console.log(`[CONCAT] Appended outro CTA → ${sceneFiles.length} total scenes`);
+    console.log(`[CONCAT] Appended outro CTA -> ${sceneFiles.length} total scenes`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[CONCAT] Outro generation failed (non-fatal): ${msg}`);
@@ -140,18 +141,42 @@ export async function concatScenes(
   const tempConcat = path.join(tmpDir, 'temp_concat_no_bgm.mp4');
 
   try {
-    // Phase 1: Concat video files using demuxer (NO re-encode → preserves 8M bitrate)
-    const concatListPath = path.join(tmpDir, 'concat_list.txt');
-    const concatListContent = sceneFiles
-      .map(f => `file '${f.replace(/\\/g, '/')}'`)
-      .join('\n');
-    fs.writeFileSync(concatListPath, concatListContent);
-
+    // Phase 1: Concat using the concat FILTER (not demuxer)
+    // Why: concat demuxer (-c copy) silently drops audio when scenes have
+    // different codec params (website recording vs stock video have different
+    // AAC headers/timestamps). The concat filter re-decodes all inputs and
+    // properly interleaves streams, then re-encodes at 8M to preserve quality.
     await new Promise<void>((resolve, reject) => {
-      ffmpeg()
-        .input(concatListPath)
-        .inputOptions(['-f', 'concat', '-safe', '0'])
-        .outputOptions(['-c', 'copy'])
+      const cmd = ffmpeg();
+
+      // Add each scene as a separate input
+      for (const f of sceneFiles) {
+        cmd.input(f);
+      }
+
+      // Build concat filter: [0:v][0:a][1:v][1:a]...concat=n=N:v=1:a=1
+      const filterParts = sceneFiles.map((_, i) => `[${i}:v][${i}:a]`).join('');
+      const concatFilter = `${filterParts}concat=n=${sceneFiles.length}:v=1:a=1[outv][outa]`;
+
+      cmd
+        .complexFilter([concatFilter])
+        .outputOptions([
+          '-map [outv]',
+          '-map [outa]',
+          '-c:v libx264',
+          '-preset fast',
+          '-b:v 8M',
+          '-minrate 8M',
+          '-maxrate 8M',
+          '-bufsize 16M',
+          '-pix_fmt yuv420p',
+          '-r 30',
+          '-c:a aac',
+          '-b:a 128k',
+          '-ar 48000',
+          '-ac 2',
+          '-movflags +faststart'
+        ])
         .save(tempConcat)
         .on('end', () => {
           console.log(`[FFmpeg] Concat complete.`);
@@ -216,7 +241,7 @@ export async function concatScenes(
 
     return finalOutput;
   } finally {
-    // Vệ sinh môi trường: Xóa file trung gian sau khi đã lưu xong video hoàn chỉnh
+    // Cleanup: remove intermediate files
     if (fs.existsSync(tempConcat)) {
       try { fs.unlinkSync(tempConcat); } catch {}
     }
@@ -226,4 +251,3 @@ export async function concatScenes(
     }
   }
 }
-

@@ -222,6 +222,7 @@ Final video 1080×1920 9:16
 58. **Gemini model fix**: `gemini-1.5-flash-latest` removed from Google API (404). Replaced fallback model with `gemini-2.0-flash` in generator.ts + visual-qc.ts (2026-04-01)
 59. **Subtitle reposition**: Font 14→16px (mobile readability), MarginV 320→120 (moved from top to bottom black zone, avoids YouTube UI overlay) (2026-04-01)
 60. **TTS retry logic**: Edge TTS often times out → added 3-attempt retry with exponential backoff (3s, 6s) in tts-client.ts. Prevents pipeline crash on transient network issues (2026-04-01)
+61. **Concat audio fix**: concat demuxer (`-c copy`) silently dropped audio from Scene 2+ (different AAC headers between website recording vs stock video). Replaced with concat FILTER (re-encode at 8M). Audio now continuous across all scenes. Slightly slower concat but 100% reliable (2026-04-01)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
