@@ -552,14 +552,21 @@ export async function recordWebsiteScroll(
     page = launched.page;
     video = page.video();
 
+    // PRE-WARM PHASE: Load page BEFORE starting the interaction budget timer.
+    // This ensures the recording starts with a fully rendered website instead of
+    // a blank loading screen. The first 2-3s of video (page load) is skipped by
+    // FFmpeg's -ss 2 in media-stitcher — so all budget time shows real content.
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
       // Wait for Cloudflare challenge to auto-pass (residential IP: 5-8s)
       await waitForCloudflarePass(page, 15000);
-      await page.waitForTimeout(2000); // Buffer for JS render after CF pass
+      // Extended buffer for JS render after CF pass — gives SPAs time to hydrate
+      await page.waitForTimeout(3000);
       await page.evaluate(() => {
         document.body.style.backgroundColor = document.body.style.backgroundColor || 'white';
       });
+      // Wait for key visual elements to render (images, fonts, hero section)
+      await page.waitForTimeout(1000);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.warn(`[Playwright] Page load warning: ${errorMessage}`);
@@ -573,7 +580,10 @@ export async function recordWebsiteScroll(
 
     await injectFakeCursor(page);
 
+    // START BUDGET TIMER: Page is now pre-warmed and rendered.
+    // All interaction time is spent with visible website content.
     const startMs = Date.now();
+    console.log(`[Pre-warm] ✅ Page loaded and rendered. Starting ${durationSec}s interaction budget.`);
     let phaseACompleted = false;
 
     try {

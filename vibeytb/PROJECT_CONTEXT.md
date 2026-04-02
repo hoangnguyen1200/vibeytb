@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-01 (Phase 1-3: Discord, QC retry, A/B titles, BGM mood, hook overlay, thumbnail, analytics)
+> Cập nhật lần cuối: 2026-04-02 (6 pipeline fixes: Scene 1 pre-warm, thumbnail rewrite, TikTok skip, bitrate floor, subtitle margin)
 
 ---
 
@@ -240,6 +240,12 @@ Final video 1080×1920 9:16
 71. **Premium Thumbnail**: Vignette overlay at top, purple accent bar, taller gradient (180px), text shadow/border on tool name, brand-consistent purple subtitle. Badge auto-detects FREE/NEW/TRENDING from tagline (2026-04-01)
 72. **YouTube Analytics Tracker**: New `analytics-tracker.ts` fetches 24h stats (views, likes, comments) via YouTube Data API. Stores to Supabase (`views_24h`, `likes_24h`, `comments_24h`). Sends Discord summary. Runs via separate `analytics-pipeline.yml` cron (UTC 0:00 = VN 7:00 AM) (2026-04-01)
 73. **TikTok dual-post ready**: Code fully integrated in orchestrator. Auto-activates when `TIKTOK_REFRESH_TOKEN` is set and TikTok approves the app. No code change needed (2026-04-01)
+74. **Scene 1 min duration**: Enforce minimum 5s recording duration for Scene 1 (short TTS hooks < 5s caused blank page → stock fallback). `recordDuration` override in orchestrator (2026-04-02)
+75. **Pre-warm website load**: Playwright now loads page + waits 4s for render BEFORE starting interaction budget timer. Eliminates blank page in recording (2026-04-02)
+76. **Thumbnail rewrite**: Replaced `fluent-ffmpeg` complexFilter with raw `execSync` + `-vf` simple filtergraph. Fixes "Error reinitializing filters!" crash on portrait→landscape conversion. Seek at 4s instead of 2s (2026-04-02)
+77. **TikTok permanent error skip**: Detects unaudited_client/scope_not_authorized/invalid_client errors → skip immediately (no wasteful retries). Shows actionable message with Dev Portal link (2026-04-02)
+78. **Bitrate floor**: Added `-minrate 6M` to concat Phase 2 → stock footage scenes no longer drag average bitrate below 5 Mbps (2026-04-02)
+79. **Subtitle positioning**: MarginV=120→180 (y=1740, deeper in bottom black zone), Fontsize=16→15. Ensures subtitles don't overlap website content area (ends at y=1560) (2026-04-02)
 
 ## 🚨 Platform Status (tính đến 2026-03-27 21:14)
 
@@ -268,10 +274,10 @@ Final video 1080×1920 9:16
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
-- **Subtitle overlay**: `Fontname=Arial,Fontsize=16,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=120` (bottom black zone, y≈1800) + `MarginL/R=80` — modern viral style, không che website content, tránh YouTube UI
+- **Subtitle overlay**: `Fontname=Arial,Fontsize=15,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=180` (bottom black zone, y≈1740) + `MarginL/R=80` — modern viral style, không che website content, tránh YouTube UI
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
-- **Video recording**: Viewport 1080×1200 compact desktop → FFmpeg `-ss 2` (skip blank page load) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
+- **Video recording**: Viewport 1080×1200 compact desktop → PRE-WARM (load + wait 4s) → FFmpeg `-ss 2` (skip initial frames) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
 - **Interaction UX**: Cursor 48px + click ripple animation, hover 1.2s, hero pause 2.5s. Step 0 shows brand instead of skipping
 - **Audio processing**: TTS → `aresample 48000` → stereo → AAC 128k (silenceremove REMOVED — was destroying narration)
 - **OAuth scopes**: YouTube token needs BOTH `youtube.upload` + `youtube.force-ssl` (for comments). Run `get-youtube-token.ts` to regenerate

@@ -272,6 +272,26 @@ export async function uploadToTikTok(
       const msg = error instanceof Error ? error.message : String(error);
       console.error(`❌ [TikTok] Error (attempt ${attempt}/${maxRetries}): ${msg}`);
 
+      // PERMANENT ERRORS: Don't retry — these won't fix themselves
+      const permanentErrors = [
+        'unaudited_client_can_only_post_to_private_accounts',
+        'scope_not_authorized',
+        'invalid_client',
+        'access_token_invalid',
+        'token_expired',
+      ];
+      const isPermanent = permanentErrors.some(code => msg.includes(code));
+
+      if (isPermanent) {
+        if (msg.includes('unaudited_client')) {
+          console.error('⚠️ [TikTok] App chưa qua audit! Submit "Content Posting API" review tại:');
+          console.error('   → https://developers.tiktok.com → App review → Content Posting API');
+          console.error('   → Until approved, uploads are restricted to private accounts only.');
+        }
+        console.error(`⛔ [TikTok] Permanent error — skipping (no retry).`);
+        return '';
+      }
+
       if (attempt < maxRetries) {
         const waitMs = attempt * 5000;
         console.log(`  ⏳ Retry in ${waitMs / 1000}s...`);

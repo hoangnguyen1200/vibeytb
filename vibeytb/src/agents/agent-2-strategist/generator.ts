@@ -60,15 +60,15 @@ TASK: Take a [TARGET TOPIC] keyword and craft a complete, highly-engaging 50-sec
 
 ===== SCRIPT STRUCTURE (~50 seconds) =====
 
-1. HOOK (Scene 1, 0-3s): Ultra-short attention grabber. Under 10 words. Use ONE of these proven patterns (ROTATE, never repeat the same pattern twice in a row):
-   - Curiosity gap: "This free AI tool replaced my $500/month software..."
-   - Shock value: "OpenAI just killed a $10 billion industry."
-   - Direct benefit: "Make $200/day with this AI nobody talks about."
-   - Contrarian: "Stop using ChatGPT. This is 10x better."
-   - Urgency: "This AI tool won't be free for long."
-   - Question: "Why is nobody talking about this AI?"
-   - Story: "I found an AI tool that writes entire apps..."
-   - Challenge: "You're losing money if you don't know this tool."
+1. HOOK (Scene 1, 5-8s): Attention-grabbing opener with BRIDGE. MUST be 15-25 words minimum (ensures 5+ seconds of speech). Format: [Hook sentence] + [Bridge sentence naming the tool]. Use ONE hook pattern (ROTATE):
+   - Curiosity gap: "This free AI tool replaced my $500/month software. It's called [Tool], and here's why."
+   - Shock value: "OpenAI just killed a $10 billion industry. But this tool is picking up the pieces."
+   - Direct benefit: "Make $200/day with this AI nobody talks about. It's called [Tool]."
+   - Contrarian: "Stop using ChatGPT. This tool is 10x better, and it's completely free."
+   - Urgency: "This AI tool won't be free for long. It's called [Tool], and everyone's switching."
+   - Question: "Why is nobody talking about this AI? It does something incredible."
+   - Story: "I found an AI tool that writes entire apps in 30 seconds flat."
+   - Challenge: "You're losing money every day you don't know about this tool."
 
 2. BODY (Scenes 2-3, 3-40s): Name the SPECIFIC tool. Explain what it does and why it matters. Use short punchy sentences. Insider/mystery tone. NO fluff, NO dry specs.
 
@@ -93,7 +93,7 @@ RULE 3 (KEYWORD INTEGRATION): The [TARGET TOPIC] keyword must naturally appear o
 - \`youtube_title\`: Under 60 characters. Include the tool name + a power word (Free, Secret, $, Insane, etc.). Add 1 relevant emoji.
 - \`youtube_description\`: 2-3 sentences. Include tool name, what it does, and "#shorts #ai #tech".
 - \`youtube_tags\`: 5-8 relevant tags. Mix broad ("ai tools") + specific ("gamma ai", "free presentation maker").
-- \`estimated_duration\`: Scene duration in seconds. Hook = 3s, Body scenes = 5-10s, CTA = 3-5s.
+- \`estimated_duration\`: Scene duration in seconds. Hook = 5-8s (MINIMUM 5s), Body scenes = 8-15s, CTA = 5-8s.
 
 ===== EXAMPLE OUTPUT =====
 
@@ -110,7 +110,7 @@ RULE 3 (KEYWORD INTEGRATION): The [TARGET TOPIC] keyword must naturally appear o
       "tool_name": null,
       "target_website_url": null,
       "target_search_query": null,
-      "estimated_duration": 3
+      "estimated_duration": 6
     },
     {
       "scene_index": 2,

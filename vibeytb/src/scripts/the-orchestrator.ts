@@ -390,6 +390,10 @@ export class TheMasterOrchestrator {
         sceneIndex
       );
 
+      // Scene 1 needs minimum 5s for website to fully load + render.
+      // Short TTS hooks (< 5s) cause blank page → Visual QC fail → stock fallback.
+      const recordDuration = (sceneIndex <= 1 && duration < 5) ? 5 : duration;
+
       let videoPath: string = '';
 
       // Runtime blacklist guard — LLM hay bướng, cần code chặn
@@ -425,7 +429,7 @@ export class TheMasterOrchestrator {
           console.log(`[PHASE 3] Layer 1 → Recording website: ${scene.target_website_url}`);
           videoPath = await recordWebsiteScroll(
             scene.target_website_url,
-            duration,
+            recordDuration,
             path.join(tmpDir, `scene_${sceneIndex}_raw.webm`),
             scene.target_search_query || undefined,
             sceneIndex
