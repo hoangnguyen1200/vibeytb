@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import Sidebar from './components/Sidebar';
+import ConditionalLayout from './components/ConditionalLayout';
 import './globals.css';
 
 const geistSans = Geist({
@@ -29,11 +29,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable}`}
       >
-        <Sidebar />
-        <main className="main-content">
-          {children}
-        </main>
+        <ConditionalLayout>{children}</ConditionalLayout>
       </body>
     </html>
   );
 }
+

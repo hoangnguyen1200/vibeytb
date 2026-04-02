@@ -47,4 +47,4 @@ next-env.d.ts
 youtube-cookies.json
 
 # Auth session files (contain cookies - sensitive)
-auth/
+/auth/

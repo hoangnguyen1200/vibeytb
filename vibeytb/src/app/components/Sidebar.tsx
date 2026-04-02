@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createSupabaseBrowser } from '@/lib/supabase/browser';
 
 interface NavItem {
   href: string;
@@ -21,6 +22,14 @@ const publishNav: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createSupabaseBrowser();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <aside className="sidebar" id="sidebar-nav">
@@ -58,13 +67,35 @@ export default function Sidebar() {
       </nav>
 
       <div style={{
-        padding: '16px 20px',
+        padding: '12px 20px',
         borderTop: '1px solid var(--border-subtle)',
-        fontSize: '12px',
-        color: 'var(--text-muted)',
       }}>
-        <p>@TechHustleLabs</p>
-        <p style={{ marginTop: '2px', opacity: 0.6 }}>Pipeline v1.0</p>
+        <button
+          onClick={handleSignOut}
+          id="btn-signout"
+          style={{
+            width: '100%', padding: '8px 12px',
+            background: 'var(--bg-hover)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+            fontSize: 12, cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+            e.currentTarget.style.color = 'var(--status-error)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--bg-hover)';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
+        >
+          🚪 Sign Out
+        </button>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, textAlign: 'center' }}>
+          @TechHustleLabs • v1.1
+        </p>
       </div>
     </aside>
   );
