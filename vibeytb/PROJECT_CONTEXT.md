@@ -312,3 +312,15 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | Self-Healing | 1 | Missing Phase 3 re-run when video file absent |
 | envFlag Parser | 1 | Env flag not handling truthy values |
 | Baseline | 2 | Basic sanity checks |
+
+## 🔎 Verify Checklist — Pipeline Run Ngày 2026-04-03
+
+> Các fix từ commit `2511863` (2026-04-02) cần được verify trên video mới.
+
+- [ ] **Subtitle position**: Subtitle phải ở **dưới cùng** (vùng đen padding, y≈1740), KHÔNG ở giữa màn hình. So sánh với video cũ `VCMEicUbZ-k` (Mem AI) là hiện subtitle giữa → **phải khác**
+- [ ] **Scene 1 website recording**: Scene 1 phải hiện website thật (pre-warm 4s), không rơi về stock video fallback
+- [ ] **Thumbnail generate OK**: Không crash "Error reinitializing filters!"
+- [ ] **Bitrate ≥ 5 Mbps**: Check `ffprobe` trên final video
+- [ ] **Scene 1 narration ≥ 15 words**: Hook đủ dài, TTS ≥ 5s
+- [ ] **TikTok skip gracefully**: Log nên có `[TikTok] Skipping — unaudited_client` (không retry 3 lần)
+
