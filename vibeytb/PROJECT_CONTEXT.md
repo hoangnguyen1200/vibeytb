@@ -275,6 +275,16 @@ Final video 1080×1920 9:16
 
 > **Điều kiện**: Chỉ bắt đầu SAU KHI verify pipeline chạy OK với 6 fixes mới.
 
+### 💰 Monetization Roadmap (khi channel đạt 50-100 videos)
+
+| Phase | Milestone | Action | Thu nhập tiềm năng |
+|---|---|---|---|
+| 1 | Channel có 50+ videos + số liệu thật | Quay tutorial "How I built YouTube Shorts automation" | $29-79/bản (Gumroad) |
+| 2 | Tutorial bán được | Tạo n8n workflow đơn giản hóa (stock video version) | $49-99/bản (Etsy) |
+| 3 | Có social proof | Offer done-for-you setup service | $300-500/khách |
+
+> **Quyết định 2026-04-02**: Ưu tiên grow channel → có case study → bán tutorial (hướng dễ nhất, rủi ro thấp nhất).
+
 ## ⚠️ Lưu Ý Quan Trọng
 
 - **Google Cloud Console** phải giữ dù chạy ở đâu (YouTube API OAuth)
