@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-02 (6 pipeline fixes: Scene 1 pre-warm, thumbnail rewrite, TikTok skip, bitrate floor, subtitle margin)
+> Cập nhật lần cuối: 2026-04-02 (Dashboard MVP: Pipeline Monitor + Videos + Analytics + Multi-Platform Publish UI)
 
 ---
 
@@ -138,6 +138,17 @@ Final video 1080×1920 9:16
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (18 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
+| `src/app/dashboard/page.tsx` | **Dashboard** — Pipeline monitor, stats cards, health bar, video table |
+| `src/app/videos/page.tsx` | Videos list — paginated, filterable by status |
+| `src/app/videos/[id]/page.tsx` | Video detail — YouTube embed, script viewer, platform links |
+| `src/app/analytics/page.tsx` | Analytics — Recharts views/likes charts, top performers |
+| `src/app/publish/page.tsx` | Multi-platform publish — TikTok 5-point UX, future platforms |
+| `src/app/api/videos/route.ts` | API: list videos (paginated, filterable) |
+| `src/app/api/videos/[id]/route.ts` | API: single video detail |
+| `src/app/api/analytics/summary/route.ts` | API: aggregated pipeline stats |
+| `src/app/components/Sidebar.tsx` | Dashboard sidebar navigation |
+| `src/app/components/StatsCard.tsx` | Reusable stat card component |
+| `src/app/components/VideoStatusBadge.tsx` | Video status badge with color coding |
 
 ### External Services
 
@@ -246,16 +257,18 @@ Final video 1080×1920 9:16
 77. **TikTok permanent error skip**: Detects unaudited_client/scope_not_authorized/invalid_client errors → skip immediately (no wasteful retries). Shows actionable message with Dev Portal link (2026-04-02)
 78. **Bitrate floor**: Added `-minrate 6M` to concat Phase 2 → stock footage scenes no longer drag average bitrate below 5 Mbps (2026-04-02)
 79. **Subtitle positioning**: MarginV=120→180 (y=1740, deeper in bottom black zone), Fontsize=16→15. Ensures subtitles don't overlap website content area (ends at y=1560) (2026-04-02)
+80. **Dashboard MVP**: Full web dashboard (Next.js App Router) — 5 pages: Pipeline Monitor (stats + health + video table), Videos List (paginated + filterable), Video Detail (YouTube embed + script viewer + platform links), Analytics (Recharts charts + top performers), Multi-Platform Publish (TikTok 5-point UX compliance + future platforms). Dark theme design system, zero pipeline code changes, Supabase API routes. Migration `05_dashboard_tables.sql` adds `dashboard_settings` + `publish_queue` tables (2026-04-02)
 
-## 🚨 Platform Status (tính đến 2026-03-27 21:14)
+## 🚨 Platform Status (tính đến 2026-04-02)
 
 | Platform | Trạng thái | Chi tiết |
 |---|---|---|
-| **YouTube** | ✅ **RESTORED** | Appeal approved 20:43 27/03. Cần verify: đăng nhập lại + kiểm tra refresh token |
-| **TikTok** | ⏳ **PENDING APPROVAL** | Content Posting API đã submit — đang chờ TikTok approve |
+| **YouTube** | ✅ **ACTIVE** | OAuth working, daily auto-publish |
+| **TikTok** | ❌ **REJECTED** | Content Posting API application rejected — UX non-compliance. Dashboard now provides 5-point UX for re-audit |
+| **Dashboard** | ✅ **MVP LIVE** | `npm run dev` → localhost:3000. Vercel deployment pending |
 
-> **YouTube**: Account khôi phục nhưng cần kiểm tra OAuth refresh token có còn valid không. Nếu bị revoke → chạy lại OAuth flow để lấy token mới.
-> **TikTok**: Vẫn chờ approve — pipeline tự skip graceful.
+> **TikTok**: Rejected vì thiếu UX (5 points). Dashboard `/publish` page đã build compliant UX → sẵn sàng re-apply.
+> **Dashboard**: Chạy independently, KHÔNG thay đổi pipeline code.
 
 ## 🔄 Đang Xem Xét
 
@@ -263,17 +276,19 @@ Final video 1080×1920 9:16
 
 **Quyết định**: **GIỮ self-hosted**. GitHub datacenter IP hay bị block khi Playwright recording → ảnh hưởng chất lượng video.
 
-## 📋 Backlog — Cải thiện tiếp theo (sau khi verify 6 fixes 2026-04-02)
+## 📋 Backlog — Cải thiện tiếp theo
 
 | # | Feature | Mô tả | Effort |
 |---|---|---|---|
-| 1 | **Engagement tracking** | Theo dõi video nào perform tốt → feed data lại Gemini chọn topic | Medium |
-| 2 | **A/B test thumbnails** | Tạo 2 style thumbnail → dùng YouTube API đo CTR | Medium |
-| 3 | **Comment auto-reply** | Bot reply comment với link tool (tăng engagement) | Small |
-| 4 | **Instagram Reels** | Cross-post thêm IG Reels (cùng format 9:16) | Large |
-| 5 | **SEO description** | Gemini viết description chuẩn SEO + timestamps | Small |
+| 1 | **Dashboard: Supabase Auth** | Login protection cho dashboard (email/password) | Small |
+| 2 | **Dashboard: Vercel deploy** | Deploy dashboard lên Vercel free tier | Small |
+| 3 | **Dashboard: TikTok Post Form** | Full 5-point TikTok post form trong `/publish` → re-apply audit | Large |
+| 4 | **Engagement tracking** | Theo dõi video nào perform tốt → feed data lại Gemini chọn topic | Medium |
+| 5 | **A/B test thumbnails** | Tạo 2 style thumbnail → dùng YouTube API đo CTR | Medium |
+| 6 | **Instagram Reels** | Cross-post thêm IG Reels (cùng format 9:16) | Large |
+| 7 | **SEO description** | Gemini viết description chuẩn SEO + timestamps | Small |
 
-> **Điều kiện**: Chỉ bắt đầu SAU KHI verify pipeline chạy OK với 6 fixes mới.
+> **Ưu tiên hiện tại**: Verify pipeline → Deploy dashboard → TikTok re-audit.
 
 ### 💰 Monetization Roadmap (khi channel đạt 50-100 videos)
 
