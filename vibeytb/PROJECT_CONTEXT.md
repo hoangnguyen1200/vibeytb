@@ -263,6 +263,18 @@ Final video 1080×1920 9:16
 
 **Quyết định**: **GIỮ self-hosted**. GitHub datacenter IP hay bị block khi Playwright recording → ảnh hưởng chất lượng video.
 
+## 📋 Backlog — Cải thiện tiếp theo (sau khi verify 6 fixes 2026-04-02)
+
+| # | Feature | Mô tả | Effort |
+|---|---|---|---|
+| 1 | **Engagement tracking** | Theo dõi video nào perform tốt → feed data lại Gemini chọn topic | Medium |
+| 2 | **A/B test thumbnails** | Tạo 2 style thumbnail → dùng YouTube API đo CTR | Medium |
+| 3 | **Comment auto-reply** | Bot reply comment với link tool (tăng engagement) | Small |
+| 4 | **Instagram Reels** | Cross-post thêm IG Reels (cùng format 9:16) | Large |
+| 5 | **SEO description** | Gemini viết description chuẩn SEO + timestamps | Small |
+
+> **Điều kiện**: Chỉ bắt đầu SAU KHI verify pipeline chạy OK với 6 fixes mới.
+
 ## ⚠️ Lưu Ý Quan Trọng
 
 - **Google Cloud Console** phải giữ dù chạy ở đâu (YouTube API OAuth)
