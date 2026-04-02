@@ -69,9 +69,10 @@ function fmtBool(value: boolean): string {
 
 function probe(filePath: string): Promise<ProbeData> {
   return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(filePath, (err: Error | null, data: ProbeData) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ffmpeg.ffprobe(filePath, (err: any, data: any) => {
       if (err) return reject(err);
-      resolve(data || {});
+      resolve((data as ProbeData) || {});
     });
   });
 }
