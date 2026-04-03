@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-03 (Dashboard v1.3 — Tier 3: CSV Export, Notification Center, Settings Page)
+> Cập nhật lần cuối: 2026-04-03 (Pipeline Reliability v1.4 — Multi-tool retry, Gemini backoff, Pipeline logging, Error categorization)
 
 ---
 
@@ -273,6 +273,10 @@ Final video 1080×1920 9:16
 85. **Subtitle position fix**: Added `original_size=1080x1920` to FFmpeg subtitles filter. Without this, renderer used pre-pad resolution → subtitles at center instead of bottom. Font 15→18px for readability (2026-04-03)
 86. **Bitrate fix (v2)**: BGM mix step changed from `-c:v libx264` re-encode to `-c:v copy`. libx264 compressed static UI screenshots from 8M→1.47M despite CBR target. Stream copy preserves original 8M bitrate (2026-04-03)
 87. **Thumbnail PATH fix**: `thumbnail-generator.ts` was calling bare `ffmpeg` (not in runner PATH). Now uses `ffmpegPath` from `@ffmpeg-installer/ffmpeg` via shared `utils/ffmpeg.ts` (2026-04-03)
+88. **Multi-tool retry (A1)**: Pipeline now picks top 3 tools from discovery pool and tries each in order. If tool #1 fails (Gemini error, script reject) → automatically tries tool #2 → tool #3. Only fails pipeline if ALL 3 tools fail. New `pickTopTools()` in tool-discovery.ts (2026-04-03)
+89. **Gemini exponential backoff (A2)**: Retry delay upgraded from flat 2s to exponential 3s→6s→12s. Rate limit (429) waits 15s. Transient network errors (ECONNRESET) retry at 2s. Better recovery from API instability (2026-04-03)
+90. **Pipeline run logging (A3)**: Orchestrator now writes to `pipeline_runs` table — INSERT at start (status=running), UPDATE at end (completed/failed + duration + error). Dashboard Pipeline History auto-populates (2026-04-03)
+91. **Error categorization (A4)**: New `categorizeError()` classifies failures into 7 types: gemini_rate_limit, gemini_api, playwright_timeout, ffmpeg, network, visual_qc, database, unknown. Category included in error_logs + Discord notifications for faster debugging (2026-04-03)
 
 ## 🚨 Platform Status (tính đến 2026-04-03)
 
@@ -336,6 +340,9 @@ Final video 1080×1920 9:16
 - **Dashboard Auth**: Supabase Auth (email/password). Middleware protects all routes except `/login` and `/auth/*`. User created in Supabase Dashboard → Authentication → Users
 - **Dashboard Deploy**: Vercel free tier at `vibeytb.vercel.app`. Env vars set via `vercel env`. Redeploy: `cd vibeytb && vercel --prod --yes`
 - **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng. Khi thêm item mới, **PHẢI kiểm tra** phần "Lưu Ý Quan Trọng" xem có dòng nào bị stale/mâu thuẫn với thay đổi mới → fix ngay trong cùng commit
+- **Multi-tool retry**: Pipeline thử top 3 tools lần lượt. Nếu Gemini 429 → tool #2 chạy sau 5s delay. Nếu cả 3 fail → job FAILED với `[multi-tool-retry]` tag
+- **Pipeline run logging**: Mỗi run ghi vào `pipeline_runs` table. Dashboard Pipeline History tự hiển thị. Non-critical — nếu DB insert fail, pipeline vẫn chạy bình thường
+- **Error categorization**: Error logs giờ có prefix `[category]` (VD: `[gemini_rate_limit] 429 quota exceeded`). Discord cũng hiển thị category
 
 ## 🧪 Testing
 

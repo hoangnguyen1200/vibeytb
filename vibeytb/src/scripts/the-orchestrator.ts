@@ -14,7 +14,7 @@ import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/m
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
-import { pickBestTool, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
+import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord } from '../utils/notifier';
 
@@ -61,6 +61,7 @@ export class TheMasterOrchestrator {
   private currentToolName = '';
   private currentWebsiteUrl = '';
   private currentDataSource = '';
+  private pipelineRunId: string | null = null;
   /**
    * Master loop
    * @param mode 'cron' (Phase 1+2 only), 'worker' (Phase 3+4 only), or 'all' (E2E)
@@ -70,6 +71,10 @@ export class TheMasterOrchestrator {
     console.log(`[ORCHESTRATOR] STARTING PIPELINE (Mode: ${mode.toUpperCase()} | Retry: ${retryCount})`);
     console.log('====================================================\n');
     this.pipelineStartMs = Date.now();
+
+    // A3: Pipeline run logging — record start
+    const triggerType = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' ? 'manual' : 'scheduled';
+    this.pipelineRunId = await this.createPipelineRun(triggerType);
 
     let jobId: string | null = null;
 
@@ -94,6 +99,8 @@ export class TheMasterOrchestrator {
             await this.runPhase4(updatedJob);
           }
         }
+        // A3: Record success
+        await this.finishPipelineRun('completed', 1);
         return;
       }
 
@@ -118,15 +125,20 @@ export class TheMasterOrchestrator {
       } else if (currentStatus === VideoStatus.PENDING_APPROVAL) {
         console.log('[ORCHESTRATOR] Job is waiting for human approval. Aborting.');
       }
+      // A3: Record success
+      await this.finishPipelineRun('completed', 1);
     } catch (error) {
       // Mark job as FAILED first — prevents zombie jobs if cleanup or discord notify throws
       await this.failJob(jobId, error);
+      // A3: Record failure with categorized error
+      const category = this.categorizeError(error);
+      await this.finishPipelineRun('failed', 0, error);
       // Then cleanup tmp files to prevent disk from filling up
       if (jobId) {
         try { await this.cleanupTmp(jobId); } catch { /* ignore cleanup errors */ }
       }
       const errorMsg = error instanceof Error ? error.message : String(error);
-      await notifyDiscord({ status: 'failure', jobId: jobId || 'unknown', error: errorMsg, toolName: this.currentToolName || undefined, websiteUrl: this.currentWebsiteUrl || undefined, dataSource: this.currentDataSource || undefined, durationMs: Date.now() - this.pipelineStartMs });
+      await notifyDiscord({ status: 'failure', jobId: jobId || 'unknown', error: `[${category}] ${errorMsg}`, toolName: this.currentToolName || undefined, websiteUrl: this.currentWebsiteUrl || undefined, dataSource: this.currentDataSource || undefined, durationMs: Date.now() - this.pipelineStartMs });
       throw error;
     }
   }
@@ -255,55 +267,104 @@ export class TheMasterOrchestrator {
 
     // MULTI-SOURCE: Discover from Gemini Search + Google CSE
     const allTools = await this.discoverFromAllSources(recentTools);
-    const selectedTool = await pickBestTool(allTools, recentTools);
 
-    let selectedTrend: string;
-    let toolData: { name: string; tagline: string; url: string } | undefined;
+    // A1: Get top 3 verified tools for retry pool
+    const topTools = await pickTopTools(allTools, recentTools, 3);
 
-    if (selectedTool) {
-      selectedTrend = `${selectedTool.name}: ${selectedTool.tagline}`;
-      toolData = { name: selectedTool.name, tagline: selectedTool.tagline, url: selectedTool.websiteUrl };
-      this.currentToolName = selectedTool.name;
-      this.currentWebsiteUrl = selectedTool.websiteUrl;
-      this.currentDataSource = selectedTool.urlSource;
-      console.log(`[PHASE 1] 🎯 Selected: "${selectedTool.name}" — ${selectedTool.tagline}`);
-      console.log(`[PHASE 1] 🔗 Website: ${selectedTool.websiteUrl} (source: ${selectedTool.urlSource})`);
-
-      // Persist tool metadata to DB for Content Memory + analytics
-      await this.updateJob(jobId, {
-        tool_name: selectedTool.name,
-        tool_url: selectedTool.websiteUrl,
-        discovery_source: selectedTool.urlSource,
-      });
-    } else {
-      // FALLBACK: LLM keyword discovery
-      selectedTrend = await this.discoverFreshTopic(recentTools);
-      console.log(`[PHASE 1] 🔍 LLM keyword (fallback): "${selectedTrend}"`);
-      await this.updateJob(jobId, { discovery_source: 'fallback' });
-    }
-
-    console.log('[PHASE 2] Content Strategist (AI script generation)');
     const language = (typeof job.target_language === 'string' && job.target_language.trim()) || 'en-US';
     const tone = (typeof job.tone_of_voice === 'string' && job.tone_of_voice.trim()) || 'casual';
-    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
-    const normalized = this.normalizeScript(aiOutput);
 
-    // Persist tool metadata at TOP LEVEL of script_json (backup for Phase 3/4 recovery)
-    if (toolData?.name) {
-      (normalized as Record<string, unknown>).__tool_name = toolData.name;
-      (normalized as Record<string, unknown>).__tool_tagline = toolData.tagline;
-    }
+    // A1: Multi-tool retry loop — try each tool until one succeeds
+    if (topTools.length > 0) {
+      for (let attempt = 0; attempt < topTools.length; attempt++) {
+        const tool = topTools[attempt];
+        console.log(`\n[RETRY LOOP] 🔄 Attempt ${attempt + 1}/${topTools.length}: "${tool.name}"`);
 
-    // Force-inject tool name into ALL scenes (LLM often omits tool_name)
-    // This ensures website recording always has the correct tool context
-    if (toolData?.name) {
-      for (const scene of normalized.scenes) {
-        if (!(scene as Record<string, unknown>).tool_name) {
-          (scene as Record<string, unknown>).tool_name = toolData.name;
+        this.currentToolName = tool.name;
+        this.currentWebsiteUrl = tool.websiteUrl;
+        this.currentDataSource = tool.urlSource;
+
+        const selectedTrend = `${tool.name}: ${tool.tagline}`;
+        const toolData = { name: tool.name, tagline: tool.tagline, url: tool.websiteUrl };
+
+        // Persist tool metadata to DB
+        await this.updateJob(jobId, {
+          tool_name: tool.name,
+          tool_url: tool.websiteUrl,
+          discovery_source: tool.urlSource,
+        });
+
+        try {
+          console.log('[PHASE 2] Content Strategist (AI script generation)');
+          const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
+          const normalized = this.normalizeScript(aiOutput);
+
+          // Persist tool metadata at TOP LEVEL of script_json (backup for Phase 3/4 recovery)
+          (normalized as Record<string, unknown>).__tool_name = toolData.name;
+          (normalized as Record<string, unknown>).__tool_tagline = toolData.tagline;
+
+          // Force-inject tool name into ALL scenes
+          for (const scene of normalized.scenes) {
+            if (!(scene as Record<string, unknown>).tool_name) {
+              (scene as Record<string, unknown>).tool_name = toolData.name;
+            }
+          }
+          console.log(`[TOOL NAME] Injected "${toolData.name}" into all scenes`);
+
+          // Quality gate
+          const isScenesSufficient = normalized.scenes.length >= 4;
+          const title = (normalized as Record<string, unknown>).youtube_title;
+          const isTitleValid = typeof title === 'string' && title.trim().length > 10;
+          const isNarrationValid = normalized.scenes.every(s => typeof s.narration === 'string' && s.narration.trim().length > 0);
+
+          if (isScenesSufficient && isTitleValid && isNarrationValid) {
+            await this.updateJob(jobId, {
+              script_json: normalized,
+              status: VideoStatus.APPROVED_FOR_SYNTHESIS,
+            });
+            console.log(`[AUTO-APPROVE] ✅ Script passed quality check (tool: ${tool.name}, attempt ${attempt + 1})`);
+            return; // Success — exit retry loop
+          } else {
+            let rejectReason = '';
+            if (!isScenesSufficient) rejectReason = `Not enough scenes (${normalized.scenes.length} < 4)`;
+            else if (!isTitleValid) rejectReason = 'youtube_title is empty or too short';
+            else rejectReason = 'One or more scenes have empty narration';
+            console.warn(`[AUTO-REJECT] Script failed for "${tool.name}": ${rejectReason}`);
+            // Don't throw — continue to next tool
+          }
+        } catch (err) {
+          const category = this.categorizeError(err);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`[RETRY LOOP] ❌ Tool "${tool.name}" failed [${category}]: ${errMsg.slice(0, 100)}`);
+
+          // If more tools to try, wait briefly then continue
+          if (attempt < topTools.length - 1) {
+            const waitMs = 5000; // 5s between tool retries
+            console.log(`[RETRY LOOP] Waiting ${waitMs / 1000}s before trying next tool...`);
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+          }
+          // Continue to next tool
         }
       }
-      console.log(`[TOOL NAME] Injected "${toolData.name}" into all scenes for Layer 2 cascade`);
+
+      // All tools failed
+      console.error(`[RETRY LOOP] ❌ All ${topTools.length} tools failed. Marking job as FAILED.`);
+      await this.updateJob(jobId, {
+        status: VideoStatus.FAILED,
+        error_logs: `[multi-tool-retry] All ${topTools.length} tools failed: ${topTools.map(t => t.name).join(', ')}`,
+      });
+      await this.createSeedJob();
+      return;
     }
+
+    // FALLBACK: No tools discovered — use LLM keyword
+    const selectedTrend = await this.discoverFreshTopic(recentTools);
+    console.log(`[PHASE 1] 🔍 LLM keyword (fallback): "${selectedTrend}"`);
+    await this.updateJob(jobId, { discovery_source: 'fallback' });
+
+    console.log('[PHASE 2] Content Strategist (AI script generation)');
+    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools);
+    const normalized = this.normalizeScript(aiOutput);
 
     const isScenesSufficient = normalized.scenes.length >= 4;
     const title = (normalized as Record<string, unknown>).youtube_title;
@@ -949,18 +1010,75 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
     if (error) throw error;
   }
 
+  // A4: Error categorization — classify errors into actionable types
+  private categorizeError(error: unknown): string {
+    const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+    if (msg.includes('429') || msg.includes('quota') || msg.includes('rate')) return 'gemini_rate_limit';
+    if (msg.includes('generativelanguage') || msg.includes('gemini')) return 'gemini_api';
+    if (msg.includes('timed out') || msg.includes('timeout') || msg.includes('navigation')) return 'playwright_timeout';
+    if (msg.includes('ffmpeg') || msg.includes('filter') || msg.includes('reinitializing')) return 'ffmpeg';
+    if (msg.includes('econnreset') || msg.includes('etimedout') || msg.includes('fetch')) return 'network';
+    if (msg.includes('visual_qc') || msg.includes('blank') || msg.includes('cloudflare')) return 'visual_qc';
+    if (msg.includes('supabase') || msg.includes('42501') || msg.includes('rls')) return 'database';
+    return 'unknown';
+  }
+
+  // A3: Pipeline run logging — create a run record
+  private async createPipelineRun(triggerType: string): Promise<string | null> {
+    try {
+      const runId = `run_${Date.now()}`;
+      const { error } = await supabase.from('pipeline_runs').insert([{
+        run_id: runId,
+        status: 'running',
+        trigger_type: triggerType,
+        started_at: new Date().toISOString(),
+      }]);
+      if (error) {
+        console.warn('[PIPELINE RUN] Failed to create run record:', error.message);
+        return null;
+      }
+      console.log(`[PIPELINE RUN] 📝 Created run: ${runId}`);
+      return runId;
+    } catch {
+      return null;
+    }
+  }
+
+  // A3: Pipeline run logging — update run result
+  private async finishPipelineRun(status: 'completed' | 'failed', videosPublished: number, error?: unknown): Promise<void> {
+    if (!this.pipelineRunId) return;
+    try {
+      const durationMs = Date.now() - this.pipelineStartMs;
+      const errorMsg = error ? (error instanceof Error ? error.message : String(error)).slice(0, 500) : null;
+      const category = error ? this.categorizeError(error) : null;
+      await supabase.from('pipeline_runs').update({
+        status,
+        finished_at: new Date().toISOString(),
+        duration_ms: durationMs,
+        videos_published: videosPublished,
+        videos_failed: status === 'failed' ? 1 : 0,
+        videos_processed: 1,
+        error_message: category ? `[${category}] ${errorMsg}` : errorMsg,
+      }).eq('run_id', this.pipelineRunId);
+      console.log(`[PIPELINE RUN] ${status === 'completed' ? '✅' : '❌'} Run ${this.pipelineRunId} → ${status} (${(durationMs / 1000).toFixed(0)}s)`);
+    } catch {
+      // Non-critical — don't crash pipeline over logging
+    }
+  }
+
   private async failJob(jobId: string | null, error: unknown): Promise<void> {
     const errMessage = error instanceof Error ? error.message : String(error);
+    const category = this.categorizeError(error);
     console.error('\n====================================================');
-    console.error('[FATAL] Pipeline crashed.');
+    console.error(`[FATAL] Pipeline crashed. Category: ${category}`);
     console.error(errMessage);
     console.error('====================================================');
 
     if (!jobId) return;
 
     try {
-      await this.updateJob(jobId, { status: VideoStatus.FAILED, error_logs: errMessage });
-      console.log(`[ERROR] Marked job ${jobId} as failed.`);
+      await this.updateJob(jobId, { status: VideoStatus.FAILED, error_logs: `[${category}] ${errMessage}` });
+      console.log(`[ERROR] Marked job ${jobId} as failed [${category}].`);
     } catch (dbErr) {
       console.error('[ERROR] Failed to write error log to database:', dbErr);
     }

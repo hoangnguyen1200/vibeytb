@@ -241,9 +241,16 @@ The tool_name field MUST be "${toolData.name}" for scenes where the tool is ment
       }
       
       retries--;
-      // Backoff 2 giây
-      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Exponential backoff: 3s → 6s → 12s, with 15s for rate limits
+      const attempt = 3 - retries; // 1, 2, 3
+      const isRateLimit = error.status === 429 || errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('rate');
+      const isTransient = errorMessage.includes('ECONNRESET') || errorMessage.includes('ETIMEDOUT') || errorMessage.includes('fetch');
+      const backoffMs = isRateLimit ? 15000 : isTransient ? 2000 : 3000 * Math.pow(2, attempt - 1);
+      console.log(`[BACKOFF] Waiting ${(backoffMs / 1000).toFixed(0)}s before retry (attempt ${attempt}/3, ${isRateLimit ? 'rate-limit' : isTransient ? 'transient' : 'standard'})`);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
     }
+
   }
 
   const finalErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);

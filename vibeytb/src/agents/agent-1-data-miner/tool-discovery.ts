@@ -476,3 +476,57 @@ export async function pickBestTool(
 
   return null;
 }
+
+/**
+ * Pick the top N tools from a merged list using multi-criteria scoring.
+ * Returns verified tools in score order (best first).
+ * Used by orchestrator for multi-tool retry loop.
+ */
+export async function pickTopTools(
+  tools: DiscoveredTool[],
+  avoidNames: string[],
+  topN: number = 3
+): Promise<DiscoveredTool[]> {
+  const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
+
+  const candidates = tools.filter(tool => {
+    const nameLower = tool.name.toLowerCase().trim();
+    const isUsed = avoidLower.some(avoid => nameLower.includes(avoid) || avoid.includes(nameLower));
+    if (isUsed) console.log(`[Picker] Skipping "${tool.name}" (recently used)`);
+    return !isUsed;
+  });
+
+  if (candidates.length === 0) return [];
+
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool) }));
+  scored.sort((a, b) => b.score - a.score);
+
+  console.log(`[Picker] 📊 Top candidates (${candidates.length} total):`);
+  for (const { tool, score } of scored.slice(0, 5)) {
+    console.log(`  🔗 [${score}pts] ${tool.name} — ${tool.tagline.slice(0, 45)} (${tool.urlSource})`);
+  }
+
+  // Verify URLs and collect up to topN valid tools
+  const verified: DiscoveredTool[] = [];
+  for (const { tool, score } of scored) {
+    if (verified.length >= topN) break;
+
+    console.log(`[Picker] 🔍 Verifying: "${tool.name}" (${score}pts)`);
+    const verification = await verifyUrl(tool.websiteUrl, tool.name);
+
+    if (!verification.alive) {
+      console.log(`[Picker] ❌ URL dead: ${verification.reason}`);
+      continue;
+    }
+    if (!verification.relevant) {
+      console.log(`[Picker] ⚠️ URL wrong site: ${verification.reason}`);
+      continue;
+    }
+
+    console.log(`[Picker] ✅ Verified: "${tool.name}" (${score}pts)`);
+    verified.push(tool);
+  }
+
+  console.log(`[Picker] 🎯 ${verified.length} tools ready for retry pool: ${verified.map(t => t.name).join(', ')}`);
+  return verified;
+}
