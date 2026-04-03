@@ -34,7 +34,7 @@ jobs:
       - name: Create .env file
         working-directory: vibeytb
         run: |
-          @"
+          $envContent = @"
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN=${{ secrets.GOOGLE_REFRESH_TOKEN }}
@@ -42,8 +42,14 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
-          "@ | Out-File -FilePath .env -Encoding utf8
+          "@
+          # Remove leading whitespace from each line (here-string indentation artifact)
+          $cleaned = ($envContent -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
+          $cleaned | Out-File -FilePath .env -Encoding ascii -NoNewline
+          Write-Host "[DEBUG] .env created with $($cleaned.Split("`n").Count) lines"
+          Write-Host "[DEBUG] Keys present: $(($cleaned -split "`n" | ForEach-Object { ($_ -split '=')[0] }) -join ', ')"
 
       - name: Run analytics tracker
         working-directory: vibeytb
         run: npx tsx src/agents/agent-4-publisher/analytics-tracker.ts
+

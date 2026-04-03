@@ -73,6 +73,18 @@ function extractVideoId(url: string): string | null {
 export async function runAnalyticsTracker(): Promise<void> {
   console.log('[ANALYTICS] Starting YouTube Analytics Tracker...');
 
+  // Debug: check which key is being used
+  const keyType = process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service_role' : 'anon';
+  console.log(`[ANALYTICS] Supabase key type: ${keyType}`);
+  console.log(`[ANALYTICS] Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 30)}...`);
+
+  // Step 1: Check total published count (debug)
+  const { count: totalPublished } = await supabase
+    .from('video_projects')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'published');
+  console.log(`[ANALYTICS] Total published videos in DB: ${totalPublished ?? 'null (RLS blocked?)'}`);
+
   // Find ALL published videos that haven't been tracked yet
   const { data: videos, error } = await supabase
     .from('video_projects')
@@ -88,8 +100,13 @@ export async function runAnalyticsTracker(): Promise<void> {
     return;
   }
 
+  console.log(`[ANALYTICS] Trackable videos found: ${videos?.length ?? 0}`);
+
   if (!videos || videos.length === 0) {
-    console.log('[ANALYTICS] No videos to track (none published 24-48h ago).');
+    console.log('[ANALYTICS] No videos to track. Possible causes:');
+    console.log('  - All published videos already have views_24h data');
+    console.log('  - RLS is blocking the query (check SUPABASE_SERVICE_ROLE_KEY)');
+    console.log('  - No videos have youtube_url set');
     return;
   }
 

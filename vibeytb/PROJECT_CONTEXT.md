@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-03 (Pipeline Reliability v1.4 — Multi-tool retry, Gemini backoff, Pipeline logging, Error categorization)
+> Cập nhật lần cuối: 2026-04-03 (Analytics tracker debug logging + .env BOM/whitespace fix for GitHub Actions)
 
 ---
 

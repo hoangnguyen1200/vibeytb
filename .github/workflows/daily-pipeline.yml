@@ -36,7 +36,7 @@ jobs:
       - name: Create .env file
         working-directory: vibeytb
         run: |
-          @"
+          $envContent = @"
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN=${{ secrets.GOOGLE_REFRESH_TOKEN }}
@@ -53,7 +53,9 @@ jobs:
           TIKTOK_CLIENT_KEY=${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET=${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN=${{ secrets.TIKTOK_REFRESH_TOKEN }}
-          "@ | Out-File -FilePath .env -Encoding utf8
+          "@
+          $cleaned = ($envContent -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
+          $cleaned | Out-File -FilePath .env -Encoding ascii -NoNewline
 
       - name: Run pipeline
         working-directory: vibeytb
