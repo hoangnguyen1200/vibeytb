@@ -73,18 +73,15 @@ function extractVideoId(url: string): string | null {
 export async function runAnalyticsTracker(): Promise<void> {
   console.log('[ANALYTICS] Starting YouTube Analytics Tracker...');
 
-  // Find videos published 24-48h ago that haven't been tracked yet
-  const now = new Date();
-  const ago48h = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
-  const ago24h = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-
+  // Find ALL published videos that haven't been tracked yet
   const { data: videos, error } = await supabase
     .from('video_projects')
     .select('id, youtube_url, tool_name, youtube_title, views_24h')
     .eq('status', 'published')
     .not('youtube_url', 'is', null)
-    .gte('updated_at', ago48h)
-    .lte('updated_at', ago24h);
+    .is('views_24h', null)
+    .order('updated_at', { ascending: false })
+    .limit(50);
 
   if (error) {
     console.error('[ANALYTICS] Supabase query error:', error.message);
@@ -101,11 +98,6 @@ export async function runAnalyticsTracker(): Promise<void> {
   const results: Array<{ title: string; views: number; likes: number; comments: number }> = [];
 
   for (const video of videos) {
-    // Skip already tracked
-    if (video.views_24h !== null && video.views_24h !== undefined) {
-      console.log(`[ANALYTICS] Skipping "${video.tool_name}" — already tracked.`);
-      continue;
-    }
 
     const videoId = extractVideoId(video.youtube_url);
     if (!videoId) {

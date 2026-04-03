@@ -402,16 +402,87 @@ tbody td {
   animation: pulse-glow 2s ease infinite;
 }
 
+/* ============ Mobile Header ============ */
+
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 45;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+}
+
+.hamburger-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.15s;
+}
+
+.hamburger-btn:hover {
+  background: var(--bg-hover);
+}
+
+.hamburger-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobile-brand {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 35;
+}
+
 /* ============ Responsive ============ */
 
 @media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+  }
+
   .sidebar {
     transform: translateX(-100%);
+    z-index: 50;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-brand {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .main-content {
     margin-left: 0;
     padding: 16px;
+    padding-top: 68px;
   }
 
   .card-grid {

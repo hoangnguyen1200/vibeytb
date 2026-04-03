@@ -60,9 +60,14 @@ export default function VideosPage() {
 
   const totalPages = Math.ceil(total / limit);
 
-  // Compute stats from current data
-  const publishedCount = videos.filter(v => v.status === 'published').length;
-  const failedCount = videos.filter(v => v.status === 'failed').length;
+  const [summary, setSummary] = useState<{ published: number; failed: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/analytics/summary')
+      .then(r => r.json())
+      .then(d => setSummary({ published: d.published ?? 0, failed: d.failed ?? 0 }))
+      .catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -73,8 +78,8 @@ export default function VideosPage() {
 
       <div className="card-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <StatsCard label="Total" value={total} color="purple" />
-        <StatsCard label="Published (this page)" value={publishedCount} color="green" />
-        <StatsCard label="Failed (this page)" value={failedCount} color="red" />
+        <StatsCard label="Published" value={summary?.published ?? '—'} color="green" />
+        <StatsCard label="Failed" value={summary?.failed ?? '—'} color="red" />
       </div>
 
       <div className="card">

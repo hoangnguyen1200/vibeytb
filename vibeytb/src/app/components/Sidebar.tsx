@@ -20,7 +20,12 @@ const publishNav: NavItem[] = [
   { href: '/publish', icon: '📤', label: 'Post to TikTok' },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -31,8 +36,12 @@ export default function Sidebar() {
     router.refresh();
   }
 
+  function handleNavClick() {
+    if (onClose) onClose();
+  }
+
   return (
-    <aside className="sidebar" id="sidebar-nav">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`} id="sidebar-nav">
       <div className="sidebar-brand">
         <h1>⚡ VibeYtb</h1>
         <p>Video Automation Dashboard</p>
@@ -46,6 +55,7 @@ export default function Sidebar() {
             href={item.href}
             className={`nav-link ${pathname === item.href ? 'active' : ''}`}
             id={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+            onClick={handleNavClick}
           >
             <span className="icon">{item.icon}</span>
             {item.label}
@@ -59,6 +69,7 @@ export default function Sidebar() {
             href={item.href}
             className={`nav-link ${pathname === item.href ? 'active' : ''}`}
             id={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+            onClick={handleNavClick}
           >
             <span className="icon">{item.icon}</span>
             {item.label}
@@ -94,7 +105,7 @@ export default function Sidebar() {
           🚪 Sign Out
         </button>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, textAlign: 'center' }}>
-          @TechHustleLabs • v1.1
+          @TechHustleLabs • v1.2
         </p>
       </div>
     </aside>

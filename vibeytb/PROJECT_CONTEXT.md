@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-03 (Subtitle fix + Bitrate fix + Thumbnail PATH fix)
+> Cập nhật lần cuối: 2026-04-03 (Dashboard v1.2 — Mobile menu + Analytics fix + Title save)
 
 ---
 
@@ -364,5 +364,15 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 - [x] **Scene 1 narration ≥ 15 words**: ✅ PASS (Run #41)
 - [x] **TikTok skip gracefully**: ✅ PASS (Run #41 — immediate skip, no retry)
 
-> **Next**: Re-run pipeline (Run #42) to verify all 6/6 pass.
+> **Next**: Re-run pipeline (Run #43) to verify all 6/6 pass.
 
+## 🖥️ Dashboard v1.2 Bug Fixes (2026-04-03)
+
+| Bug | Fix | File |
+|---|---|---|
+| B1 Mobile locked out | Added hamburger menu + backdrop overlay | `ConditionalLayout.tsx`, `Sidebar.tsx`, `globals.css` |
+| B2 Views/Likes all 0 | Analytics tracker now scans ALL untracked published videos (not just 24-48h window) | `analytics-tracker.ts` |
+| B2b Missing env key | Added `SUPABASE_SERVICE_ROLE_KEY` to analytics pipeline | `analytics-pipeline.yml` |
+| B3 youtube_title null | Orchestrator now saves title/desc/tags on publish | `the-orchestrator.ts` |
+| B5 Per-page stats | Videos page now fetches global published/failed counts from summary API | `videos/page.tsx` |
+| B4, B6 | Auto-fixed by B2 and B3 respectively | — |

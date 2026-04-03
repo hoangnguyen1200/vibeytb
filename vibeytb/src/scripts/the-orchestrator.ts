@@ -623,6 +623,9 @@ export class TheMasterOrchestrator {
       await this.cleanupTmp(jobId);
       await this.updateJob(jobId, {
         status: VideoStatus.PUBLISHED,
+        youtube_title: title,
+        youtube_description: desc.substring(0, 5000),
+        youtube_tags: tags,
         ...(youtubeUrl ? { youtube_url: youtubeUrl } : {}),
         ...(tiktokUrl ? { tiktok_url: tiktokUrl } : {}),
         ...(uploadErrors.length > 0 ? { error_logs: `PARTIAL_UPLOAD: ${uploadErrors.join(' | ')}` } : {}),
