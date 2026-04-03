@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 
 interface NavItem {
@@ -28,6 +29,21 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('vibeytb-theme') as 'dark' | 'light' | null;
+    const initial = saved ?? 'dark';
+    setTheme(initial);
+    document.documentElement.setAttribute('data-theme', initial);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('vibeytb-theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  }
 
   async function handleSignOut() {
     const supabase = createSupabaseBrowser();
@@ -82,6 +98,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         borderTop: '1px solid var(--border-subtle)',
       }}>
         <button
+          onClick={toggleTheme}
+          id="btn-theme-toggle"
+          style={{
+            width: '100%', padding: '8px 12px', marginBottom: 8,
+            background: 'var(--bg-hover)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-secondary)',
+            fontSize: 12, cursor: 'pointer',
+            transition: 'all 0.15s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+        </button>
+        <button
           onClick={handleSignOut}
           id="btn-signout"
           style={{
@@ -105,7 +137,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           🚪 Sign Out
         </button>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8, textAlign: 'center' }}>
-          @TechHustleLabs • v1.2
+          @TechHustleLabs • v1.3
         </p>
       </div>
     </aside>
