@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-02 (Dashboard MVP: Pipeline Monitor + Videos + Analytics + Multi-Platform Publish UI)
+> Cập nhật lần cuối: 2026-04-03 (Supabase Auth + Vercel Deploy + TikTok 5-point UX Post Form)
 
 ---
 
@@ -146,9 +146,17 @@ Final video 1080×1920 9:16
 | `src/app/api/videos/route.ts` | API: list videos (paginated, filterable) |
 | `src/app/api/videos/[id]/route.ts` | API: single video detail |
 | `src/app/api/analytics/summary/route.ts` | API: aggregated pipeline stats |
-| `src/app/components/Sidebar.tsx` | Dashboard sidebar navigation |
+| `src/app/components/Sidebar.tsx` | Dashboard sidebar navigation + sign-out button |
+| `src/app/components/ConditionalLayout.tsx` | Hides sidebar on auth pages (login, callback) |
 | `src/app/components/StatsCard.tsx` | Reusable stat card component |
 | `src/app/components/VideoStatusBadge.tsx` | Video status badge with color coding |
+| `src/app/login/page.tsx` | Login page (Supabase Auth, dark theme, Suspense boundary) |
+| `src/app/auth/callback/route.ts` | OAuth callback route (code exchange) |
+| `src/app/auth/signout/route.ts` | Sign-out API route |
+| `src/app/api/publish/queue/route.ts` | Publish queue API (POST/GET) |
+| `src/lib/supabase/browser.ts` | Supabase browser client (cookie-based) |
+| `src/lib/supabase/server.ts` | Supabase server client (SSR cookies) |
+| `src/middleware.ts` | Auth middleware — protects all routes, redirects to /login |
 
 ### External Services
 
@@ -258,17 +266,20 @@ Final video 1080×1920 9:16
 78. **Bitrate floor**: Added `-minrate 6M` to concat Phase 2 → stock footage scenes no longer drag average bitrate below 5 Mbps (2026-04-02)
 79. **Subtitle positioning**: MarginV=120→180 (y=1740, deeper in bottom black zone), Fontsize=16→15. Ensures subtitles don't overlap website content area (ends at y=1560) (2026-04-02)
 80. **Dashboard MVP**: Full web dashboard (Next.js App Router) — 5 pages: Pipeline Monitor (stats + health + video table), Videos List (paginated + filterable), Video Detail (YouTube embed + script viewer + platform links), Analytics (Recharts charts + top performers), Multi-Platform Publish (TikTok 5-point UX compliance + future platforms). Dark theme design system, zero pipeline code changes, Supabase API routes. Migration `05_dashboard_tables.sql` adds `dashboard_settings` + `publish_queue` tables (2026-04-02)
+81. **Supabase Auth**: Login page (email/password), auth middleware protects all routes → redirect to `/login`, sign-out button in sidebar, cookie-based SSR sessions via `@supabase/ssr`. ConditionalLayout hides sidebar on auth pages. Suspense boundary for `useSearchParams()` SSG compat (2026-04-02)
+82. **Vercel Deploy**: Dashboard deployed to Vercel free tier at `vibeytb.vercel.app`. Env vars (SUPABASE_URL, ANON_KEY, SERVICE_ROLE_KEY) configured in Vercel. Build fixes: ffprobe callback types, `@types/pg`, Suspense boundary (2026-04-02)
+83. **TikTok 5-point UX Post Form**: Full compliance form in `/publish` — (1) Privacy selector no default, (2) Comment/Duet/Stitch toggles, (3) Content disclosure checkboxes, (4) Video preview panel, (5) User-initiated post action. Publish queue API supports future multi-platform posting (2026-04-02)
 
-## 🚨 Platform Status (tính đến 2026-04-02)
+## 🚨 Platform Status (tính đến 2026-04-03)
 
 | Platform | Trạng thái | Chi tiết |
 |---|---|---|
 | **YouTube** | ✅ **ACTIVE** | OAuth working, daily auto-publish |
-| **TikTok** | ❌ **REJECTED** | Content Posting API application rejected — UX non-compliance. Dashboard now provides 5-point UX for re-audit |
-| **Dashboard** | ✅ **MVP LIVE** | `npm run dev` → localhost:3000. Vercel deployment pending |
+| **TikTok** | ❌ **REJECTED** | Content Posting API rejected — UX non-compliance. Dashboard `/publish` has 5-point compliant UX → ready for re-audit |
+| **Dashboard** | ✅ **LIVE** | https://vibeytb.vercel.app — Supabase Auth protected, Vercel free tier |
 
 > **TikTok**: Rejected vì thiếu UX (5 points). Dashboard `/publish` page đã build compliant UX → sẵn sàng re-apply.
-> **Dashboard**: Chạy independently, KHÔNG thay đổi pipeline code.
+> **Dashboard**: Live at `vibeytb.vercel.app`. Auth required (Supabase). KHÔNG thay đổi pipeline code.
 
 ## 🔄 Đang Xem Xét
 
@@ -280,15 +291,13 @@ Final video 1080×1920 9:16
 
 | # | Feature | Mô tả | Effort |
 |---|---|---|---|
-| 1 | **Dashboard: Supabase Auth** | Login protection cho dashboard (email/password) | Small |
-| 2 | **Dashboard: Vercel deploy** | Deploy dashboard lên Vercel free tier | Small |
-| 3 | **Dashboard: TikTok Post Form** | Full 5-point TikTok post form trong `/publish` → re-apply audit | Large |
-| 4 | **Engagement tracking** | Theo dõi video nào perform tốt → feed data lại Gemini chọn topic | Medium |
-| 5 | **A/B test thumbnails** | Tạo 2 style thumbnail → dùng YouTube API đo CTR | Medium |
-| 6 | **Instagram Reels** | Cross-post thêm IG Reels (cùng format 9:16) | Large |
-| 7 | **SEO description** | Gemini viết description chuẩn SEO + timestamps | Small |
+| 1 | **TikTok re-audit** | Screen record `/publish` page → submit lại TikTok Dev Portal | Small |
+| 2 | **Engagement tracking** | Theo dõi video nào perform tốt → feed data lại Gemini chọn topic | Medium |
+| 3 | **A/B test thumbnails** | Tạo 2 style thumbnail → dùng YouTube API đo CTR | Medium |
+| 4 | **Instagram Reels** | Cross-post thêm IG Reels (cùng format 9:16) | Large |
+| 5 | **SEO description** | Gemini viết description chuẩn SEO + timestamps | Small |
 
-> **Ưu tiên hiện tại**: Verify pipeline → Deploy dashboard → TikTok re-audit.
+> **Ưu tiên hiện tại**: Verify pipeline (check verify list below) → TikTok re-audit → Engagement tracking.
 
 ### 💰 Monetization Roadmap (khi channel đạt 50-100 videos)
 
@@ -320,6 +329,8 @@ Final video 1080×1920 9:16
 - **OAuth scopes**: YouTube token needs BOTH `youtube.upload` + `youtube.force-ssl` (for comments). Run `get-youtube-token.ts` to regenerate
 - **Google CSE**: **INACTIVE** — requires Google Cloud Billing account. Code kept, fails gracefully (pipeline uses Gemini Search only). To re-enable: activate billing → set `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID` in GitHub Secrets
 - **Pre-commit hook**: Mọi commit đều phải pass smoke test — KHÔNG bypass bằng `--no-verify`
+- **Dashboard Auth**: Supabase Auth (email/password). Middleware protects all routes except `/login` and `/auth/*`. User created in Supabase Dashboard → Authentication → Users
+- **Dashboard Deploy**: Vercel free tier at `vibeytb.vercel.app`. Env vars set via `vercel env`. Redeploy: `cd vibeytb && vercel --prod --yes`
 - **PROJECT_CONTEXT.md**: File này phải được cập nhật sau MỌI thay đổi quan trọng. Khi thêm item mới, **PHẢI kiểm tra** phần "Lưu Ý Quan Trọng" xem có dòng nào bị stale/mâu thuẫn với thay đổi mới → fix ngay trong cùng commit
 
 ## 🧪 Testing
