@@ -44,13 +44,15 @@ export async function mergeAudioVideoScene(
           outputs: 'padded_v'
         },
         // Subtitles: modern viral-style (compact, semi-transparent bg, safe zone)
-        // Fontsize=15 on 1080x1920 = readable on mobile without being intrusive
+        // Fontsize=18 on 1080x1920 = readable on mobile without being intrusive
         // BorderStyle=4 = box + outline (semi-transparent dark background behind text)
         // MarginV=180 = deep in bottom black padding zone (y~1740)
         // Content area ends at y=1560, YouTube UI at ~y1700 → MarginV=180 avoids both
+        // original_size=1080x1920 = force FFmpeg subtitle renderer to use padded canvas
+        //   (without this, renderer may use pre-pad resolution → subtitles at center)
         {
           filter: 'subtitles',
-          options: `'${escapedVttPath}':force_style='Fontname=Arial,Fontsize=15,PrimaryColour=&H00FFFFFF,OutlineColour=&H40000000,BackColour=&H80000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=180,MarginL=80,MarginR=80,Bold=1'`,
+          options: `'${escapedVttPath}':original_size=1080x1920:force_style='Fontname=Arial,Fontsize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H40000000,BackColour=&H80000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=180,MarginL=80,MarginR=80,Bold=1'`,
           inputs: 'padded_v',
           outputs: hookText ? 'sub_v_pre' : 'sub_v'
         },
@@ -232,12 +234,10 @@ export async function concatScenes(
         .outputOptions([
           '-map 0:v',
           `-map ${audioMap}`,
-          '-c:v libx264',
-          '-preset fast',
-          '-b:v 8M',
-          '-minrate 6M',
-          '-maxrate 8M',
-          '-bufsize 16M',
+          // Copy video stream as-is (already 8M CBR from concat step).
+          // Re-encoding with libx264 destroys bitrate on static UI content
+          // (1.47 Mbps despite -b:v 8M target — libx264 compresses static frames too well).
+          '-c:v copy',
           '-c:a aac',
           '-b:a 128k',
           '-ar 48000',

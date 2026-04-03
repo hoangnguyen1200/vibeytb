@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { ffmpegPath } from '../../utils/ffmpeg';
 
 /**
  * Determine the badge text based on the tool's tagline content.
@@ -112,7 +113,9 @@ export async function generateThumbnail(
   const inputPath = videoPath.replace(/\\/g, '/');
   const outPath = outputPath.replace(/\\/g, '/');
 
-  const cmd = `ffmpeg -y -ss 4 -i "${inputPath}" -frames:v 1 -vf "${filters}" -q:v 2 "${outPath}"`;
+  // Use full ffmpeg path from @ffmpeg-installer (bare 'ffmpeg' not in runner PATH)
+  const safeFfmpegPath = ffmpegPath.replace(/\\/g, '/');
+  const cmd = `"${safeFfmpegPath}" -y -ss 4 -i "${inputPath}" -frames:v 1 -vf "${filters}" -q:v 2 "${outPath}"`;
 
   try {
     execSync(cmd, {

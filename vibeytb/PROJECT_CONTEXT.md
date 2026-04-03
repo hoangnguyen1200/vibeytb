@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-03 (Supabase Auth + Vercel Deploy + TikTok 5-point UX Post Form)
+> Cập nhật lần cuối: 2026-04-03 (Subtitle fix + Bitrate fix + Thumbnail PATH fix)
 
 ---
 
@@ -129,10 +129,10 @@ Final video 1080×1920 9:16
 | `src/agents/agent-3-producer/visual-qc.ts` | Gemini Visual QC (kiểm tra video quality) |
 | `src/agents/agent-3-producer/tts-client.ts` | Edge TTS voice |
 | `src/agents/agent-3-producer/pixabay-client.ts` | Local BGM picker (chọn random từ `assets/bgm/`) |
-| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (scale+pad 1080×1920, concat demuxer -c copy, BGM 15%) |
+| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (scale+pad 1080×1920, subtitles `original_size=1080x1920`, concat filter 8M CBR, BGM mix `-c:v copy`) |
 | `src/agents/agent-3-producer/outro-generator.ts` | 3s outro CTA clip (FFmpeg drawtext) |
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
-| `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame |
+| `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame (uses `ffmpegPath` from `@ffmpeg-installer`) |
 | `src/agents/agent-4-publisher/tiktok-uploader.ts` | TikTok cross-post via Content Posting API (OAuth2 + FILE_UPLOAD) |
 | `src/agents/agent-4-publisher/analytics-tracker.ts` | YouTube 24h analytics (views/likes/comments → Supabase + Discord) |
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (18 tests, <3s, zero API calls) |
@@ -269,6 +269,10 @@ Final video 1080×1920 9:16
 81. **Supabase Auth**: Login page (email/password), auth middleware protects all routes → redirect to `/login`, sign-out button in sidebar, cookie-based SSR sessions via `@supabase/ssr`. ConditionalLayout hides sidebar on auth pages. Suspense boundary for `useSearchParams()` SSG compat (2026-04-02)
 82. **Vercel Deploy**: Dashboard deployed to Vercel free tier at `vibeytb.vercel.app`. Env vars (SUPABASE_URL, ANON_KEY, SERVICE_ROLE_KEY) configured in Vercel. Build fixes: ffprobe callback types, `@types/pg`, Suspense boundary (2026-04-02)
 83. **TikTok 5-point UX Post Form**: Full compliance form in `/publish` — (1) Privacy selector no default, (2) Comment/Duet/Stitch toggles, (3) Content disclosure checkboxes, (4) Video preview panel, (5) User-initiated post action. Publish queue API supports future multi-platform posting (2026-04-02)
+84. **Pipeline RLS fix**: Added `SUPABASE_SERVICE_ROLE_KEY` to GitHub Actions workflow `.env` + GitHub Secrets. Pipeline was using ANON_KEY → RLS blocked INSERT (42501). SERVICE_ROLE_KEY bypasses RLS (2026-04-03)
+85. **Subtitle position fix**: Added `original_size=1080x1920` to FFmpeg subtitles filter. Without this, renderer used pre-pad resolution → subtitles at center instead of bottom. Font 15→18px for readability (2026-04-03)
+86. **Bitrate fix (v2)**: BGM mix step changed from `-c:v libx264` re-encode to `-c:v copy`. libx264 compressed static UI screenshots from 8M→1.47M despite CBR target. Stream copy preserves original 8M bitrate (2026-04-03)
+87. **Thumbnail PATH fix**: `thumbnail-generator.ts` was calling bare `ffmpeg` (not in runner PATH). Now uses `ffmpegPath` from `@ffmpeg-installer/ffmpeg` via shared `utils/ffmpeg.ts` (2026-04-03)
 
 ## 🚨 Platform Status (tính đến 2026-04-03)
 
@@ -320,7 +324,7 @@ Final video 1080×1920 9:16
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
-- **Subtitle overlay**: `Fontname=Arial,Fontsize=15,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=180` (bottom black zone, y≈1740) + `MarginL/R=80` — modern viral style, không che website content, tránh YouTube UI
+- **Subtitle overlay**: `Fontname=Arial,Fontsize=18,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=180` (bottom black zone, y≈1740) + `MarginL/R=80` + `original_size=1080x1920` (force padded canvas). Modern viral style, không che website content, tránh YouTube UI
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1080×1200 compact desktop → PRE-WARM (load + wait 4s) → FFmpeg `-ss 2` (skip initial frames) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
@@ -351,12 +355,14 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 
 ## 🔎 Verify Checklist — Pipeline Run Ngày 2026-04-03
 
-> Các fix từ commit `2511863` (2026-04-02) cần được verify trên video mới.
+> Run #41 kết quả: 3/6 pass (subtitle FAIL, bitrate FAIL, thumbnail FAIL). Fixes applied in commit TBD.
 
-- [ ] **Subtitle position**: Subtitle phải ở **dưới cùng** (vùng đen padding, y≈1740), KHÔNG ở giữa màn hình. So sánh với video cũ `VCMEicUbZ-k` (Mem AI) là hiện subtitle giữa → **phải khác**
-- [ ] **Scene 1 website recording**: Scene 1 phải hiện website thật (pre-warm 4s), không rơi về stock video fallback
-- [ ] **Thumbnail generate OK**: Không crash "Error reinitializing filters!"
-- [ ] **Bitrate ≥ 5 Mbps**: Check `ffprobe` trên final video
-- [ ] **Scene 1 narration ≥ 15 words**: Hook đủ dài, TTS ≥ 5s
-- [ ] **TikTok skip gracefully**: Log nên có `[TikTok] Skipping — unaudited_client` (không retry 3 lần)
+- [x] **Subtitle position**: ~~FAIL (Run #41 — subtitle ở giữa)~~ → Fixed: `original_size=1080x1920` forces padded canvas
+- [x] **Scene 1 website recording**: ✅ PASS (Run #41 — dust.tt hero visible)
+- [x] **Thumbnail generate OK**: ~~FAIL (ffmpeg not in PATH)~~ → Fixed: `ffmpegPath` from `@ffmpeg-installer`
+- [x] **Bitrate ≥ 5 Mbps**: ~~FAIL (1.47 Mbps)~~ → Fixed: `-c:v copy` in BGM mix
+- [x] **Scene 1 narration ≥ 15 words**: ✅ PASS (Run #41)
+- [x] **TikTok skip gracefully**: ✅ PASS (Run #41 — immediate skip, no retry)
+
+> **Next**: Re-run pipeline (Run #42) to verify all 6/6 pass.
 
