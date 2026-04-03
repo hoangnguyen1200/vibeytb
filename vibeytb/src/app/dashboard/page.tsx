@@ -34,28 +34,39 @@ export default function DashboardPage() {
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [lastFetch, setLastFetch] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function fetchData(isManual = false) {
+    try {
+      if (isManual) setRefreshing(true);
+      const [summaryRes, videosRes] = await Promise.all([
+        fetch('/api/analytics/summary'),
+        fetch(`/api/videos?limit=20${statusFilter ? `&status=${statusFilter}` : ''}`),
+      ]);
+      const summaryJson = await summaryRes.json();
+      const videosJson = await videosRes.json();
+
+      setSummary(summaryJson);
+      setVideos(videosJson.data ?? []);
+      setLastFetch(new Date());
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [summaryRes, videosRes] = await Promise.all([
-          fetch('/api/analytics/summary'),
-          fetch(`/api/videos?limit=20${statusFilter ? `&status=${statusFilter}` : ''}`),
-        ]);
-        const summaryJson = await summaryRes.json();
-        const videosJson = await videosRes.json();
-
-        setSummary(summaryJson);
-        setVideos(videosJson.data ?? []);
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     setLoading(true);
     fetchData();
+  }, [statusFilter]);
+
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => fetchData(), 60_000);
+    return () => clearInterval(interval);
   }, [statusFilter]);
 
   function formatDate(iso: string | null) {
@@ -92,9 +103,44 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2>📊 Pipeline Dashboard</h2>
-        <p>Real-time overview of your video automation pipeline</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2>📊 Pipeline Dashboard</h2>
+          <p>Real-time overview of your video automation pipeline</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {lastFetch && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Updated {lastFetch.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
+          <button
+            id="btn-refresh-dashboard"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            style={{
+              padding: '6px 14px',
+              background: refreshing ? 'var(--bg-hover)' : 'var(--accent-subtle)',
+              border: '1px solid var(--accent)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--accent)',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: refreshing ? 'wait' : 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span style={{
+              display: 'inline-block',
+              transition: 'transform 0.3s',
+              ...(refreshing ? { animation: 'spin 1s linear infinite' } : {}),
+            }}>🔄</span>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}

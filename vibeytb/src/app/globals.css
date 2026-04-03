@@ -402,6 +402,11 @@ tbody td {
   animation: pulse-glow 2s ease infinite;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ============ Mobile Header ============ */
 
 .mobile-header {
