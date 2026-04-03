@@ -29,9 +29,24 @@ interface VideoRow {
   created_at: string | null;
 }
 
+interface PipelineRun {
+  id: string;
+  run_id: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+  videos_processed: number;
+  videos_published: number;
+  videos_failed: number;
+  trigger_type: string;
+  error_message: string | null;
+}
+
 export default function DashboardPage() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [videos, setVideos] = useState<VideoRow[]>([]);
+  const [pipelineRuns, setPipelineRuns] = useState<PipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
@@ -40,15 +55,18 @@ export default function DashboardPage() {
   async function fetchData(isManual = false) {
     try {
       if (isManual) setRefreshing(true);
-      const [summaryRes, videosRes] = await Promise.all([
+      const [summaryRes, videosRes, runsRes] = await Promise.all([
         fetch('/api/analytics/summary'),
         fetch(`/api/videos?limit=20${statusFilter ? `&status=${statusFilter}` : ''}`),
+        fetch('/api/pipeline-runs'),
       ]);
       const summaryJson = await summaryRes.json();
       const videosJson = await videosRes.json();
+      const runsJson = await runsRes.json();
 
       setSummary(summaryJson);
       setVideos(videosJson.data ?? []);
+      setPipelineRuns(runsJson.data ?? []);
       setLastFetch(new Date());
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -213,6 +231,59 @@ export default function DashboardPage() {
           value={summary?.avgComments ?? 0}
           color="amber"
         />
+      </div>
+
+      {/* Pipeline Run History */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>🏃 Pipeline Run History</h3>
+        {pipelineRuns.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center' }}>
+            No pipeline runs recorded yet. Runs will appear here after the next orchestrator execution.
+          </p>
+        ) : (
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Started</th>
+                  <th>Status</th>
+                  <th>Duration</th>
+                  <th>Processed</th>
+                  <th>Published</th>
+                  <th>Failed</th>
+                  <th>Trigger</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pipelineRuns.slice(0, 10).map((run) => (
+                  <tr key={run.id}>
+                    <td style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{formatDate(run.started_at)}</td>
+                    <td>
+                      <span style={{
+                        padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                        background: run.status === 'completed' ? 'rgba(34,197,94,0.12)'
+                          : run.status === 'failed' ? 'rgba(239,68,68,0.12)'
+                          : 'rgba(139,92,246,0.12)',
+                        color: run.status === 'completed' ? 'var(--status-success)'
+                          : run.status === 'failed' ? 'var(--status-error)'
+                          : 'var(--accent)',
+                      }}>
+                        {run.status}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+                      {run.duration_ms ? `${Math.round(run.duration_ms / 1000)}s` : '—'}
+                    </td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{run.videos_processed}</td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--status-success)' }}>{run.videos_published}</td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums', color: run.videos_failed > 0 ? 'var(--status-error)' : 'inherit' }}>{run.videos_failed}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{run.trigger_type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Videos Table */}
