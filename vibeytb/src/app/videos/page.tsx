@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import StatsCard from '../components/StatsCard';
 import VideoStatusBadge from '../components/VideoStatusBadge';
 
@@ -19,13 +19,51 @@ interface VideoRow {
   created_at: string | null;
 }
 
+function extractVideoId(url: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+type SortKey = 'date' | 'views' | 'tool';
+
 export default function VideosPage() {
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(0);
   const limit = 15;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Debounce search input
+  const handleSearch = useCallback((val: string) => {
+    setSearch(val);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(val);
+      setPage(0);
+    }, 300);
+  }, []);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortKey(key);
+      setSortAsc(false);
+    }
+    setPage(0);
+  }
+
+  function sortIcon(key: SortKey) {
+    if (sortKey !== key) return '⇅';
+    return sortAsc ? '↑' : '↓';
+  }
 
   useEffect(() => {
     async function fetchVideos() {
@@ -34,8 +72,11 @@ export default function VideosPage() {
         const params = new URLSearchParams({
           limit: String(limit),
           offset: String(page * limit),
+          sort: sortKey,
+          dir: sortAsc ? 'asc' : 'desc',
         });
         if (statusFilter) params.set('status', statusFilter);
+        if (debouncedSearch) params.set('search', debouncedSearch);
 
         const res = await fetch(`/api/videos?${params}`);
         const json = await res.json();
@@ -48,7 +89,7 @@ export default function VideosPage() {
       }
     }
     fetchVideos();
-  }, [statusFilter, page]);
+  }, [statusFilter, page, sortKey, sortAsc, debouncedSearch]);
 
   function formatDate(iso: string | null) {
     if (!iso) return '—';
@@ -83,7 +124,7 @@ export default function VideosPage() {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h3 style={{ fontSize: 16, fontWeight: 600 }}>Video List</h3>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -91,7 +132,21 @@ export default function VideosPage() {
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input
+              id="videos-search"
+              type="text"
+              placeholder="🔍 Search tools..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+              style={{
+                background: 'var(--bg-hover)', color: 'var(--text-primary)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)', padding: '6px 12px',
+                fontSize: 13, width: 180,
+                outline: 'none',
+              }}
+            />
             <select
               id="videos-status-filter"
               value={statusFilter}
@@ -124,12 +179,18 @@ export default function VideosPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Tool</th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>
+                    Date {sortIcon('date')}
+                  </th>
+                  <th>Thumb</th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('tool')}>
+                    Tool {sortIcon('tool')}
+                  </th>
                   <th>Title</th>
                   <th>Status</th>
-                  <th>Source</th>
-                  <th>Views</th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('views')}>
+                    Views {sortIcon('views')}
+                  </th>
                   <th>Links</th>
                 </tr>
               </thead>
@@ -137,14 +198,28 @@ export default function VideosPage() {
                 {videos.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                      No videos found
+                      {debouncedSearch ? `No results for "${debouncedSearch}"` : 'No videos found'}
                     </td>
                   </tr>
                 ) : (
-                  videos.map((v) => (
+                  videos.map((v) => {
+                    const vidId = extractVideoId(v.youtube_url);
+                    return (
                     <tr key={v.id}>
                       <td style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         {formatDate(v.created_at)}
+                      </td>
+                      <td style={{ padding: '4px 8px' }}>
+                        {vidId ? (
+                          <img
+                            src={`https://img.youtube.com/vi/${vidId}/default.jpg`}
+                            alt={v.tool_name ?? 'thumb'}
+                            style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 4, display: 'block' }}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div style={{ width: 48, height: 36, background: 'var(--bg-hover)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎬</div>
+                        )}
                       </td>
                       <td>
                         <a
@@ -161,9 +236,6 @@ export default function VideosPage() {
                         {v.youtube_title ?? '—'}
                       </td>
                       <td><VideoStatusBadge status={v.status} /></td>
-                      <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                        {v.discovery_source ?? '—'}
-                      </td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>
                         {v.views_24h ?? '—'}
                       </td>
@@ -182,7 +254,8 @@ export default function VideosPage() {
                         )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

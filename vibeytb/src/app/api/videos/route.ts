@@ -18,17 +18,31 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const status = searchParams.get('status');
+    const search = searchParams.get('search');
+    const sortBy = searchParams.get('sort') ?? 'date';
+    const sortDir = searchParams.get('dir') === 'asc';
     const limit = Math.min(Number(searchParams.get('limit') ?? 50), 100);
     const offset = Number(searchParams.get('offset') ?? 0);
+
+    const sortMap: Record<string, string> = {
+      date: 'created_at',
+      views: 'views_24h',
+      tool: 'tool_name',
+    };
+    const orderCol = sortMap[sortBy] ?? 'created_at';
 
     let query = supabase
       .from('video_projects')
       .select('id, status, tool_name, tool_url, youtube_title, youtube_url, tiktok_url, views_24h, likes_24h, comments_24h, discovery_source, created_at, updated_at', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .order(orderCol, { ascending: sortDir, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
     if (status) {
       query = query.eq('status', status);
+    }
+
+    if (search) {
+      query = query.ilike('tool_name', `%${search}%`);
     }
 
     const { data, count, error } = await query;
