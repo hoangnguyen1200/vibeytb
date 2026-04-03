@@ -110,11 +110,61 @@ export default function VideosPage() {
       .catch(() => {});
   }, []);
 
+  async function exportCSV() {
+    try {
+      const res = await fetch('/api/videos?limit=100&offset=0');
+      const json = await res.json();
+      const rows = json.data ?? [];
+
+      const headers = ['Date', 'Tool', 'Title', 'Status', 'Views', 'YouTube URL', 'TikTok URL'];
+      const csvRows = [
+        headers.join(','),
+        ...rows.map((r: VideoRow) => [
+          r.created_at ? new Date(r.created_at).toISOString() : '',
+          `"${(r.tool_name ?? '').replace(/"/g, '""')}"`,
+          `"${(r.youtube_title ?? '').replace(/"/g, '""')}"`,
+          r.status,
+          r.views_24h ?? '',
+          r.youtube_url ?? '',
+          r.tiktok_url ?? '',
+        ].join(',')),
+      ];
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vibeytb_videos_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('CSV export error:', err);
+    }
+  }
+
   return (
     <div>
-      <div className="page-header">
-        <h2>🎬 Videos</h2>
-        <p>All videos produced by the pipeline — {total} total</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2>🎬 Videos</h2>
+          <p>All videos produced by the pipeline — {total} total</p>
+        </div>
+        <button
+          id="btn-export-csv"
+          onClick={exportCSV}
+          style={{
+            padding: '6px 14px',
+            background: 'var(--accent-subtle)',
+            border: '1px solid var(--accent)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--accent)',
+            fontSize: 13, fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          📥 Export CSV
+        </button>
       </div>
 
       <div className="card-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>

@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-03 (Dashboard v1.3 — Tier 2: Thumbnails, Search, Sort, Dark/Light Mode, Pipeline History)
+> Cập nhật lần cuối: 2026-04-03 (Dashboard v1.3 — Tier 3: CSV Export, Notification Center, Settings Page)
 
 ---
 

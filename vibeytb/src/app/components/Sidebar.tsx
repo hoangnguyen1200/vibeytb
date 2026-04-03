@@ -19,6 +19,7 @@ const mainNav: NavItem[] = [
 
 const publishNav: NavItem[] = [
   { href: '/publish', icon: '📤', label: 'Post to TikTok' },
+  { href: '/settings', icon: '⚙️', label: 'Settings' },
 ];
 
 interface SidebarProps {

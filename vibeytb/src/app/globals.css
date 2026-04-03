@@ -488,9 +488,31 @@ tbody td {
 
 /* ============ Responsive ============ */
 
+/* Desktop: show bell in top-right corner */
+.desktop-bell {
+  display: block;
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  z-index: 30;
+}
+
+.mobile-bell {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .mobile-header {
     display: flex;
+  }
+
+  .desktop-bell {
+    display: none;
+  }
+
+  .mobile-bell {
+    display: block;
+    margin-left: auto;
   }
 
   .sidebar-backdrop {
