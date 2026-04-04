@@ -657,19 +657,30 @@ export async function recordWebsiteScroll(
           // DO NOT set phaseACompleted — allows Demo Hunter fallback
         } else {
           console.log('[Input Hunter] ✅ No validation error — continuing recording.');
-          await page.waitForTimeout(10000);
 
-          const elapsedBeforeWait = (Date.now() - startMs) / 1000;
-          const remainingBudget = Math.max(1, durationSec - elapsedBeforeWait);
-          let responseWait = Math.min(10, Math.max(8, remainingBudget));
-          responseWait = Math.min(responseWait, remainingBudget);
+          // Smart wait: detect when page content changes (result loaded)
+          // instead of static 10s+10s wait that shows idle prompt page
+          const beforeLen = await page.evaluate(() => document.body.innerHTML.length);
+          let resultLoaded = false;
+          for (let poll = 0; poll < 8 && !resultLoaded; poll++) {
+            await page.waitForTimeout(1000);
+            const afterLen = await page.evaluate(() => document.body.innerHTML.length);
+            if (Math.abs(afterLen - beforeLen) > 500) {
+              resultLoaded = true;
+              console.log('[Input Hunter] 📊 Result loaded — switching to scroll mode.');
+            }
+          }
 
-          await page.waitForTimeout(responseWait * 1000);
+          if (!resultLoaded) {
+            console.log('[Input Hunter] ⏳ No content change detected — waiting 3s then scrolling.');
+            await page.waitForTimeout(3000);
+          }
 
-          const elapsedAfter = (Date.now() - startMs) / 1000;
-          const remaining = Math.max(0, durationSec - elapsedAfter);
-          if (remaining > 0) {
-            await page.waitForTimeout(remaining * 1000);
+          // Hand off to DemoHunter to scroll/hover through results for remaining budget
+          const elapsedAfterInput = (Date.now() - startMs) / 1000;
+          const remainingForScroll = Math.max(1, durationSec - elapsedAfterInput);
+          if (remainingForScroll > 2) {
+            await runDemoHunter(page, remainingForScroll, Date.now(), sceneIndex);
           }
 
           phaseACompleted = true;

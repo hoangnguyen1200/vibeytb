@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-04 (Pipeline Quality v2.0 Phase 1 — Thumbnail 2-pass fix + Context-aware Input Hunter)
+> Cập nhật lần cuối: 2026-04-04 (Pipeline Quality v2.0 Phase 1+2 — Thumbnail fix, Context queries, Subtitle readability, Smart result wait)
 
 ---
 
@@ -393,12 +393,12 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | F1 Thumbnail crash | `drawtext` filter crashes on portrait→landscape in single pass | Split into 2-pass FFmpeg: (1) extract+scale frame → PNG, (2) overlay graphics → JPG | `thumbnail-generator.ts` |
 | F2 Generic queries | Input Hunter typed "Show me how this works" for ALL tools | Enhanced Gemini prompt to generate tool-specific demo queries + updated fallback text | `generator.ts`, `playwright-recorder.ts` |
 
-### Phase 2 — Quality (Pending Phase 1 verify)
+### Phase 2 — Quality Improvements (Completed)
 
-| Task | Status |
-|------|--------|
-| F3 Subtitle readability | ⏳ Pending |
-| F4 Result wait detection | ⏳ Pending |
+| Task | Problem | Fix | File |
+|------|---------|-----|------|
+| F3 Subtitle readability | Subtitles overlap website text animations | Darker BackColour (A0), deeper MarginV (200), smaller font (17) | `media-stitcher.ts` |
+| F4 Result wait | Static 20s idle wait after typing query | Smart content-change detection + DemoHunter scroll through results | `playwright-recorder.ts` |
 
 ### Phase 3 — Growth (Future)
 
