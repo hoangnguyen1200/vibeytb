@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-03 (Analytics tracker debug logging + .env BOM/whitespace fix for GitHub Actions)
+> Cập nhật lần cuối: 2026-04-04 (Pipeline Quality v2.0 Phase 1 — Thumbnail 2-pass fix + Context-aware Input Hunter)
 
 ---
 
@@ -383,3 +383,26 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | B3 youtube_title null | Orchestrator now saves title/desc/tags on publish | `the-orchestrator.ts` |
 | B5 Per-page stats | Videos page now fetches global published/failed counts from summary API | `videos/page.tsx` |
 | B4, B6 | Auto-fixed by B2 and B3 respectively | — |
+
+## 🚀 Pipeline Quality v2.0 (2026-04-04)
+
+### Phase 1 — Critical Fixes (Completed)
+
+| Task | Problem | Fix | File |
+|------|---------|-----|------|
+| F1 Thumbnail crash | `drawtext` filter crashes on portrait→landscape in single pass | Split into 2-pass FFmpeg: (1) extract+scale frame → PNG, (2) overlay graphics → JPG | `thumbnail-generator.ts` |
+| F2 Generic queries | Input Hunter typed "Show me how this works" for ALL tools | Enhanced Gemini prompt to generate tool-specific demo queries + updated fallback text | `generator.ts`, `playwright-recorder.ts` |
+
+### Phase 2 — Quality (Pending Phase 1 verify)
+
+| Task | Status |
+|------|--------|
+| F3 Subtitle readability | ⏳ Pending |
+| F4 Result wait detection | ⏳ Pending |
+
+### Phase 3 — Growth (Future)
+
+| Task | Status |
+|------|--------|
+| F5 Analytics-driven scoring | ⏳ Needs analytics data |
+| F6 TikTok re-audit | ⏳ Manual submission |

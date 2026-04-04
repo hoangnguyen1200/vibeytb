@@ -50,13 +50,16 @@ function escapeDrawtext(text: string): string {
 /**
  * Generate a YouTube thumbnail (1280×720) from the final video.
  *
- * Uses raw FFmpeg command with simple -vf filtergraph (NOT complexFilter)
- * to avoid "Error reinitializing filters!" crash with fluent-ffmpeg on
- * portrait→landscape conversion.
+ * Uses a 2-pass FFmpeg approach to avoid "Error reinitializing filters!"
+ * crash when converting portrait (1080×1920) to landscape (1280×720)
+ * with complex drawtext overlays in a single filtergraph.
+ *
+ * Pass 1: Extract frame → scale+crop to 1280×720 → temp PNG
+ * Pass 2: Load landscape PNG → apply all overlays → final JPG
  *
  * Features:
  *   - Frame extracted at ~4s (skip blank page load)
- *   - Scale + letterbox to 1280×720
+ *   - Scale + crop to 1280×720
  *   - Dark gradient bar at bottom
  *   - Tool name in large bold text
  *   - Badge (FREE/NEW/TRENDING) at top-right
@@ -85,12 +88,27 @@ export async function generateThumbnail(
   const emoji = badgeEmoji(badge);
   const safeBadge = escapeDrawtext(`${emoji} ${badge}`);
 
-  // Build -vf filtergraph chain (simple, not complex → avoids re-init crash)
-  // Order: scale → drawbox (gradient) → drawbox (accent) → drawbox (badge bg) → drawtext × 3
-  const filters = [
-    // Scale to fill 1280×720, handle any input aspect ratio
-    'scale=1280:720:force_original_aspect_ratio=increase',
-    'crop=1280:720',
+  // Normalize paths for FFmpeg (forward slashes)
+  const inputPath = videoPath.replace(/\\/g, '/');
+  const outPath = outputPath.replace(/\\/g, '/');
+  const safeFfmpegPath = ffmpegPath.replace(/\\/g, '/');
+
+  // --- PASS 1: Extract frame → scale+crop to clean 1280×720 PNG ---
+  // This isolates the portrait→landscape conversion from the overlay filters,
+  // avoiding the "Error reinitializing filters!" crash.
+  const tempFramePath = path.join(tmpDir, 'thumb_frame.png').replace(/\\/g, '/');
+  const pass1Cmd = [
+    `"${safeFfmpegPath}"`,
+    '-y -ss 4',
+    `-i "${inputPath}"`,
+    '-frames:v 1',
+    '-vf "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720"',
+    `"${tempFramePath}"`,
+  ].join(' ');
+
+  // --- PASS 2: Overlay graphics on clean landscape frame ---
+  // Input is now a clean 1280×720 PNG — no resolution context switch.
+  const overlayFilters = [
     // Dark vignette — top dim bar
     "drawbox=x=0:y=0:w=iw:h=80:color=black@0.5:t=fill",
     // Purple accent bar — top edge (brand identity)
@@ -109,24 +127,34 @@ export async function generateThumbnail(
     `drawtext=text='AI Tool Review':fontcolor=#A78BFA:fontsize=28:x=(w-text_w)/2:y=h-60:font=Impact`,
   ].join(',');
 
-  // Normalize path for FFmpeg (forward slashes)
-  const inputPath = videoPath.replace(/\\/g, '/');
-  const outPath = outputPath.replace(/\\/g, '/');
-
-  // Use full ffmpeg path from @ffmpeg-installer (bare 'ffmpeg' not in runner PATH)
-  const safeFfmpegPath = ffmpegPath.replace(/\\/g, '/');
-  const cmd = `"${safeFfmpegPath}" -y -ss 4 -i "${inputPath}" -frames:v 1 -vf "${filters}" -q:v 2 "${outPath}"`;
+  const pass2Cmd = [
+    `"${safeFfmpegPath}"`,
+    '-y',
+    `-i "${tempFramePath}"`,
+    `-vf "${overlayFilters}"`,
+    `-q:v 2`,
+    `"${outPath}"`,
+  ].join(' ');
 
   try {
-    execSync(cmd, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30000,
-    });
+    // Pass 1: Extract and scale frame
+    execSync(pass1Cmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 });
+    console.log('[THUMBNAIL] Pass 1: Frame extracted (1280×720)');
+
+    // Pass 2: Apply overlays
+    execSync(pass2Cmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 });
+    console.log('[THUMBNAIL] Pass 2: Overlays applied');
+
+    // Cleanup temp frame
+    try { fs.unlinkSync(tempFramePath.replace(/\//g, path.sep)); } catch { /* ignore */ }
+
     console.log('[THUMBNAIL] Generated successfully');
     return outputPath;
   } catch (err) {
     const stderr = (err as { stderr?: Buffer })?.stderr?.toString() || '';
     console.error('[THUMBNAIL] Generation failed:', stderr.slice(-200));
+    // Cleanup temp frame on error
+    try { fs.unlinkSync(tempFramePath.replace(/\//g, path.sep)); } catch { /* ignore */ }
     throw new Error(`Thumbnail generation failed: ${stderr.slice(-100)}`);
   }
 }

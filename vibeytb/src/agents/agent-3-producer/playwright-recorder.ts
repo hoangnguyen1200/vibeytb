@@ -8,8 +8,8 @@ type InputType = 'url' | 'email' | 'search' | 'text';
 const SMART_QUERIES: Record<InputType, string> = {
   url: 'https://example.com',
   email: 'demo@example.com',
-  search: 'Show me how this works',
-  text: 'Show me how this works',
+  search: 'create something amazing with AI',
+  text: 'create something amazing with AI',
 };
 
 function detectInputType(attrs: Record<string, string>): InputType {
