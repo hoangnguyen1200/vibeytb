@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-04 (Pipeline Quality v2.0 Phase 1+2 — Thumbnail fix, Context queries, Subtitle readability, Smart result wait)
+> Cập nhật lần cuối: 2026-04-04 (TikTok UX Compliance Fix — 4 rejection points resolved)
 
 ---
 
@@ -405,4 +405,13 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | Task | Status |
 |------|--------|
 | F5 Analytics-driven scoring | ⏳ Needs analytics data |
-| F6 TikTok re-audit | ⏳ Manual submission |
+| F6 TikTok re-audit | ✅ UX compliance fixes applied (2026-04-04) |
+
+### TikTok UX Compliance Fix (2026-04-04)
+
+| # | Issue (Rejection Point) | Fix Applied | File |
+|---|------------------------|-------------|------|
+| 1 | Comment/Duet/Stitch default ON | Changed `useState(true)` → `useState(false)` for all 3 toggles | `publish/page.tsx` |
+| 2 | Disclosure sub-options always visible | Added parent toggle "Enable Content Disclosure" — sub-options only show when ON | `publish/page.tsx` |
+| 3 | No Private mode behavior | Added `useEffect` to auto-disable interactions when `SELF_ONLY`, grayed-out UI + warning text | `publish/page.tsx` |
+| 4 | Missing declaration text | Added conditional declaration boxes (yellow=Branded, blue=YourBrand) with TikTok policy links | `publish/page.tsx` |

@@ -16,15 +16,36 @@ export default function PublishPage() {
   const [selectedVideoId, setSelectedVideoId] = useState('');
   const [caption, setCaption] = useState('');
   const [privacyLevel, setPrivacyLevel] = useState('');
-  const [allowComment, setAllowComment] = useState(true);
-  const [allowDuet, setAllowDuet] = useState(true);
-  const [allowStitch, setAllowStitch] = useState(true);
+  // FIX #1: TikTok requires interaction toggles to default OFF
+  const [allowComment, setAllowComment] = useState(false);
+  const [allowDuet, setAllowDuet] = useState(false);
+  const [allowStitch, setAllowStitch] = useState(false);
+  // FIX #2: Content disclosure must be behind a parent toggle
+  const [enableDisclosure, setEnableDisclosure] = useState(false);
   const [discloseBranded, setDiscloseBranded] = useState(false);
   const [discloseYourBrand, setDiscloseYourBrand] = useState(false);
   const [isConfigured] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'post' | 'status'>('post');
+
+  // FIX #3: Auto-disable interactions when privacy is Private
+  const isPrivate = privacyLevel === 'SELF_ONLY';
+  useEffect(() => {
+    if (isPrivate) {
+      setAllowComment(false);
+      setAllowDuet(false);
+      setAllowStitch(false);
+    }
+  }, [isPrivate]);
+
+  // FIX #2b: Reset disclosure sub-options when parent toggle is off
+  useEffect(() => {
+    if (!enableDisclosure) {
+      setDiscloseBranded(false);
+      setDiscloseYourBrand(false);
+    }
+  }, [enableDisclosure]);
 
   // Fetch published videos for selection
   useEffect(() => {
@@ -68,11 +89,12 @@ export default function PublishPage() {
           metadata: {
             caption,
             privacyLevel,
-            allowComment,
-            allowDuet,
-            allowStitch,
-            discloseBranded,
-            discloseYourBrand,
+            allowComment: isPrivate ? false : allowComment,
+            allowDuet: isPrivate ? false : allowDuet,
+            allowStitch: isPrivate ? false : allowStitch,
+            enableDisclosure,
+            discloseBranded: enableDisclosure ? discloseBranded : false,
+            discloseYourBrand: enableDisclosure ? discloseYourBrand : false,
           },
         }),
       });
@@ -220,11 +242,19 @@ export default function PublishPage() {
               </div>
             </div>
 
-            {/* UX Point 2: Interaction Settings */}
-            <div className="card" style={{ marginBottom: 16 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text-secondary)' }}>
+            {/* UX Point 2: Interaction Settings — FIX #1 & #3 */}
+            <div className="card" style={{ marginBottom: 16, opacity: isPrivate ? 0.5 : 1 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: 'var(--text-secondary)' }}>
                 4️⃣ INTERACTION SETTINGS
               </h3>
+              {isPrivate && (
+                <p style={{ fontSize: 12, color: 'var(--status-warning)', marginBottom: 8 }}>
+                  🔒 Interactions are disabled for private videos
+                </p>
+              )}
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+                Users must manually enable each interaction setting
+              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {[
                   { id: 'allow-comment', label: 'Allow Comments', checked: allowComment, set: setAllowComment },
@@ -234,13 +264,17 @@ export default function PublishPage() {
                   <label key={toggle.id} htmlFor={toggle.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '8px 12px', background: 'var(--bg-hover)',
-                    borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: isPrivate ? 'not-allowed' : 'pointer',
                   }}>
-                    <span style={{ fontSize: 14 }}>{toggle.label}</span>
+                    <span style={{ fontSize: 14, color: isPrivate ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                      {toggle.label}
+                    </span>
                     <input
                       type="checkbox"
                       id={toggle.id}
                       checked={toggle.checked}
+                      disabled={isPrivate}
                       onChange={(e) => toggle.set(e.target.checked)}
                       style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
                     />
@@ -249,10 +283,10 @@ export default function PublishPage() {
               </div>
             </div>
 
-            {/* UX Point 3: Content Disclosure — REQUIRED BY TIKTOK */}
+            {/* UX Point 3: Content Disclosure — FIX #2 & #4 */}
             <div className="card" style={{
               marginBottom: 16,
-              borderColor: 'var(--border-accent)',
+              borderColor: enableDisclosure ? 'var(--border-accent)' : 'var(--border-default)',
             }}>
               <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: 'var(--text-secondary)' }}>
                 5️⃣ CONTENT DISCLOSURE
@@ -261,46 +295,108 @@ export default function PublishPage() {
                 Required by TikTok Content Posting API guidelines
               </p>
 
-              <label htmlFor="disclose-branded" style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
+              {/* FIX #2: Parent toggle — disclosure options only visible when enabled */}
+              <label htmlFor="enable-disclosure" style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 12px', background: 'var(--bg-hover)',
                 borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-                marginBottom: 8,
+                marginBottom: enableDisclosure ? 12 : 0,
+                border: enableDisclosure ? '1px solid var(--accent)' : '1px solid transparent',
               }}>
-                <input
-                  type="checkbox"
-                  id="disclose-branded"
-                  checked={discloseBranded}
-                  onChange={(e) => setDiscloseBranded(e.target.checked)}
-                  style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--accent)' }}
-                />
                 <div>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>Branded Content</span>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Enable Content Disclosure</span>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                    This video promotes a third-party brand, product, or service
+                    Turn on to disclose branded or promotional content
                   </p>
                 </div>
+                <input
+                  type="checkbox"
+                  id="enable-disclosure"
+                  checked={enableDisclosure}
+                  onChange={(e) => setEnableDisclosure(e.target.checked)}
+                  style={{ width: 20, height: 20, accentColor: 'var(--accent)' }}
+                />
               </label>
 
-              <label htmlFor="disclose-your-brand" style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '10px 12px', background: 'var(--bg-hover)',
-                borderRadius: 'var(--radius-sm)', cursor: 'pointer',
-              }}>
-                <input
-                  type="checkbox"
-                  id="disclose-your-brand"
-                  checked={discloseYourBrand}
-                  onChange={(e) => setDiscloseYourBrand(e.target.checked)}
-                  style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--accent)' }}
-                />
-                <div>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>Your Brand</span>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                    This video promotes your own brand or business
-                  </p>
+              {/* Sub-options only visible when disclosure is enabled */}
+              {enableDisclosure && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label htmlFor="disclose-branded" style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    padding: '10px 12px', background: 'var(--bg-hover)',
+                    borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                    border: discloseBranded ? '1px solid var(--accent)' : '1px solid transparent',
+                  }}>
+                    <input
+                      type="checkbox"
+                      id="disclose-branded"
+                      checked={discloseBranded}
+                      onChange={(e) => setDiscloseBranded(e.target.checked)}
+                      style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--accent)' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>Branded Content</span>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                        This video promotes a third-party brand, product, or service
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* FIX #4: Declaration text for Branded Content */}
+                  {discloseBranded && (
+                    <div style={{
+                      padding: '10px 14px', marginLeft: 28,
+                      background: 'rgba(251, 191, 36, 0.08)',
+                      border: '1px solid rgba(251, 191, 36, 0.2)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6,
+                    }}>
+                      ⚠️ By posting, you agree that this content promotes a third-party brand,
+                      product, or service and complies with TikTok&apos;s{' '}
+                      <a href="https://www.tiktok.com/community-guidelines" target="_blank" rel="noopener noreferrer"
+                        style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+                        Branded Content Policy
+                      </a>.
+                      This video will be labeled as &ldquo;Paid partnership&rdquo; on TikTok.
+                    </div>
+                  )}
+
+                  <label htmlFor="disclose-your-brand" style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    padding: '10px 12px', background: 'var(--bg-hover)',
+                    borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                    border: discloseYourBrand ? '1px solid var(--accent)' : '1px solid transparent',
+                  }}>
+                    <input
+                      type="checkbox"
+                      id="disclose-your-brand"
+                      checked={discloseYourBrand}
+                      onChange={(e) => setDiscloseYourBrand(e.target.checked)}
+                      style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--accent)' }}
+                    />
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>Your Brand</span>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                        This video promotes your own brand or business
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* FIX #4: Declaration text for Your Brand */}
+                  {discloseYourBrand && (
+                    <div style={{
+                      padding: '10px 14px', marginLeft: 28,
+                      background: 'rgba(59, 130, 246, 0.08)',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6,
+                    }}>
+                      ℹ️ By posting, you confirm that this content promotes your own brand
+                      or business. This video will be labeled as &ldquo;Promotional content&rdquo; on TikTok.
+                    </div>
+                  )}
                 </div>
-              </label>
+              )}
             </div>
 
             {/* Submit */}
@@ -357,13 +453,15 @@ export default function PublishPage() {
               {!isConfigured && (
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   <p style={{ marginBottom: 8 }}>
-                    This UI implements all 5 TikTok UX compliance points required
+                    This UI implements all TikTok UX compliance points required
                     for Content Posting API approval:
                   </p>
                   <ol style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <li>✅ Privacy level selector (no default)</li>
-                    <li>✅ Comment/Duet/Stitch toggles</li>
-                    <li>✅ Content disclosure checkboxes</li>
+                    <li>✅ Interaction toggles (default OFF)</li>
+                    <li>✅ Private mode disables interactions</li>
+                    <li>✅ Disclosure behind parent toggle</li>
+                    <li>✅ Declaration text on disclosure</li>
                     <li>✅ Video preview before post</li>
                     <li>✅ User-initiated post action</li>
                   </ol>
