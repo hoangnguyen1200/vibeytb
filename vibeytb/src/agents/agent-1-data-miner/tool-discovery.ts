@@ -1,9 +1,9 @@
 /**
  * AI Tool Discovery Module
  *
- * Two sources for finding trending AI tools:
- *   1. Gemini AI Search — uses Google Search grounding to find new tools
- *   2. Google Custom Search API — searches tech/AI sites for launches
+ * Primary source for finding trending AI tools:
+ *   - Gemini AI Search — uses Google Search grounding to find new tools
+ *   - Google CSE — DISABLED (2026-04-06, user decision)
  *
  * Scoring + URL verification ensures only quality, accessible tools
  * are selected for video production.
@@ -200,92 +200,11 @@ Rules:
  * Free: 100 queries/day. Pipeline uses 1-2/day.
  */
 export async function discoverViaGoogleCSE(): Promise<DiscoveredTool[]> {
-  const apiKey = process.env.GOOGLE_CSE_API_KEY;
-  const cx = process.env.GOOGLE_CSE_ID;
-
-  if (!apiKey || !cx) {
-    console.warn('[Google CSE] Missing GOOGLE_CSE_API_KEY or GOOGLE_CSE_ID');
-    return [];
-  }
-
-  try {
-    console.log('[Google CSE] 🔍 Searching for new AI tools...');
-
-    // Search for trending/newest AI tools
-    const year = new Date().getFullYear();
-    const query = `trending AI tool ${year} OR viral AI app OR new AI product launch this week`;
-    const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&dateRestrict=d3&num=10`;
-
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) {
-      console.warn(`[Google CSE] API returned ${res.status}: ${res.statusText}`);
-      return [];
-    }
-
-    const data = await res.json() as {
-      items?: Array<{ title: string; link: string; snippet?: string }>;
-    };
-
-    if (!data.items || data.items.length === 0) {
-      console.log('[Google CSE] No results found');
-      return [];
-    }
-
-    // Parse search results into tools — CSE returns ARTICLE URLs (techcrunch.com/article...)
-    // We extract tool names, then resolve real product URLs via Gemini or guessing
-    const tools: DiscoveredTool[] = [];
-    const seenNames = new Set<string>();
-
-    for (const item of data.items) {
-      // Extract tool name from title (often "ToolName - Description" or "ToolName | Site")
-      const titleParts = item.title.split(/\s*[-|–—:]\s*/);
-      const name = titleParts[0]?.trim() || item.title.trim();
-      const tagline = item.snippet?.slice(0, 100) || titleParts.slice(1).join(' ').trim() || '';
-
-      if (!name || name.length < 2 || name.length > 40) continue;
-      // Skip duplicate names
-      const nameLower = name.toLowerCase();
-      if (seenNames.has(nameLower)) continue;
-      seenNames.add(nameLower);
-
-      // Resolve REAL product URL (not the article URL)
-      let websiteUrl = '';
-      let urlSource: 'google-cse' | 'guess' = 'google-cse';
-
-      // Try Gemini to find real product website
-      const realUrl = await resolveUrlViaGemini(name, tagline);
-      if (realUrl) {
-        websiteUrl = realUrl;
-      } else {
-        // Fallback: guess URL from name
-        websiteUrl = guessWebsiteUrl(name);
-        urlSource = 'guess';
-      }
-
-      tools.push({
-        name,
-        tagline,
-        websiteUrl,
-        urlSource,
-        topics: [],
-
-
-        popularityScore: 25, // Moderate baseline — CSE doesn't provide popularity
-      });
-    }
-
-    console.log(`[Google CSE] ✅ Found ${tools.length} results`);
-    for (const tool of tools.slice(0, 5)) {
-      console.log(`  → ${tool.name} — ${tool.tagline.slice(0, 50)}`);
-    }
-
-    return tools;
-  } catch (err) {
-    console.warn('[Google CSE] Failed:', (err as Error).message?.slice(0, 80));
-    return [];
-  }
+  // DISABLED (2026-04-06): User decided not to use Google CSE.
+  // Pipeline now relies on Gemini AI Search grounding only.
+  // CSE required Cloud Billing and was returning 403 errors.
+  return [];
 }
-
 
 /**
  * Use Gemini + Google Search grounding to find the official website URL for a product.

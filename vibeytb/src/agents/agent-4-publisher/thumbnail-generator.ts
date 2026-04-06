@@ -26,13 +26,10 @@ function pickBadge(tagline: string): string {
 /**
  * Pick an emoji for the badge type.
  */
-function badgeEmoji(badge: string): string {
-  switch (badge) {
-    case 'FREE': return '🆓';
-    case 'NEW': return '🔥';
-    case 'TRENDING': return '⚡';
-    default: return '🔥';
-  }
+function badgeEmoji(_badge: string): string {
+  // FFmpeg drawtext does NOT support Unicode emoji — causes
+  // "Error reinitializing filters!" crash. Return empty string.
+  return '';
 }
 
 /**
@@ -41,6 +38,7 @@ function badgeEmoji(badge: string): string {
  */
 function escapeDrawtext(text: string): string {
   return text
+    .replace(/[^\x20-\x7E]/g, '') // Strip non-ASCII (emoji, CJK, etc.)
     .replace(/\\/g, '\\\\\\\\')
     .replace(/'/g, "'\\\\\\''")
     .replace(/:/g, '\\\\:')

@@ -265,7 +265,7 @@ export class TheMasterOrchestrator {
     // Content Memory: get tools to avoid (used by both topic discovery and script generation)
     const recentTools = await this.getRecentlyUsedTools();
 
-    // MULTI-SOURCE: Discover from Gemini Search + Google CSE
+    // Discovery source: Gemini AI Search only (Google CSE disabled 2026-04-06)
     const allTools = await this.discoverFromAllSources(recentTools);
 
     // A1: Get top 3 verified tools for retry pool
@@ -793,8 +793,9 @@ export class TheMasterOrchestrator {
   }
 
   /**
-   * MULTI-SOURCE discovery: Gemini AI Search + Google CSE.
-   * Returns merged tool list (unpicked). pickBestTool() runs separately.
+   * Tool discovery: Gemini AI Search only.
+   * Google CSE was disabled (2026-04-06) — user decision.
+   * Returns tool list (unpicked). pickBestTool() runs separately.
    */
   private async discoverFromAllSources(avoidTools: string[]): Promise<DiscoveredTool[]> {
     const allTools: DiscoveredTool[] = [];
@@ -807,15 +808,12 @@ export class TheMasterOrchestrator {
       console.warn('[SOURCE 1] Gemini Search failed:', (err as Error).message?.slice(0, 60));
     }
 
-    // Source 2: Google Custom Search API (searches tech/AI sites)
-    try {
-      const cseTools = await discoverViaGoogleCSE();
-      allTools.push(...cseTools);
-    } catch (err) {
-      console.warn('[SOURCE 2] Google CSE failed:', (err as Error).message?.slice(0, 60));
-    }
+    // Source 2: Google CSE — DISABLED (returns empty [])
+    // Kept for API compatibility but no longer calls external API
+    const cseTools = await discoverViaGoogleCSE();
+    if (cseTools.length > 0) allTools.push(...cseTools);
 
-    console.log(`[PHASE 1] Total tools from all sources: ${allTools.length} (Gemini + Google CSE)`);
+    console.log(`[PHASE 1] Total tools discovered: ${allTools.length} (Gemini Search only)`);
     return allTools;
   }
 

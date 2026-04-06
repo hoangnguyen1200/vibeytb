@@ -190,15 +190,16 @@ describe('Tool Discovery & Verification', () => {
     expect(scraperSource).not.toContain("'hackernews'");
   });
 
-  it('Google CSE function exists and uses Custom Search API', async () => {
+  it('Google CSE function exists but is disabled', async () => {
     const scraperSource = fs.readFileSync(
       path.join(__dirname, '..', 'agents', 'agent-1-data-miner', 'tool-discovery.ts'),
       'utf-8',
     );
+    // Function signature preserved for API compatibility
     expect(scraperSource).toContain('export async function discoverViaGoogleCSE');
-    expect(scraperSource).toContain('googleapis.com/customsearch');
-    expect(scraperSource).toContain('GOOGLE_CSE_API_KEY');
-    expect(scraperSource).toContain('GOOGLE_CSE_ID');
+    // Function is disabled — returns empty array
+    expect(scraperSource).toContain('DISABLED');
+    expect(scraperSource).toContain('return []');
   });
 
   it('verifyUrl function exists with non-product filter and content check', async () => {
@@ -212,7 +213,7 @@ describe('Tool Discovery & Verification', () => {
     expect(scraperSource).toContain('relevant');
   });
 
-  it('orchestrator uses Gemini + Google CSE only (no PH/HN)', async () => {
+  it('orchestrator uses Gemini Search only (CSE disabled, no PH/HN)', async () => {
     const orchSource = fs.readFileSync(
       path.join(__dirname, 'the-orchestrator.ts'),
       'utf-8',
@@ -221,8 +222,10 @@ describe('Tool Discovery & Verification', () => {
     expect(orchSource).not.toContain('scrapeProductHuntToday');
     expect(orchSource).not.toContain('scrapeHackerNewsToday');
     expect(orchSource).not.toContain('recordProductHuntPage');
-    // Must import new sources
+    // Must import discovery functions (CSE is imported but disabled)
     expect(orchSource).toContain('discoverViaGeminiSearch');
     expect(orchSource).toContain('discoverViaGoogleCSE');
+    // Log should say "Gemini Search only"
+    expect(orchSource).toContain('Gemini Search only');
   });
 });

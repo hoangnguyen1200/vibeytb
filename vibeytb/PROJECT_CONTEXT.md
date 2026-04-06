@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-04 (TikTok UX Compliance Fix — 4 rejection points resolved)
+> Cập nhật lần cuối: 2026-04-06 (Pipeline Quality v3.0 — 5 fixes + CSE removal)
 
 ---
 
@@ -10,7 +10,7 @@
 **YouTube Automation Pipeline** — tự động tạo video Shorts review AI tools cho kênh **@TechHustleLabs**.
 
 Pipeline 4 phase:
-1. **Data Mining**: Tìm tool AI mới (Gemini AI Search + Google Custom Search API)
+1. **Data Mining**: Tìm tool AI mới (Gemini AI Search only — CSE disabled)
 2. **Strategist**: Gemini viết script video
 3. **Producer**: TTS + Playwright recording + FFmpeg stitching
 4. **Publisher**: Upload lên YouTube + TikTok (sequential, graceful fallback)
@@ -41,7 +41,7 @@ Cron: 0 23 * * *
 GitHub Actions Cron (daily-pipeline.yml)
   ├── runs-on: self-hosted (máy cá nhân, Windows, PowerShell)
   ├── Node.js 22 + FORCE_JAVASCRIPT_ACTIONS_TO_NODE24
-  ├── Phase 1: Gemini AI Search + Google Custom Search API → pickBestTool()
+  ├── Phase 1: Gemini AI Search only (CSE disabled 2026-04-06) → pickBestTool()
   ├── Phase 2: Gemini script generation (với real tool data)
   ├── Phase 3: Edge TTS (retry) + Playwright 1080×1200 + FFmpeg scale+pad → 1080×1920
   └── Phase 4: YouTube upload via OAuth + TikTok cross-post (best-effort)
@@ -51,8 +51,8 @@ GitHub Actions Cron (daily-pipeline.yml)
 
 ```
   Source 1 (Primary):   Gemini AI Search → 5-10 AI tools + URLs
-  Source 2 (Secondary): Google Custom Search API → 5-10 results from tech sites
-  → Merge → Filter recently used
+  Source 2 (DISABLED):  Google CSE — disabled 2026-04-06 (user decision, returns [])
+  → Filter recently used
   → Score (URL reliability + popularity + tagline + name + keywords)
   → Sort by score → verifyUrl() → 1 winner
   Fallback: discoverFreshTopic() → guessWebsiteUrl()
@@ -60,7 +60,7 @@ GitHub Actions Cron (daily-pipeline.yml)
 
 > `urlSource` field tracks which source: `'gemini-search'` | `'google-cse'` | `'guess'`
 > PH RSS + HN scrapers **removed** (2026-03-30): PH blocked by CF, HN = GitHub repos + non-AI
-> Google CSE **inactive** (2026-03-31): Requires Google Cloud Billing (user declined). Code kept for future use, fails gracefully → pipeline uses Gemini only
+> Google CSE **disabled** (2026-04-06): User decided not to use. Function preserved for API compat, returns empty array
 
 ### Tool Selection Scoring
 
@@ -405,7 +405,7 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | Task | Status |
 |------|--------|
 | F5 Analytics-driven scoring | ⏳ Needs analytics data |
-| F6 TikTok re-audit | ✅ UX compliance fixes applied (2026-04-04) |
+| F6 TikTok re-audit | ✅ UX fixes applied + audit submitted (2026-04-04) — awaiting TikTok approval |
 
 ### TikTok UX Compliance Fix (2026-04-04)
 
@@ -415,3 +415,13 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | 2 | Disclosure sub-options always visible | Added parent toggle "Enable Content Disclosure" — sub-options only show when ON | `publish/page.tsx` |
 | 3 | No Private mode behavior | Added `useEffect` to auto-disable interactions when `SELF_ONLY`, grayed-out UI + warning text | `publish/page.tsx` |
 | 4 | Missing declaration text | Added conditional declaration boxes (yellow=Branded, blue=YourBrand) with TikTok policy links | `publish/page.tsx` |
+
+### Pipeline Quality v3.0 (2026-04-06)
+
+| # | Issue | Fix Applied | File |
+|---|-------|-------------|------|
+| P1 | Thumbnail crash (FFmpeg drawtext emoji) | Removed emoji from badge, strip non-ASCII in escapeDrawtext | `thumbnail-generator.ts` |
+| P2 | Low bitrate (2.74 Mbps vs 8M target) | CBR 8M → CRF 18 quality-based encoding | `media-stitcher.ts` |
+| P3 | Repetitive scenes (all show hero) | Per-scene scroll offset (0/30/60/85%) in Smart Interact | `playwright-recorder.ts` |
+| P4 | Google CSE 403 errors | Disabled CSE function, Gemini Search only | `tool-discovery.ts` |
+| P5 | Subtitles invisible/too deep | MarginV 200→120, Font 17→20, BackColour A0→C0 | `media-stitcher.ts` |

@@ -320,6 +320,20 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number, s
 
   console.log(`[Smart Interact] 🧠 Starting smart interaction (${durationSec}s budget)...`);
 
+  // === PRE-STEP: Scene-aware scroll offset ===
+  // Each scene starts at a different scroll position to show different website sections.
+  // Without this, all 4 scenes record the same hero section → repetitive video.
+  const scrollPercents = [0, 30, 60, 85]; // Scene 1=hero, 2=features, 3=cards, 4=bottom
+  const initialScroll = scrollPercents[Math.min(sceneIndex, scrollPercents.length - 1)] || 0;
+  if (initialScroll > 0) {
+    console.log(`[Smart Interact] 📍 Scene ${sceneIndex}: scrolling to ${initialScroll}% before interaction`);
+    await page.evaluate((pct) => {
+      const maxY = document.body.scrollHeight - window.innerHeight;
+      window.scrollTo({ top: maxY * pct / 100, behavior: 'instant' });
+    }, initialScroll);
+    await page.waitForTimeout(800); // Let content render after scroll
+  }
+
   // === STEP 0: Pause on hero to show brand name/UI ===
   if (getRemaining() > 3) {
     console.log('[Smart Interact] Step 0: Showing hero section (brand visible)...');
