@@ -33,7 +33,7 @@ export async function GET() {
     if (latestRun?.run_id) {
       const { data: phaseData } = await supabase
         .from('pipeline_phase_logs')
-        .select('*')
+        .select('id, run_id, phase, phase_name, status, started_at, finished_at, duration_ms, error_message, logs, metadata')
         .eq('run_id', latestRun.run_id)
         .order('phase', { ascending: true });
       phases = phaseData ?? [];

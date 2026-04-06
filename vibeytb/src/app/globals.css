@@ -559,7 +559,7 @@ tbody td {
 
 .pipeline-control {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pipeline-control::before {
@@ -579,8 +579,16 @@ tbody td {
   gap: 10px;
 }
 
+.phase-card-wrapper {
+  position: relative;
+}
+
 .phase-card {
   position: relative;
+}
+
+.phase-clickable:hover {
+  filter: brightness(1.05);
 }
 
 .phase-active {
@@ -589,6 +597,41 @@ tbody td {
 
 .phase-done {
   opacity: 0.85;
+}
+
+/* Log viewer terminal */
+.log-viewer {
+  background: var(--bg-card);
+}
+
+.log-viewer::-webkit-scrollbar,
+.log-viewer div::-webkit-scrollbar {
+  width: 5px;
+}
+
+.log-viewer::-webkit-scrollbar-track,
+.log-viewer div::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.log-viewer::-webkit-scrollbar-thumb,
+.log-viewer div::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 4px;
+}
+
+/* Slide down animation for expanding panels */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    max-height: 300px;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 768px) {

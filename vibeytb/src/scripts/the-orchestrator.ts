@@ -62,6 +62,7 @@ export class TheMasterOrchestrator {
   private currentWebsiteUrl = '';
   private currentDataSource = '';
   private pipelineRunId: string | null = null;
+  private logBuffer: Map<number, Array<{ ts: string; level: string; msg: string; meta?: Record<string, unknown> }>> = new Map();
   /**
    * Master loop
    * @param mode 'cron' (Phase 1+2 only), 'worker' (Phase 3+4 only), or 'all' (E2E)
@@ -261,6 +262,7 @@ export class TheMasterOrchestrator {
     const jobId = job.id;
     console.log('[PHASE 1] Data Mining');
     await this.logPhaseStart(1, 'data_mining');
+    this.logEntry(1, 'info', '🔍 Starting tool discovery...');
     await this.updateJobStatus(jobId, VideoStatus.PROCESSING);
 
     // Content Memory: get tools to avoid (used by both topic discovery and script generation)
@@ -280,6 +282,7 @@ export class TheMasterOrchestrator {
       for (let attempt = 0; attempt < topTools.length; attempt++) {
         const tool = topTools[attempt];
         console.log(`\n[RETRY LOOP] 🔄 Attempt ${attempt + 1}/${topTools.length}: "${tool.name}"`);
+        this.logEntry(1, 'info', `🎯 Selected: ${tool.name} (attempt ${attempt + 1}/${topTools.length})`, { url: tool.websiteUrl, source: tool.urlSource });
 
         this.currentToolName = tool.name;
         this.currentWebsiteUrl = tool.websiteUrl;
@@ -296,9 +299,11 @@ export class TheMasterOrchestrator {
         });
 
         try {
+          this.logEntry(1, 'info', `✅ Tool verified: ${tool.name}`);
           await this.logPhaseEnd(1, 'completed');
           console.log('[PHASE 2] Content Strategist (AI script generation)');
           await this.logPhaseStart(2, 'scripting');
+          this.logEntry(2, 'info', `✍️ Generating script for "${tool.name}"...`);
           const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
           const normalized = this.normalizeScript(aiOutput);
 
@@ -326,6 +331,7 @@ export class TheMasterOrchestrator {
               status: VideoStatus.APPROVED_FOR_SYNTHESIS,
             });
             console.log(`[AUTO-APPROVE] ✅ Script passed quality check (tool: ${tool.name}, attempt ${attempt + 1})`);
+            this.logEntry(2, 'info', `✅ Script approved: "${(title as string).slice(0, 60)}"`, { scenes: normalized.scenes.length });
             return; // Success — exit retry loop
           } else {
             let rejectReason = '';
@@ -333,12 +339,14 @@ export class TheMasterOrchestrator {
             else if (!isTitleValid) rejectReason = 'youtube_title is empty or too short';
             else rejectReason = 'One or more scenes have empty narration';
             console.warn(`[AUTO-REJECT] Script failed for "${tool.name}": ${rejectReason}`);
+            this.logEntry(2, 'warn', `⚠️ Script rejected: ${rejectReason}`);
             // Don't throw — continue to next tool
           }
         } catch (err) {
           const category = this.categorizeError(err);
           const errMsg = err instanceof Error ? err.message : String(err);
           console.warn(`[RETRY LOOP] ❌ Tool "${tool.name}" failed [${category}]: ${errMsg.slice(0, 100)}`);
+          this.logEntry(1, 'error', `❌ ${tool.name} failed: [${category}] ${errMsg.slice(0, 80)}`);
 
           // If more tools to try, wait briefly then continue
           if (attempt < topTools.length - 1) {
@@ -401,6 +409,7 @@ export class TheMasterOrchestrator {
     console.log('[PHASE 3] Synthesizer (media generation)');
     await this.logPhaseEnd(2, 'completed');
     await this.logPhaseStart(3, 'production');
+    this.logEntry(3, 'info', `🎬 Starting video production (${this.normalizeScript(job.script_json).scenes.length} scenes)`);
 
     const scriptData = this.normalizeScript(job.script_json);
     const tmpDir = this.getJobTmpDir(jobId);
@@ -442,6 +451,7 @@ export class TheMasterOrchestrator {
     for (const [index, scene] of scriptData.scenes.entries()) {
       const sceneIndex = Number.isInteger(scene.scene_index) ? scene.scene_index : index + 1;
       console.log(`[PHASE 3] Rendering scene ${sceneIndex}`);
+      this.logEntry(3, 'info', `🎞️ Rendering scene ${sceneIndex}...`);
 
       const sceneFinalPath = path.join(tmpDir, `scene_${sceneIndex}_final.mp4`);
       if (await this.fileExists(sceneFinalPath)) {
@@ -505,8 +515,10 @@ export class TheMasterOrchestrator {
           const isPass = await runVisualQC(videoPath, jobId, scene.target_website_url);
           if (isPass) {
             websiteRecorded = true;
+            this.logEntry(3, 'info', `🌐 Website recorded: ${scene.target_website_url}`);
           } else {
             console.log('[VISUAL QC] ❌ Layer 1 FAIL → Using stock video.');
+            this.logEntry(3, 'warn', '⚠️ Visual QC fail → fallback to stock video');
           }
         } catch (error: unknown) {
           console.log('[LAYER 1] Playwright failed → Using stock video.');
@@ -544,6 +556,7 @@ export class TheMasterOrchestrator {
     await concatScenes(finalSceneFiles, finalVideoOutput, jobId, bgmPath);
 
     await this.updateJobStatus(jobId, VideoStatus.READY_FOR_UPLOAD);
+    this.logEntry(3, 'info', `✅ Video produced: ${finalSceneFiles.length} scenes stitched`);
     console.log('[PHASE 3] Completed. Status saved: [ready_for_upload]');
   }
 
@@ -552,6 +565,7 @@ export class TheMasterOrchestrator {
     console.log('[PHASE 4] Publisher — Sequential upload with pre-flight check');
     await this.logPhaseEnd(3, 'completed');
     await this.logPhaseStart(4, 'publishing');
+    this.logEntry(4, 'info', '📤 Starting upload sequence...');
 
     // ── Pre-flight: check which platforms have credentials ──────────────
     const hasYouTube = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN);
@@ -649,6 +663,7 @@ export class TheMasterOrchestrator {
 
     // ── Sequential upload: YouTube first, then TikTok ───────────────────
     console.log('[PHASE 4] QC passed. Starting sequential upload...');
+    this.logEntry(4, 'info', '✅ QC passed, uploading...');
     let youtubeUrl = '';
     let tiktokUrl = '';
     const uploadErrors: string[] = [];
@@ -659,10 +674,12 @@ export class TheMasterOrchestrator {
         console.log('[PHASE 4] ▶ Uploading to YouTube...');
         youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName, toolTagline);
         console.log(`[PHASE 4] ✅ YouTube upload OK: ${youtubeUrl}`);
+        this.logEntry(4, 'info', `🎬 YouTube published: ${youtubeUrl}`);
       } catch (ytErr: unknown) {
         const ytMsg = ytErr instanceof Error ? ytErr.message : String(ytErr);
         console.error(`[PHASE 4] ❌ YouTube upload failed: ${ytMsg}`);
         uploadErrors.push(`YouTube: ${ytMsg}`);
+        this.logEntry(4, 'error', `❌ YouTube failed: ${ytMsg.slice(0, 100)}`);
       }
     } else {
       console.log('[PHASE 4] ⏭ YouTube skipped (no credentials)');
@@ -674,10 +691,12 @@ export class TheMasterOrchestrator {
         console.log('[PHASE 4] ▶ Uploading to TikTok...');
         tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, toolUrl, toolName);
         console.log(`[PHASE 4] ✅ TikTok upload OK: ${tiktokUrl}`);
+        this.logEntry(4, 'info', `📱 TikTok published: ${tiktokUrl}`);
       } catch (ttErr: unknown) {
         const ttMsg = ttErr instanceof Error ? ttErr.message : String(ttErr);
         console.error(`[PHASE 4] ❌ TikTok upload failed: ${ttMsg}`);
         uploadErrors.push(`TikTok: ${ttMsg}`);
+        this.logEntry(4, 'error', `❌ TikTok failed: ${ttMsg.slice(0, 100)}`);
       }
     } else {
       console.log('[PHASE 4] ⏭ TikTok skipped (no credentials)');
@@ -1073,6 +1092,33 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
   }
 
   // Phase-level logging for dashboard live progress
+  // ── Structured log entry (buffered in memory, flushed on phase end) ──
+  private logEntry(
+    phase: number,
+    level: 'info' | 'warn' | 'error',
+    msg: string,
+    meta?: Record<string, unknown>
+  ): void {
+    const entry = { ts: new Date().toISOString(), level, msg, ...(meta ? { meta } : {}) };
+    if (!this.logBuffer.has(phase)) this.logBuffer.set(phase, []);
+    this.logBuffer.get(phase)!.push(entry);
+  }
+
+  private async flushLogs(phase: number): Promise<void> {
+    if (!this.pipelineRunId) return;
+    const entries = this.logBuffer.get(phase);
+    if (!entries || entries.length === 0) return;
+    try {
+      await supabase.from('pipeline_phase_logs')
+        .update({ logs: entries })
+        .eq('run_id', this.pipelineRunId)
+        .eq('phase', phase);
+    } catch {
+      // Non-critical
+    }
+    this.logBuffer.delete(phase);
+  }
+
   private async logPhaseStart(phase: number, phaseName: string): Promise<void> {
     if (!this.pipelineRunId) return;
     try {
@@ -1091,6 +1137,8 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
   private async logPhaseEnd(phase: number, status: 'completed' | 'failed' | 'skipped', error?: string): Promise<void> {
     if (!this.pipelineRunId) return;
     try {
+      // Flush buffered logs before marking phase complete
+      await this.flushLogs(phase);
       const now = new Date().toISOString();
       await supabase.from('pipeline_phase_logs')
         .update({
