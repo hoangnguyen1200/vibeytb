@@ -1,1 +1,1 @@
-node ./node_modules/vitest/vitest.mjs run --reporter=verbose
+cd vibeytb && node ./node_modules/vitest/vitest.mjs run --reporter=verbose
