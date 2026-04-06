@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-06 (Pipeline Quality v3.0 — 4 fixes + CSE removal + Husky fix)
+> Cập nhật lần cuối: 2026-04-06 (Pipeline Control Center v2 — Live Logs + Run Detail)
 
 ---
 
@@ -440,3 +440,16 @@ Dashboard feature mới — theo dõi pipeline real-time:
 | Error Summary | Nhóm lỗi theo category (7 ngày): ffmpeg, network, api, etc. | `/api/pipeline/status/route.ts` |
 | Phase Logging | Orchestrator log từng phase start/end vào `pipeline_phase_logs` table | `the-orchestrator.ts` |
 | DB Migration | `pipeline_phase_logs` table + index | `20260406_pipeline_phase_logs.sql` |
+
+### Pipeline Control Center v2 (2026-04-06)
+
+Nâng cấp dashboard để có thể thay thế GitHub Actions cho theo dõi hàng ngày:
+
+| Feature | Mô tả | Files |
+|---------|--------|-------|
+| Live Logs | Log ~15 entries/run vào JSONB column, hiển thị trong expandable phase cards | `the-orchestrator.ts`, `PipelineControlCenter.tsx` |
+| Run Detail Panel | Click vào Recent Run dot → xem status, duration, trigger, published count | `PipelineControlCenter.tsx`, `/api/pipeline/logs/route.ts` |
+| Error Detail | Click vào phase fail → xem full error message + stack trace | `PipelineControlCenter.tsx` |
+| Free Tier Optimization | Logs lưu trong JSONB column (không bảng mới), ~2KB/run, buffer flush khi phase end | `the-orchestrator.ts` |
+| DB Migration | `logs JSONB` + `metadata JSONB` columns trên `pipeline_phase_logs` | `07_pipeline_logs_column.sql` |
+| Polling 5s | Giảm polling interval xuống 5s khi pipeline đang chạy (từ 10s) | `PipelineControlCenter.tsx` |
