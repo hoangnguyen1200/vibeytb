@@ -31,9 +31,10 @@ async function runMockPipeline() {
     // 2. Chạy Logic Phase 2 (LLM call)
     console.log(`2️⃣ Kích hoạt Phase 2: Gọi Gemini sinh kịch bản cho từ khoá "${mockTrend}"...`);
     // Ở đây ta gọi hàm trực tiếp để Bypass Queue, focus test Data Pipeline & Schema Handoff
-    const aiOutput = await generateScriptFromTrend(mockTrend);
+    const { script: aiOutput, titleStyleId } = await generateScriptFromTrend(mockTrend);
     
     console.log('✅ Kịch bản AI trả về thành công và đã pass qua Zod Schema Validator!');
+    console.log(`🧪 [A/B] Title style: ${titleStyleId}`);
     console.log('📦 PREVIEW HỢP ĐỒNG DỮ LIỆU (JSON HAND-OFF CHO PHASE 3):');
     console.log(JSON.stringify(aiOutput, null, 2));
     
@@ -53,6 +54,7 @@ async function runMockPipeline() {
          title: aiOutput.youtube_title,
          youtube_description: aiOutput.youtube_description,
          youtube_tags: aiOutput.youtube_tags,
+         title_style: titleStyleId,
          status: 'script_ready' // Chuyển state
       })
       .eq('id', projectId);
