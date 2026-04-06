@@ -66,6 +66,7 @@ jobs:
         working-directory: vibeytb
         env:
           ALLOW_DRY_SEED: "true"
+          PIPELINE_TRIGGER: "scheduled"
         run: npx tsx src/scripts/the-orchestrator.ts
 
       - name: Upload logs on failure
@@ -73,4 +74,75 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pipeline-logs
+          path: vibeytb/tmp/
+
+  # Auto-retry: runs only if the main pipeline fails
+  retry-pipeline:
+    runs-on: self-hosted
+    needs: run-pipeline
+    if: failure()
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: powershell
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Wait 15 minutes (backoff for transient errors)
+        run: Start-Sleep -Seconds 900
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: vibeytb
+        run: npm ci
+
+      - name: Create BGM directory
+        run: New-Item -ItemType Directory -Force -Path vibeytb/assets/bgm
+
+      - name: Create .env file (retry)
+        working-directory: vibeytb
+        run: |
+          $envContent = @"
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN=${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}
+          GOOGLE_CSE_API_KEY=${{ secrets.GOOGLE_CSE_API_KEY }}
+          GOOGLE_CSE_ID=${{ secrets.GOOGLE_CSE_ID }}
+
+          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+
+          TIKTOK_CLIENT_KEY=${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET=${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN=${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          "@
+          $cleaned = ($envContent -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
+          $cleaned | Out-File -FilePath .env -Encoding ascii -NoNewline
+
+      - name: Retry pipeline
+        working-directory: vibeytb
+        env:
+          ALLOW_DRY_SEED: "true"
+          PIPELINE_TRIGGER: "retry"
+        run: npx tsx src/scripts/the-orchestrator.ts
+
+      - name: Upload retry logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retry-pipeline-logs
           path: vibeytb/tmp/

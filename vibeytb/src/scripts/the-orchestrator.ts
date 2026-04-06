@@ -16,7 +16,7 @@ import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
-import { notifyDiscord } from '../utils/notifier';
+import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
 
 type Mode = 'cron' | 'worker' | 'all';
 
@@ -304,7 +304,7 @@ export class TheMasterOrchestrator {
           console.log('[PHASE 2] Content Strategist (AI script generation)');
           await this.logPhaseStart(2, 'scripting');
           this.logEntry(2, 'info', `✍️ Generating script for "${tool.name}"...`);
-          const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
+          const { script: aiOutput, titleStyleId } = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
           const normalized = this.normalizeScript(aiOutput);
 
           // Persist tool metadata at TOP LEVEL of script_json (backup for Phase 3/4 recovery)
@@ -329,9 +329,10 @@ export class TheMasterOrchestrator {
             await this.updateJob(jobId, {
               script_json: normalized,
               status: VideoStatus.APPROVED_FOR_SYNTHESIS,
+              title_style: titleStyleId,
             });
-            console.log(`[AUTO-APPROVE] ✅ Script passed quality check (tool: ${tool.name}, attempt ${attempt + 1})`);
-            this.logEntry(2, 'info', `✅ Script approved: "${(title as string).slice(0, 60)}"`, { scenes: normalized.scenes.length });
+            console.log(`[AUTO-APPROVE] ✅ Script passed quality check (tool: ${tool.name}, attempt ${attempt + 1}, style: ${titleStyleId})`);
+            this.logEntry(2, 'info', `✅ Script approved: "${(title as string).slice(0, 60)}" [style: ${titleStyleId}]`, { scenes: normalized.scenes.length });
             return; // Success — exit retry loop
           } else {
             let rejectReason = '';
@@ -374,7 +375,7 @@ export class TheMasterOrchestrator {
     await this.updateJob(jobId, { discovery_source: 'fallback' });
 
     console.log('[PHASE 2] Content Strategist (AI script generation)');
-    const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools);
+    const { script: aiOutput, titleStyleId } = await generateScriptFromTrend(selectedTrend, language, tone, recentTools);
     const normalized = this.normalizeScript(aiOutput);
 
     const isScenesSufficient = normalized.scenes.length >= 4;
@@ -386,6 +387,7 @@ export class TheMasterOrchestrator {
       await this.updateJob(jobId, {
         script_json: normalized,
         status: VideoStatus.APPROVED_FOR_SYNTHESIS,
+        title_style: titleStyleId,
       });
       console.log('[AUTO-APPROVE] Script passed quality check');
     } else {
@@ -736,6 +738,20 @@ export class TheMasterOrchestrator {
         thumbnailUrl: youtubeUrl ? `https://img.youtube.com/vi/${youtubeUrl.split('v=')[1]?.split('&')[0] || youtubeUrl.split('/').pop()}/maxresdefault.jpg` : undefined,
         durationMs: Date.now() - this.pipelineStartMs,
       });
+
+      // Daily Digest — send weekly stats summary
+      try {
+        const weekStats = await this.getWeeklyStats();
+        await notifyDailyDigest({
+          todayStatus: 'success',
+          todayTitle: title,
+          todayTool: this.currentToolName || undefined,
+          todayDurationMs: Date.now() - this.pipelineStartMs,
+          ...weekStats,
+        });
+      } catch (digestErr) {
+        console.warn('[DIGEST] Non-fatal error:', digestErr);
+      }
     } else {
       // All platforms failed → UPLOAD_PENDING (video is saved, can retry later)
       console.warn('[PHASE 4] ⚠️ All platform uploads failed. Video preserved for retry. Marking as UPLOAD_PENDING.');
@@ -1168,6 +1184,69 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
       console.log(`[ERROR] Marked job ${jobId} as failed [${category}].`);
     } catch (dbErr) {
       console.error('[ERROR] Failed to write error log to database:', dbErr);
+    }
+  }
+
+  /**
+   * Get weekly stats for daily digest notification.
+   * Queries last 7 days of published videos for views/likes aggregates.
+   */
+  private async getWeeklyStats(): Promise<{
+    yesterdayViews?: number;
+    yesterdayLikes?: number;
+    weekAvgViews?: number;
+    weekBestTitle?: string;
+    weekBestViews?: number;
+    successRate7d?: number;
+  }> {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - 7);
+
+      // Get published videos with views
+      const { data: videos } = await supabase
+        .from('video_projects')
+        .select('youtube_title, views_24h, likes_24h, created_at')
+        .eq('status', 'published')
+        .gte('created_at', since.toISOString())
+        .order('views_24h', { ascending: false, nullsFirst: false });
+
+      // Get pipeline runs for success rate
+      const { data: runs } = await supabase
+        .from('pipeline_runs')
+        .select('status')
+        .gte('started_at', since.toISOString());
+
+      const result: Record<string, unknown> = {};
+
+      if (videos && videos.length > 0) {
+        // Yesterday's video (most recent)
+        const yesterday = videos.find(v => v.views_24h != null);
+        if (yesterday) {
+          result.yesterdayViews = yesterday.views_24h ?? 0;
+          result.yesterdayLikes = yesterday.likes_24h ?? 0;
+        }
+
+        // Week average
+        const totalViews = videos.reduce((s, v) => s + (v.views_24h ?? 0), 0);
+        result.weekAvgViews = Math.round(totalViews / videos.length);
+
+        // Best video
+        const best = videos[0];
+        if (best) {
+          result.weekBestTitle = best.youtube_title ?? 'Unknown';
+          result.weekBestViews = best.views_24h ?? 0;
+        }
+      }
+
+      if (runs && runs.length > 0) {
+        const success = runs.filter(r => r.status === 'completed').length;
+        result.successRate7d = Math.round((success / runs.length) * 100);
+      }
+
+      return result;
+    } catch {
+      return {};
     }
   }
 }

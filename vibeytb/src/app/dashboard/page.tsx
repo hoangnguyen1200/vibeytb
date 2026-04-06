@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import StatsCard from '../components/StatsCard';
 import VideoStatusBadge from '../components/VideoStatusBadge';
 import PipelineControlCenter from '../components/PipelineControlCenter';
+import ContentCalendar from '../components/ContentCalendar';
+import HealthAlerts from '../components/HealthAlerts';
+import ContentMemoryPanel from '../components/ContentMemoryPanel';
 
 interface SummaryData {
   total: number;
@@ -185,6 +188,15 @@ export default function DashboardPage() {
           color="blue"
         />
       </div>
+
+      {/* Health Alerts (F5) */}
+      <HealthAlerts />
+
+      {/* Content Calendar (F3) */}
+      <ContentCalendar />
+
+      {/* Content Memory (F4) */}
+      <ContentMemoryPanel />
 
       {/* Pipeline Health */}
       <div className="card" style={{ marginBottom: 24 }}>

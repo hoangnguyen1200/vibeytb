@@ -76,3 +76,74 @@ export async function notifyDiscord(payload: NotifyPayload): Promise<void> {
     console.warn('[NOTIFY] Discord webhook error:', err);
   }
 }
+
+/**
+ * Send a daily digest summary to Discord after pipeline completes.
+ * Includes: today's result, yesterday's video performance, 7-day stats.
+ */
+export async function notifyDailyDigest(opts: {
+  todayStatus: 'success' | 'failure';
+  todayTitle?: string;
+  todayTool?: string;
+  todayDurationMs?: number;
+  yesterdayViews?: number;
+  yesterdayLikes?: number;
+  weekAvgViews?: number;
+  weekBestTitle?: string;
+  weekBestViews?: number;
+  successRate7d?: number;
+}): Promise<void> {
+  if (!WEBHOOK_URL) return;
+
+  const isSuccess = opts.todayStatus === 'success';
+  const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const fields = [
+    {
+      name: isSuccess ? '✅ Today' : '❌ Today',
+      value: isSuccess
+        ? `Published: "${opts.todayTitle ?? 'N/A'}" (${opts.todayTool ?? ''})`
+        : 'Pipeline failed — check logs',
+      inline: false,
+    },
+    ...(opts.yesterdayViews != null ? [{
+      name: '📈 Yesterday',
+      value: `${opts.yesterdayViews.toLocaleString()} views, ${(opts.yesterdayLikes ?? 0).toLocaleString()} likes`,
+      inline: true,
+    }] : []),
+    ...(opts.weekAvgViews != null ? [{
+      name: '📊 7-day avg',
+      value: `${opts.weekAvgViews.toLocaleString()} views/day`,
+      inline: true,
+    }] : []),
+    ...(opts.weekBestTitle ? [{
+      name: '🏆 Best this week',
+      value: `"${opts.weekBestTitle}" (${(opts.weekBestViews ?? 0).toLocaleString()} views)`,
+      inline: false,
+    }] : []),
+    ...(opts.successRate7d != null ? [{
+      name: '⚡ Success rate',
+      value: `${opts.successRate7d}%${opts.successRate7d < 60 ? ' → Needs improvement' : ' ✅'}`,
+      inline: true,
+    }] : []),
+  ];
+
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [{
+          title: `📊 Daily Report — ${date}`,
+          color: isSuccess ? 0x22c55e : 0xef4444,
+          fields,
+          timestamp: new Date().toISOString(),
+          footer: { text: 'VibeYtb Daily Digest • @TechHustleLabs' },
+        }],
+      }),
+    });
+    console.log('[NOTIFY] 📊 Daily digest sent.');
+  } catch (err) {
+    console.warn('[NOTIFY] Daily digest error:', err);
+  }
+}

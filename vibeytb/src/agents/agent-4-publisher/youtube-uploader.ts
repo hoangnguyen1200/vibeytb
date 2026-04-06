@@ -2,6 +2,41 @@ import { google, youtube_v3 } from 'googleapis';
 import fs from 'fs';
 
 /**
+ * Append SEO-optimized footer to YouTube description.
+ * Adds channel branding, CTA, and trending hashtags.
+ */
+function buildSEODescription(original: string, toolName?: string, toolUrl?: string): string {
+  const seoFooter = [
+    '',
+    '━━━━━━━━━━━━━━━━━━━━',
+    toolUrl ? `🔗 Try ${toolName ?? 'this tool'}: ${toolUrl}` : '',
+    '',
+    '🔔 Subscribe for daily AI tool reviews!',
+    '👉 Follow @TechHustleLabs for more!',
+    '',
+    '#shorts #ai #aitools #tech #free #productivity',
+    toolName ? `#${toolName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}` : '',
+  ].filter(Boolean).join('\n');
+
+  return `${original}\n${seoFooter}`;
+}
+
+/**
+ * Optimize tags with broad + specific keyword mix for YouTube SEO.
+ */
+function buildSEOTags(original: string[], toolName?: string): string[] {
+  const broadTags = ['ai tools', 'ai tools 2026', 'free ai', 'tech', 'productivity', 'shorts'];
+  const specificTags = toolName
+    ? [`${toolName} review`, `${toolName} tutorial`, `${toolName} ai`]
+    : [];
+
+  // Combine: original + broad + specific, deduplicated, max 15
+  const all = [...original, ...broadTags, ...specificTags];
+  const unique = [...new Set(all.map(t => t.toLowerCase()))];
+  return unique.slice(0, 15);
+}
+
+/**
  * Rotating pinned comment templates for engagement.
  * Each template should include a question hook to drive comments.
  */
@@ -132,8 +167,8 @@ export async function uploadToYouTube(
         requestBody: {
           snippet: {
             title,
-            description,
-            tags,
+            description: buildSEODescription(description, toolName, toolUrl),
+            tags: buildSEOTags(tags, toolName),
             categoryId: '28', // Science & Technology
           },
           status: {

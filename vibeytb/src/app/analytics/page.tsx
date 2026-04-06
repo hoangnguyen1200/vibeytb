@@ -16,6 +16,7 @@ interface VideoRow {
   likes_24h: number | null;
   comments_24h: number | null;
   created_at: string | null;
+  title_style: string | null;
   status: string;
 }
 
@@ -145,6 +146,51 @@ export default function AnalyticsPage() {
           </p>
         )}
       </div>
+
+      {/* A/B Title Style Performance */}
+      {(() => {
+        const styleMap = new Map<string, { totalViews: number; count: number }>();
+        for (const v of videos) {
+          if (!v.title_style || v.views_24h == null) continue;
+          const existing = styleMap.get(v.title_style) ?? { totalViews: 0, count: 0 };
+          styleMap.set(v.title_style, {
+            totalViews: existing.totalViews + v.views_24h,
+            count: existing.count + 1,
+          });
+        }
+        const styleData = Array.from(styleMap.entries()).map(([style, d]) => ({
+          style: style.replace('_', ' '),
+          avgViews: Math.round(d.totalViews / d.count),
+          count: d.count,
+        })).sort((a, b) => b.avgViews - a.avgViews);
+
+        return styleData.length > 0 ? (
+          <div className="card" style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+              🧪 A/B Title Style Performance
+            </h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={styleData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+                <XAxis dataKey="style" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="avgViews" name="Avg Views" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+              {styleData.map(s => (
+                <span key={s.style} style={{
+                  padding: '4px 12px', borderRadius: 12, fontSize: 12,
+                  background: 'var(--bg-hover)', color: 'var(--text-secondary)',
+                }}>
+                  {s.style}: <strong>{s.avgViews}</strong> avg views ({s.count} videos)
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null;
+      })()}
 
       {/* Top Performing Videos */}
       <div className="card" style={{ marginBottom: 20 }}>

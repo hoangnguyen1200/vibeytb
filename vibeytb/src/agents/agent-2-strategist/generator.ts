@@ -53,6 +53,11 @@ export const VideoScriptSchema = z.object({
 
 export type VideoScriptData = z.infer<typeof VideoScriptSchema>;
 
+export interface GenerateResult {
+  script: VideoScriptData;
+  titleStyleId: string;
+}
+
 const SYSTEM_PROMPT = `
 You are "The Tech & Wealth Insider" - An expert Content Strategist specialized in viral YouTube Shorts targeting the "Tech Hacks, AI Tools & Digital Side Hustles" niche for a Western audience.
 
@@ -148,10 +153,12 @@ Return ONLY raw JSON matching the structure above. No markdown, no code fences, 
 `;
 
 
-export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English', avoidTools: string[] = [], toolData?: { name: string; tagline: string; url: string }): Promise<VideoScriptData> {
-  let retries = 3;
+export async function generateScriptFromTrend(keyword: string, language: string = 'en-US', tone: string = 'casual and engaging American English', avoidTools: string[] = [], toolData?: { name: string; tagline: string; url: string }): Promise<GenerateResult> {
+  let retries = 5;
   let lastError: unknown;
   let currentModel = model;
+  const modelTiers = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+  let currentTier = 0;
 
   while (retries > 0) {
     try {
@@ -227,32 +234,34 @@ The tool_name field MUST be "${toolData.name}" for scenes where the tool is ment
       console.log(`[BGM MOOD] Gemini said "${rawMood}" → normalized to "${validatedData.music_mood}"`);
       console.log(`[A/B TITLE] Generated: "${validatedData.youtube_title}"`);
 
-      return validatedData;
+      return { script: validatedData, titleStyleId: titleStyle.id };
 
     } catch (error: any) {
       lastError = error;
       const errorMessage = error instanceof Error ? error.message : String(error);
       
       if (error.status === 429 || error.status === 404 || errorMessage.toLowerCase().includes('quota')) {
-        console.log('[MODEL FALLBACK] gemini-2.5-flash quota exceeded, switching to gemini-2.0-flash');
-        currentModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        currentTier = Math.min(currentTier + 1, modelTiers.length - 1);
+        console.log(`[MODEL FALLBACK] Switching to ${modelTiers[currentTier]}`);
+        currentModel = genAI.getGenerativeModel({ model: modelTiers[currentTier] });
       } else {
         console.warn(`⚠️ Gemini API Lỗi/Malformed JSON. Đang thử lại... Chi tiết: ${errorMessage}`);
       }
       
       retries--;
 
-      // Exponential backoff: 3s → 6s → 12s, with 15s for rate limits
-      const attempt = 3 - retries; // 1, 2, 3
+      // Exponential backoff: 3s → 6s → 12s → 24s, with 30s for rate limits
+      const attempt = 5 - retries;
       const isRateLimit = error.status === 429 || errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('rate');
       const isTransient = errorMessage.includes('ECONNRESET') || errorMessage.includes('ETIMEDOUT') || errorMessage.includes('fetch');
-      const backoffMs = isRateLimit ? 15000 : isTransient ? 2000 : 3000 * Math.pow(2, attempt - 1);
-      console.log(`[BACKOFF] Waiting ${(backoffMs / 1000).toFixed(0)}s before retry (attempt ${attempt}/3, ${isRateLimit ? 'rate-limit' : isTransient ? 'transient' : 'standard'})`);
+      const jitter = Math.random() * 3000; // 0-3s random jitter
+      const backoffMs = (isRateLimit ? 30000 : isTransient ? 5000 : 3000 * Math.pow(2, attempt - 1)) + jitter;
+      console.log(`[BACKOFF] Waiting ${(backoffMs / 1000).toFixed(0)}s before retry (attempt ${attempt}/5, ${isRateLimit ? 'rate-limit' : isTransient ? 'transient' : 'standard'})`);
       await new Promise(resolve => setTimeout(resolve, backoffMs));
     }
 
   }
 
   const finalErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`❌ Gemini Failed sau 3 lần rặn kịch bản: ${finalErrorMessage}`);
+  throw new Error(`❌ Gemini Failed sau 5 lần rặn kịch bản: ${finalErrorMessage}`);
 }
