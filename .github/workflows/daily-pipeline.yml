@@ -57,6 +57,11 @@ jobs:
           $cleaned = ($envContent -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
           $cleaned | Out-File -FilePath .env -Encoding ascii -NoNewline
 
+      - name: Track analytics (24h performance of previous videos)
+        working-directory: vibeytb
+        continue-on-error: true
+        run: npx tsx src/agents/agent-4-publisher/analytics-tracker.ts
+
       - name: Run pipeline
         working-directory: vibeytb
         env:

@@ -426,3 +426,4 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | P4 | Google CSE 403 errors | Disabled CSE function, Gemini Search only | `tool-discovery.ts` |
 | P5 | Subtitles at TOP instead of bottom | VTT cues missing `line:` → FFmpeg default=top. Added `line:90%` | `tts-client.ts` |
 | HK | Git commit hangs | `core.hooksPath` + `.husky/_` bị mất khi unset. Re-init từ git root + `npx`→`node` | `.husky/pre-commit` |
+| WF | Analytics chạy 2 lần/ngày (thừa) | Gộp vào Daily Pipeline (step trước pipeline, `continue-on-error`) | `daily-pipeline.yml` |
