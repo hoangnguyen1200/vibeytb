@@ -260,6 +260,7 @@ export class TheMasterOrchestrator {
   private async runPhase1And2(job: VideoProject): Promise<void> {
     const jobId = job.id;
     console.log('[PHASE 1] Data Mining');
+    await this.logPhaseStart(1, 'data_mining');
     await this.updateJobStatus(jobId, VideoStatus.PROCESSING);
 
     // Content Memory: get tools to avoid (used by both topic discovery and script generation)
@@ -295,7 +296,9 @@ export class TheMasterOrchestrator {
         });
 
         try {
+          await this.logPhaseEnd(1, 'completed');
           console.log('[PHASE 2] Content Strategist (AI script generation)');
+          await this.logPhaseStart(2, 'scripting');
           const aiOutput = await generateScriptFromTrend(selectedTrend, language, tone, recentTools, toolData);
           const normalized = this.normalizeScript(aiOutput);
 
@@ -396,6 +399,8 @@ export class TheMasterOrchestrator {
   private async runPhase3(job: VideoProject): Promise<void> {
     const jobId = job.id;
     console.log('[PHASE 3] Synthesizer (media generation)');
+    await this.logPhaseEnd(2, 'completed');
+    await this.logPhaseStart(3, 'production');
 
     const scriptData = this.normalizeScript(job.script_json);
     const tmpDir = this.getJobTmpDir(jobId);
@@ -545,6 +550,8 @@ export class TheMasterOrchestrator {
   private async runPhase4(job: VideoProject): Promise<void> {
     const jobId = job.id;
     console.log('[PHASE 4] Publisher — Sequential upload with pre-flight check');
+    await this.logPhaseEnd(3, 'completed');
+    await this.logPhaseStart(4, 'publishing');
 
     // ── Pre-flight: check which platforms have credentials ──────────────
     const hasYouTube = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN);
@@ -692,6 +699,7 @@ export class TheMasterOrchestrator {
         ...(uploadErrors.length > 0 ? { error_logs: `PARTIAL_UPLOAD: ${uploadErrors.join(' | ')}` } : {}),
       });
 
+      await this.logPhaseEnd(4, 'completed');
       console.log('[DONE] Pipeline complete.');
       if (youtubeUrl) console.log(`YouTube URL: ${youtubeUrl}`);
       if (tiktokUrl) console.log(`TikTok URL: ${tiktokUrl}`);
@@ -1061,6 +1069,39 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
       console.log(`[PIPELINE RUN] ${status === 'completed' ? '✅' : '❌'} Run ${this.pipelineRunId} → ${status} (${(durationMs / 1000).toFixed(0)}s)`);
     } catch {
       // Non-critical — don't crash pipeline over logging
+    }
+  }
+
+  // Phase-level logging for dashboard live progress
+  private async logPhaseStart(phase: number, phaseName: string): Promise<void> {
+    if (!this.pipelineRunId) return;
+    try {
+      await supabase.from('pipeline_phase_logs').insert([{
+        run_id: this.pipelineRunId,
+        phase,
+        phase_name: phaseName,
+        status: 'running',
+        started_at: new Date().toISOString(),
+      }]);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  private async logPhaseEnd(phase: number, status: 'completed' | 'failed' | 'skipped', error?: string): Promise<void> {
+    if (!this.pipelineRunId) return;
+    try {
+      const now = new Date().toISOString();
+      await supabase.from('pipeline_phase_logs')
+        .update({
+          status,
+          finished_at: now,
+          error_message: error?.slice(0, 500) ?? null,
+        })
+        .eq('run_id', this.pipelineRunId)
+        .eq('phase', phase);
+    } catch {
+      // Non-critical
     }
   }
 

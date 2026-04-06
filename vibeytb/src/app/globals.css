@@ -549,4 +549,51 @@ tbody td {
   .card-grid {
     grid-template-columns: 1fr;
   }
+
+  .phase-timeline {
+    grid-template-columns: 1fr;
+  }
 }
+
+/* ============ Pipeline Control Center ============ */
+
+.pipeline-control {
+  position: relative;
+  overflow: hidden;
+}
+
+.pipeline-control::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, var(--accent), var(--status-info), var(--status-success));
+}
+
+.phase-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.phase-card {
+  position: relative;
+}
+
+.phase-active {
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.phase-done {
+  opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+  .phase-timeline {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+

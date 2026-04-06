@@ -427,3 +427,16 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | P5 | Subtitles at TOP instead of bottom | VTT cues missing `line:` → FFmpeg default=top. Added `line:90%` | `tts-client.ts` |
 | HK | Git commit hangs | `core.hooksPath` + `.husky/_` bị mất khi unset. Re-init từ git root + `npx`→`node` | `.husky/pre-commit` |
 | WF | Analytics chạy 2 lần/ngày (thừa) | Gộp vào Daily Pipeline (step trước pipeline, `continue-on-error`) | `daily-pipeline.yml` |
+
+### Pipeline Control Center (2026-04-06)
+
+Dashboard feature mới — theo dõi pipeline real-time:
+
+| Feature | Mô tả | Files |
+|---------|--------|-------|
+| Phase Progress | 4 phase cards (Data Mining → Scripting → Production → Publishing) với live status | `PipelineControlCenter.tsx` |
+| Manual Trigger | Nhấn ▶️ trigger pipeline qua GitHub Actions API | `/api/pipeline/trigger/route.ts` |
+| Retry Failed | Nút retry khi last run = failed | `PipelineControlCenter.tsx` |
+| Error Summary | Nhóm lỗi theo category (7 ngày): ffmpeg, network, api, etc. | `/api/pipeline/status/route.ts` |
+| Phase Logging | Orchestrator log từng phase start/end vào `pipeline_phase_logs` table | `the-orchestrator.ts` |
+| DB Migration | `pipeline_phase_logs` table + index | `20260406_pipeline_phase_logs.sql` |

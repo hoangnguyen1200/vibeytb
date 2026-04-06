@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import StatsCard from '../components/StatsCard';
 import VideoStatusBadge from '../components/VideoStatusBadge';
+import PipelineControlCenter from '../components/PipelineControlCenter';
 
 interface SummaryData {
   total: number;
@@ -208,6 +209,9 @@ export default function DashboardPage() {
           <div className="progress-fill" style={{ width: `${summary?.successRate ?? 0}%` }} />
         </div>
       </div>
+
+      {/* Pipeline Control Center */}
+      <PipelineControlCenter />
 
       {/* Engagement Stats */}
       <div className="card-grid">
