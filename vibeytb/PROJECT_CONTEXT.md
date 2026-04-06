@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-06 (Pipeline Control Center v2 — Live Logs + Run Detail)
+> Cập nhật lần cuối: 2026-04-06 (7 Feature Upgrade — A/B Tracker, Auto-Retry, Calendar, Content Memory, Health Alerts, YouTube SEO, Daily Digest)
 
 ---
 
@@ -42,9 +42,10 @@ GitHub Actions Cron (daily-pipeline.yml)
   ├── runs-on: self-hosted (máy cá nhân, Windows, PowerShell)
   ├── Node.js 22 + FORCE_JAVASCRIPT_ACTIONS_TO_NODE24
   ├── Phase 1: Gemini AI Search only (CSE disabled 2026-04-06) → pickBestTool()
-  ├── Phase 2: Gemini script generation (với real tool data)
+  ├── Phase 2: Gemini script generation (A/B title styles: question, bold_claim, listicle, urgency)
   ├── Phase 3: Edge TTS (retry) + Playwright 1080×1200 + FFmpeg scale+pad → 1080×1920
-  └── Phase 4: YouTube upload via OAuth + TikTok cross-post (best-effort)
+  ├── Phase 4: YouTube upload (SEO footer + tag optimizer) + TikTok cross-post
+  └── Auto-Retry job: if main fails → wait 15 min → retry with PIPELINE_TRIGGER=retry
 ```
 
 ### Phase 1: Data Mining (1 active source)
@@ -157,6 +158,13 @@ Final video 1080×1920 9:16
 | `src/lib/supabase/browser.ts` | Supabase browser client (cookie-based) |
 | `src/lib/supabase/server.ts` | Supabase server client (SSR cookies) |
 | `src/middleware.ts` | Auth middleware — protects all routes, redirects to /login |
+| `src/app/components/ContentCalendar.tsx` | 14-day content calendar heatmap |
+| `src/app/components/ContentMemoryPanel.tsx` | Recent tools reviewed (7-day memory panel) |
+| `src/app/components/HealthAlerts.tsx` | Smart health alerts (dismissable, localStorage) |
+| `src/app/api/pipeline/calendar/route.ts` | API: 14-day calendar data from pipeline_runs |
+| `src/app/api/pipeline/content-memory/route.ts` | API: deduplicated tools from last 7 days |
+| `src/app/api/pipeline/health/route.ts` | API: smart health alerts (consecutive fails, success rate) |
+| `src/scripts/migrations/08_ab_title_tracking.sql` | Migration: adds title_style column |
 
 ### External Services
 
