@@ -1,6 +1,8 @@
 # 🛠️ Setup Guide — VibeYtb Pipeline
 
 > Step-by-step guide to get the pipeline running from scratch.
+>
+> Cập nhật lần cuối: 2026-04-06
 
 ---
 
@@ -118,8 +120,12 @@ GOOGLE_CLIENT_SECRET=your-yt-client-secret
 GOOGLE_REFRESH_TOKEN=your-yt-refresh-token
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 PEXELS_API_KEY=your-pexels-key
 DISCORD_WEBHOOK_URL=your-discord-webhook
+
+# Dashboard — Pipeline Control Center
+GITHUB_PAT=your-github-fine-grained-pat
 
 # Optional
 TIKTOK_CLIENT_KEY=your-tiktok-key
@@ -203,11 +209,27 @@ Add these secrets to **Settings → Secrets and variables → Actions**:
 | `GOOGLE_REFRESH_TOKEN` | YouTube OAuth refresh token |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
 | `PEXELS_API_KEY` | Pexels API key |
+| `PIXABAY_API_KEY` | Pixabay API key |
 | `DISCORD_WEBHOOK_URL` | Discord webhook URL |
+| `GH_PAT` | GitHub Fine-Grained PAT (Actions R/W) — for dashboard trigger |
 | `TIKTOK_CLIENT_KEY` | TikTok client key (optional) |
 | `TIKTOK_CLIENT_SECRET` | TikTok client secret (optional) |
 | `TIKTOK_REFRESH_TOKEN` | TikTok refresh token (optional) |
+
+> ⚠️ GitHub does not allow secret names starting with `GITHUB_`, so the PAT is stored as `GH_PAT` in GitHub Secrets but as `GITHUB_PAT` in Vercel and `.env`.
+
+### Vercel Environment Variables
+
+For the dashboard to work in production, add these to **Vercel → Project Settings → Environment Variables**:
+
+| Variable | Environments |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Production |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production |
+| `GITHUB_PAT` | All Environments |
 
 ---
 
@@ -237,3 +259,19 @@ Add these secrets to **Settings → Secrets and variables → Actions**:
 
 - **Cause**: Pre-commit hook runs vitest
 - **Fix**: Fix failing tests. Never use `--no-verify`.
+
+### Git commit hangs (3+ hours)
+
+- **Cause**: Husky pre-commit hook missing shebang (`#!/usr/bin/env sh`). Windows `sh.exe` hangs when script has no shebang.
+- **Fix**: Ensure `vibeytb/.husky/pre-commit` starts with `#!/usr/bin/env sh` line.
+- **Current hook path**: `core.hooksPath = vibeytb/.husky/_` (set in git config).
+
+### Pipeline trigger button returns 500
+
+- **Cause**: `GITHUB_PAT` not set in Vercel Environment Variables
+- **Fix**: Add `GITHUB_PAT` in Vercel project settings, redeploy.
+
+### Dashboard shows "pipeline_phase_logs" error
+
+- **Cause**: Migration not run
+- **Fix**: Run `supabase/migrations/20260406_pipeline_phase_logs.sql` in Supabase SQL Editor.

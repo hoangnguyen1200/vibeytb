@@ -1,6 +1,8 @@
 # 🏗️ Architecture — VibeYtb Pipeline
 
 > Deep-dive into each pipeline phase, agent responsibilities, and data flow.
+>
+> Cập nhật lần cuối: 2026-04-06
 
 ---
 
@@ -12,6 +14,11 @@ VibeYtb is a **4-phase automated pipeline** that runs daily via GitHub Actions. 
 Phase 1          Phase 2          Phase 3          Phase 4
 Data Mining  →   Strategist   →   Producer    →    Publisher
 (find tool)      (write script)   (make video)     (upload)
+     ↓                ↓               ↓               ↓
+     └────────── pipeline_phase_logs (Supabase) ──────┘
+                         ↓
+                   Dashboard UI
+              (Pipeline Control Center)
 ```
 
 **Orchestrator**: `src/scripts/the-orchestrator.ts` coordinates all phases sequentially.
@@ -236,10 +243,11 @@ Alignment=2 (bottom-center)
 - **Error handling**: Detects permanent errors (unaudited_client) → skip without retry
 
 ### 4.4 Analytics Tracker (`analytics-tracker.ts`)
-- Runs 24 hours after video publish
-- Fetches YouTube Data API statistics (views, likes, comments)
+- **Merged into daily pipeline** (runs as Step 1, before Phase 1)
+- Fetches YouTube Data API statistics (views, likes, comments) for videos published 24h+ ago
 - Stores in Supabase `video_projects` table
 - Sends summary to Discord webhook
+- Uses `continue-on-error: true` — analytics failure doesn't block the pipeline
 
 ---
 
@@ -257,11 +265,82 @@ Supabase DB
 │  3  | Linear    | FAILED    | null           │
 └──────────────────────────────────────────────┘
 
+┌──────────────────────────────────────────────┐
+│ pipeline_phase_logs table (NEW — 2026-04-06) │
+│                                              │
+│  run_id | phase | phase_name | status        │
+│  ───────┼───────┼────────────┼────────────── │
+│  run_1  | 1     | data_mining | completed    │
+│  run_1  | 2     | scripting   | completed    │
+│  run_1  | 3     | production  | running      │
+│  run_1  | 4     | publishing  | pending      │
+└──────────────────────────────────────────────┘
+
 Status transitions:
   PENDING → MINING → SCRIPTING → PRODUCING → UPLOADING → PUBLISHED
                                                        → UPLOAD_PENDING (upload failed, video exists)
                                            → FAILED (any phase)
 ```
+
+---
+
+## Pipeline Control Center (Dashboard)
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│            Next.js Dashboard                │
+│                                             │
+│  PipelineControlCenter.tsx                  │
+│  ├─ Polls /api/pipeline/status (10s/60s)    │
+│  ├─ Shows 4 phase cards (live status)       │
+│  ├─ Trigger button → /api/pipeline/trigger  │
+│  └─ Error summary (7-day categories)        │
+└─────────────┬───────────────────────────────┘
+              │
+    ┌─────────┴─────────┐
+    │  API Routes        │
+    │                    │
+    │  /api/pipeline/    │
+    │    status → Supabase (pipeline_phase_logs + pipeline_runs)
+    │    trigger → GitHub Actions API (workflow_dispatch)
+    └────────────────────┘
+```
+
+### Phase Logging (Orchestrator)
+
+The orchestrator instruments each phase boundary:
+```typescript
+await this.logPhaseStart(1, 'data_mining');
+// ... Phase 1 work ...
+await this.logPhaseEnd(1, 'completed');
+```
+
+All logging is non-critical — wrapped in `try-catch` to prevent pipeline failure from monitoring issues.
+
+### Polling Strategy
+| State | Interval | Rationale |
+|-------|----------|----------|
+| Pipeline running | 10s | Near real-time feedback (Doherty Threshold) |
+| Pipeline idle | 60s | Minimal API load |
+
+---
+
+## GitHub Actions Workflow
+
+### Consolidated `daily-pipeline.yml`
+
+```yaml
+schedule: "0 2 * * *"  # 9 AM Vietnam time
+workflow_dispatch: true  # Manual trigger from dashboard
+
+Steps:
+  1. Analytics (24h check) — continue-on-error: true
+  2. Pipeline (Phase 1-4) — main work
+```
+
+Previously, analytics ran as a separate workflow (`analytics-pipeline.yml`). Merged into the daily pipeline as Step 1 to eliminate redundant runs.
 
 ---
 
@@ -277,3 +356,6 @@ Status transitions:
 | 1080×1200 viewport | Wide enough for desktop layout (>1024px breakpoint), compact height for mobile-first video |
 | 7-day content memory | Prevents same tool twice in a week (Supabase query) |
 | Sequential Phase 4 | YouTube first → TikTok second, graceful fallback if either fails |
+| Non-critical phase logging | `try-catch` around all `logPhaseStart/End` — monitoring never breaks pipeline |
+| Push-model monitoring | Orchestrator pushes to DB vs pull-from-logs — simpler, no log parsing |
+| GitHub PAT for triggers | Fine-grained token (Actions: R/W only) — free, no OAuth flow needed |
