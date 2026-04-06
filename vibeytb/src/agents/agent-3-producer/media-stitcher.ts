@@ -43,17 +43,17 @@ export async function mergeAudioVideoScene(
           inputs: 'scaled_v',
           outputs: 'padded_v'
         },
-        // Subtitles: modern viral-style (compact, dark bg box, bottom safe zone)
-        // Fontsize=20 on 1080x1920 = clearly readable on mobile (was 17 = too small)
+        // Subtitles: modern viral-style (compact, dark bg box, deep safe zone)
+        // Fontsize=17 on 1080x1920 = readable on mobile, less overlap with website text
         // BorderStyle=4 = box + outline (dark background behind text for readability)
-        // BackColour=C0 (75% opaque) = high contrast dark box, visible on black & website
-        // MarginV=120 = bottom black zone (y=1800), above YouTube UI buttons (~y1850+)
-        // Content area ends at y=1560, so subtitle is fully in padding zone
+        // BackColour=A0 (63% opaque) = darker box to contrast animated website text
+        // MarginV=200 = pushed deep into bottom black padding zone (y~1720)
+        // Content area ends at y=1560, YouTube UI at ~y1700 → MarginV=200 avoids both
         // original_size=1080x1920 = force FFmpeg subtitle renderer to use padded canvas
         //   (without this, renderer may use pre-pad resolution → subtitles at center)
         {
           filter: 'subtitles',
-          options: `'${escapedVttPath}':original_size=1080x1920:force_style='Fontname=Arial,Fontsize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H60000000,BackColour=&HC0000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=120,MarginL=60,MarginR=60,Bold=1'`,
+          options: `'${escapedVttPath}':original_size=1080x1920:force_style='Fontname=Arial,Fontsize=17,PrimaryColour=&H00FFFFFF,OutlineColour=&H60000000,BackColour=&HA0000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=200,MarginL=80,MarginR=80,Bold=1'`,
           inputs: 'padded_v',
           outputs: hookText ? 'sub_v_pre' : 'sub_v'
         },

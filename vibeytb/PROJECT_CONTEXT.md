@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-06 (Pipeline Quality v3.0 — 5 fixes + CSE removal)
+> Cập nhật lần cuối: 2026-04-06 (Pipeline Quality v3.0 — 4 fixes + CSE removal + Husky fix)
 
 ---
 
@@ -424,4 +424,5 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 | P2 | Low bitrate (2.74 Mbps vs 8M target) | CBR 8M → CRF 18 quality-based encoding | `media-stitcher.ts` |
 | P3 | Repetitive scenes (all show hero) | Per-scene scroll offset (0/30/60/85%) in Smart Interact | `playwright-recorder.ts` |
 | P4 | Google CSE 403 errors | Disabled CSE function, Gemini Search only | `tool-discovery.ts` |
-| P5 | Subtitles invisible/too deep | MarginV 200→120, Font 17→20, BackColour A0→C0 | `media-stitcher.ts` |
+| P5 | Subtitles invisible/too deep | ~~MarginV 200→120~~ **REVERTED** — user confirmed current display OK | `media-stitcher.ts` |
+| HK | Git commit hangs 15+ min | Husky pre-commit: `npx` → `node ./node_modules/vitest/vitest.mjs` | `.husky/pre-commit` |

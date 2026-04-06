@@ -1,1 +1,1 @@
-npx vitest run --reporter=verbose
+node ./node_modules/vitest/vitest.mjs run --reporter=verbose
