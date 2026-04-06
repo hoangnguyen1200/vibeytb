@@ -1,1 +1,4 @@
+#!/usr/bin/env sh
+# Pre-commit hook: run vitest from vibeytb subfolder
+# Using direct node call to avoid sh.exe hanging on Windows
 cd vibeytb && node ./node_modules/vitest/vitest.mjs run --reporter=verbose
