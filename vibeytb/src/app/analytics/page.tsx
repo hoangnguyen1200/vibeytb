@@ -76,11 +76,17 @@ export default function AnalyticsPage() {
       .reverse(); // chronological
   })();
 
-  // Top performers (by latest views)
+  // Top performers (by latest views) — map to safe chart-ready objects
   const topVideos = [...validVideos]
     .filter(v => getViews(v) > 0)
     .sort((a, b) => getViews(b) - getViews(a))
-    .slice(0, 10);
+    .slice(0, 10)
+    .map(v => ({
+      ...v,
+      _views: getViews(v),
+      _likes: getLikes(v),
+      _label: v.tool_name ?? v.youtube_title?.slice(0, 20) ?? 'Untitled',
+    }));
 
   // Aggregates (using latest data)
   const totalViews = validVideos.reduce((s, v) => s + getViews(v), 0);
@@ -163,11 +169,11 @@ export default function AnalyticsPage() {
       {/* A/B Title Style Performance */}
       {(() => {
         const styleMap = new Map<string, { totalViews: number; count: number }>();
-        for (const v of videos) {
-          if (!v.title_style || v.views_24h == null) continue;
+        for (const v of validVideos) {
+          if (!v.title_style || getViews(v) === 0) continue;
           const existing = styleMap.get(v.title_style) ?? { totalViews: 0, count: 0 };
           styleMap.set(v.title_style, {
-            totalViews: existing.totalViews + v.views_24h,
+            totalViews: existing.totalViews + getViews(v),
             count: existing.count + 1,
           });
         }
@@ -218,14 +224,14 @@ export default function AnalyticsPage() {
                 <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
                 <YAxis
                   type="category"
-                  dataKey="tool_name"
+                  dataKey="_label"
                   tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
                   width={120}
                 />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar
-                  dataKey="views_24h"
-                  name="Views (24h)"
+                  dataKey="_views"
+                  name="Views"
                   fill="#8b5cf6"
                   radius={[0, 6, 6, 0]}
                 />
