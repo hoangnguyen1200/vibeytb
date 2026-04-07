@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('video_projects')
-      .select('id, status, tool_name, tool_url, youtube_title, youtube_url, tiktok_url, views_24h, likes_24h, comments_24h, discovery_source, title_style, created_at, updated_at', { count: 'exact' })
+      .select('id, status, tool_name, tool_url, youtube_title, youtube_url, tiktok_url, views_24h, likes_24h, comments_24h, views_latest, likes_latest, comments_latest, analytics_updated_at, discovery_source, title_style, created_at, updated_at', { count: 'exact' })
       .order(orderCol, { ascending: sortDir, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
