@@ -4,6 +4,47 @@ import { execSync } from 'child_process';
 import { ffmpegPath } from '../../utils/ffmpeg';
 
 /**
+ * Detect a usable font for FFmpeg drawtext on the current OS.
+ * Linux (GitHub Actions) doesn't have Impact — use system fallback.
+ */
+function detectFont(): string {
+  // Linux system font paths (GitHub Actions Ubuntu runners)
+  const linuxFonts = [
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+    '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+    '/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf',
+  ];
+
+  for (const fontPath of linuxFonts) {
+    if (fs.existsSync(fontPath)) {
+      return fontPath;
+    }
+  }
+
+  // Windows: Impact is available by name
+  if (process.platform === 'win32') {
+    return ''; // empty = use font= parameter instead of fontfile=
+  }
+
+  return ''; // fallback: let FFmpeg use its default
+}
+
+/**
+ * Build the font parameter string for drawtext.
+ * Uses fontfile= on Linux, font= on Windows.
+ */
+function fontParam(): string {
+  const fontPath = detectFont();
+  if (fontPath) {
+    const escaped = fontPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
+    return `fontfile='${escaped}'`;
+  }
+  // Windows fallback
+  return 'font=Impact';
+}
+
+/**
  * Determine the badge text based on the tool's tagline content.
  * Scans for keywords to pick the most relevant badge.
  */
@@ -106,6 +147,8 @@ export async function generateThumbnail(
 
   // --- PASS 2: Overlay graphics on clean landscape frame ---
   // Input is now a clean 1280×720 PNG — no resolution context switch.
+  const font = fontParam();
+
   const overlayFilters = [
     // Dark vignette — top dim bar
     "drawbox=x=0:y=0:w=iw:h=80:color=black@0.5:t=fill",
@@ -118,11 +161,11 @@ export async function generateThumbnail(
     // Badge background — top-right corner (red)
     "drawbox=x=iw-220:y=15:w=200:h=50:color=#EF4444@0.9:t=fill",
     // Badge text
-    `drawtext=text='${safeBadge}':fontcolor=white:fontsize=28:x=iw-200:y=24:font=Impact`,
+    `drawtext=text='${safeBadge}':fontcolor=white:fontsize=28:x=iw-200:y=24:${font}`,
     // Tool name — large bold text (centered in gradient)
-    `drawtext=text='${safeToolName}':fontcolor=white:fontsize=56:x=(w-text_w)/2:y=h-155:font=Impact:borderw=2:bordercolor=black`,
+    `drawtext=text='${safeToolName}':fontcolor=white:fontsize=56:x=(w-text_w)/2:y=h-155:${font}:borderw=2:bordercolor=black`,
     // Subtitle — "AI Tool Review"
-    `drawtext=text='AI Tool Review':fontcolor=#A78BFA:fontsize=28:x=(w-text_w)/2:y=h-60:font=Impact`,
+    `drawtext=text='AI Tool Review':fontcolor=#A78BFA:fontsize=28:x=(w-text_w)/2:y=h-60:${font}`,
   ].join(',');
 
   const pass2Cmd = [

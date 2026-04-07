@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-07 (Upload reliability fix — throw on fail, URL validation, bitrate floor, OAuth token regeneration)
+> Cập nhật lần cuối: 2026-04-07 (Thumbnail font fix + VBR encoding — fix crash on Linux, guarantee ≥2M bitrate)
 
 ---
 
@@ -481,7 +481,18 @@ Pipeline run 2026-04-07: YouTube upload thất bại (`invalid_grant`) nhưng pi
 |-----|-----------|-----|------|
 | Upload fail → fake URL returned | `uploadToYouTube()` returned `https://youtu.be/error_...` thay vì throw | **Throw Error** on all retries exhausted + permanent error detection (`invalid_grant`) | `youtube-uploader.ts` |
 | Orchestrator accept fake URL | `hasAnyUrl = !!(youtubeUrl)` — any non-empty string = success | **URL validation**: must start with valid prefix + reject `error_` URLs | `the-orchestrator.ts` |
-| Bitrate 0.73 Mbps | CRF 18 on static UI (code editor) produces very low bitrate | Added `-minrate 2M` floor to scene merge + concat | `media-stitcher.ts` |
+| Bitrate 0.73 Mbps | CRF 18 on static UI ignores `-minrate` | Switched to **VBR mode** (`-b:v 3M -minrate 2M -maxrate 8M`) | `media-stitcher.ts` |
 | OAuth `invalid_grant` | Google Cloud app ở "Testing" mode → refresh token hết hạn 7 ngày | Regenerate token + chuyển app sang "Production" (miễn phí) | Manual: Google Cloud Console |
 
-> **Lưu ý OAuth**: Google Cloud app ở "Testing" mode → refresh token hết hạn mỗi 7 ngày. Chuyển sang "Production" để token vĩnh viễn. Hoàn toàn MIỄN PHÍ.
+> **Lưu ý OAuth**: Google Cloud app đã chuyển sang "Production" → refresh token vĩnh viễn. Token mới regenerated 2026-04-07.
+
+### Thumbnail + Bitrate Fix (2026-04-07)
+
+Pipeline run HeyGen: YouTube upload OK nhưng thumbnail crash + bitrate chỉ 1.34 Mbps.
+
+| Bug | Root Cause | Fix | File |
+|-----|-----------|-----|------|
+| Thumbnail crash (`Error reinitializing filters`) | Font `Impact` không có trên Linux (GitHub Actions) | **Cross-platform font detection**: `detectFont()` check Linux system fonts, fallback Windows | `thumbnail-generator.ts` |
+| Bitrate 1.34 Mbps (target ≥2M) | CRF mode ignores `-minrate` — chỉ quantize theo chất lượng | Chuyển sang **VBR** (`-b:v 3M -minrate 2M -maxrate 8M -bufsize 16M`) | `media-stitcher.ts` |
+
+> **Encoding note**: VBR target 3M, floor 2M, ceiling 8M. File size cải thiện: ~41s video ≈ 15-20 MB (vẫn dưới YouTube Shorts 50MB limit).

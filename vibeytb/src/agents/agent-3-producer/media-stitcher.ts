@@ -100,13 +100,13 @@ export async function mergeAudioVideoScene(
         '-map [final_a]',
         '-c:v libx264',
         '-preset fast',
-        // CRF 18 = visually lossless. CBR 8M was over-compressing static UI
-        // content (libx264 sees consecutive identical frames → drops to 2-3M).
-        // CRF lets encoder allocate bits based on visual complexity instead.
-        '-crf 18',
-        '-maxrate 12M',
+        // VBR mode: -b:v target, -minrate floor, -maxrate ceiling.
+        // CRF 18 was quality-correct but produced 0.7-1.3 Mbps on static UI
+        // (CRF ignores -minrate). VBR guarantees minimum 2M for YouTube quality.
+        '-b:v 3M',
         '-minrate 2M',
-        '-bufsize 24M',
+        '-maxrate 8M',
+        '-bufsize 16M',
         '-pix_fmt yuv420p',
         '-r 30',
         '-c:a aac',
@@ -187,11 +187,11 @@ export async function concatScenes(
           '-map [outa]',
           '-c:v libx264',
           '-preset fast',
-          // CRF 18 for concat too — consistent quality across all steps
-          '-crf 18',
-          '-maxrate 12M',
+          // VBR mode: consistent with scene merge step
+          '-b:v 3M',
           '-minrate 2M',
-          '-bufsize 24M',
+          '-maxrate 8M',
+          '-bufsize 16M',
           '-pix_fmt yuv420p',
           '-r 30',
           '-c:a aac',
