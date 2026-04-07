@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-06 (Dashboard UX Overhaul — Tabbed Interface + Pagination)
+> Cập nhật lần cuối: 2026-04-07 (Context audit — fix stale items, verify accuracy)
 
 ---
 
@@ -139,7 +139,7 @@ Final video 1080×1920 9:16
 | `src/scripts/orchestrator.smoke.test.ts` | Smoke test (18 tests, <3s, zero API calls) |
 | `.husky/pre-commit` | Pre-commit hook → chạy vitest trước mỗi commit |
 | `.github/workflows/smoke-test.yml` | CI smoke test trên push/PR to main |
-| `src/app/dashboard/page.tsx` | **Dashboard** — Pipeline monitor, stats cards, health bar, video table |
+| `src/app/dashboard/page.tsx` | **Dashboard** — Tabbed interface (⚡Overview/🎮Control/📊Insights), Hero metric, paginated tables |
 | `src/app/videos/page.tsx` | Videos list — paginated, filterable by status |
 | `src/app/videos/[id]/page.tsx` | Video detail — YouTube embed, script viewer, platform links |
 | `src/app/analytics/page.tsx` | Analytics — Recharts views/likes charts, top performers |
@@ -286,16 +286,16 @@ Final video 1080×1920 9:16
 90. **Pipeline run logging (A3)**: Orchestrator now writes to `pipeline_runs` table — INSERT at start (status=running), UPDATE at end (completed/failed + duration + error). Dashboard Pipeline History auto-populates (2026-04-03)
 91. **Error categorization (A4)**: New `categorizeError()` classifies failures into 7 types: gemini_rate_limit, gemini_api, playwright_timeout, ffmpeg, network, visual_qc, database, unknown. Category included in error_logs + Discord notifications for faster debugging (2026-04-03)
 
-## 🚨 Platform Status (tính đến 2026-04-03)
+## 🚨 Platform Status (tính đến 2026-04-07)
 
 | Platform | Trạng thái | Chi tiết |
 |---|---|---|
-| **YouTube** | ✅ **ACTIVE** | OAuth working, daily auto-publish |
-| **TikTok** | ❌ **REJECTED** | Content Posting API rejected — UX non-compliance. Dashboard `/publish` has 5-point compliant UX → ready for re-audit |
-| **Dashboard** | ✅ **LIVE** | https://vibeytb.vercel.app — Supabase Auth protected, Vercel free tier |
+| **YouTube** | ✅ **ACTIVE** | OAuth working, daily auto-publish, SEO footer + tag optimizer |
+| **TikTok** | ⏳ **PENDING** | Re-audit submitted (2026-04-04) with 5-point compliant UX — awaiting TikTok approval |
+| **Dashboard** | ✅ **LIVE v1.4** | https://vibeytb.vercel.app — Tabbed UI (Overview/Control/Insights), paginated tables, Supabase Auth |
 
-> **TikTok**: Rejected vì thiếu UX (5 points). Dashboard `/publish` page đã build compliant UX → sẵn sàng re-apply.
-> **Dashboard**: Live at `vibeytb.vercel.app`. Auth required (Supabase). KHÔNG thay đổi pipeline code.
+> **TikTok**: UX fixes applied (4 rejection points fixed). Re-audit submitted 2026-04-04, đang chờ phản hồi.
+> **Dashboard**: v1.4 — Tabbed interface, Hero metric, Pagination. Auto-retry pipeline on failure. Daily digest to Discord.
 
 ## 🔄 Đang Xem Xét
 
@@ -311,9 +311,9 @@ Final video 1080×1920 9:16
 | 2 | **Engagement tracking** | Theo dõi video nào perform tốt → feed data lại Gemini chọn topic | Medium |
 | 3 | **A/B test thumbnails** | Tạo 2 style thumbnail → dùng YouTube API đo CTR | Medium |
 | 4 | **Instagram Reels** | Cross-post thêm IG Reels (cùng format 9:16) | Large |
-| 5 | **SEO description** | Gemini viết description chuẩn SEO + timestamps | Small |
 
-> **Ưu tiên hiện tại**: Verify pipeline (check verify list below) → TikTok re-audit → Engagement tracking.
+> **Ưu tiên hiện tại**: Monitor pipeline success rate → TikTok re-audit → Engagement tracking.
+> **Đã done**: SEO description (YouTube SEO footer + tag optimizer — F6, 2026-04-06), A/B Title tracking (F1, 2026-04-06), Daily Digest Discord (F7, 2026-04-06), Dashboard UX Overhaul (tabbed interface + pagination, 2026-04-06).
 
 ### 💰 Monetization Roadmap (khi channel đạt 50-100 videos)
 
@@ -370,18 +370,17 @@ npx vitest run       # 18 tests (2 test files), <4s, zero API calls
 
 ## 🔎 Verify Checklist — Pipeline Run Ngày 2026-04-03
 
-> Run #41 kết quả: 3/6 pass (subtitle FAIL, bitrate FAIL, thumbnail FAIL). Fixes applied in commit TBD.
+> Run #41 kết quả: 3/6 pass (subtitle FAIL, bitrate FAIL, thumbnail FAIL). All fixed.
+> Run #43+ (2026-04-04 → 2026-04-06): ✅ Pipeline hoạt động bình thường, video published thành công.
 
-- [x] **Subtitle position**: ~~FAIL (Run #41 — subtitle ở giữa)~~ → Fixed: `original_size=1080x1920` forces padded canvas
-- [x] **Scene 1 website recording**: ✅ PASS (Run #41 — dust.tt hero visible)
-- [x] **Thumbnail generate OK**: ~~FAIL (ffmpeg not in PATH)~~ → Fixed: `ffmpegPath` from `@ffmpeg-installer`
-- [x] **Bitrate ≥ 5 Mbps**: ~~FAIL (1.47 Mbps)~~ → Fixed: `-c:v copy` in BGM mix
-- [x] **Scene 1 narration ≥ 15 words**: ✅ PASS (Run #41)
-- [x] **TikTok skip gracefully**: ✅ PASS (Run #41 — immediate skip, no retry)
+- [x] **Subtitle position**: Fixed: `original_size=1080x1920` forces padded canvas
+- [x] **Scene 1 website recording**: ✅ PASS
+- [x] **Thumbnail generate OK**: Fixed: `ffmpegPath` from `@ffmpeg-installer`
+- [x] **Bitrate ≥ 5 Mbps**: Fixed: `-c:v copy` in BGM mix + CRF 18
+- [x] **Scene 1 narration ≥ 15 words**: ✅ PASS
+- [x] **TikTok skip gracefully**: ✅ PASS
 
-> **Next**: Re-run pipeline (Run #43) to verify all 6/6 pass.
-
-## 🖥️ Dashboard v1.2 Bug Fixes (2026-04-03)
+## 🖥️ Dashboard v1.2 → v1.4 Bug Fixes & UX Overhaul (2026-04-03 → 2026-04-06)
 
 | Bug | Fix | File |
 |---|---|---|
