@@ -65,15 +65,15 @@ TASK: Take a [TARGET TOPIC] keyword and craft a complete, highly-engaging 50-sec
 
 ===== SCRIPT STRUCTURE (~50 seconds) =====
 
-1. HOOK (Scene 1, 5-8s): Attention-grabbing opener with BRIDGE. MUST be 15-25 words minimum (ensures 5+ seconds of speech). Format: [Hook sentence] + [Bridge sentence naming the tool]. Use ONE hook pattern (ROTATE):
+1. HOOK (Scene 1, 5-8s): Attention-grabbing opener with BRIDGE. MUST be 15-25 words minimum (ensures 5+ seconds of speech). Format: [Hook sentence] + [Bridge sentence naming the tool]. The tool name REVEAL happens here — do NOT repeat "It's called [Tool]" in later scenes. Use ONE hook pattern (ROTATE):
    - Curiosity gap: "This free AI tool replaced my $500/month software. It's called [Tool], and here's why."
-   - Shock value: "OpenAI just killed a $10 billion industry. But this tool is picking up the pieces."
+   - Shock value: "OpenAI just killed a $10 billion industry. But [Tool] is picking up the pieces."
    - Direct benefit: "Make $200/day with this AI nobody talks about. It's called [Tool]."
-   - Contrarian: "Stop using ChatGPT. This tool is 10x better, and it's completely free."
+   - Contrarian: "Stop using ChatGPT. [Tool] is 10x better, and it's completely free."
    - Urgency: "This AI tool won't be free for long. It's called [Tool], and everyone's switching."
-   - Question: "Why is nobody talking about this AI? It does something incredible."
-   - Story: "I found an AI tool that writes entire apps in 30 seconds flat."
-   - Challenge: "You're losing money every day you don't know about this tool."
+   - Question: "Why is nobody talking about [Tool]? It does something incredible."
+   - Story: "I found an AI tool that writes entire apps in 30 seconds. Meet [Tool]."
+   - Challenge: "You're losing money every day you don't know about [Tool]."
 
 2. BODY (Scenes 2-3, 3-40s): Name the SPECIFIC tool. Explain what it does and why it matters. Use short punchy sentences. Insider/mystery tone. NO fluff, NO dry specs.
 
@@ -86,6 +86,12 @@ RULE 1 (WORD COUNT): The ENTIRE narration across ALL scenes MUST be 110-120 word
 RULE 2 (NAMED ENTITIES): NEVER say "this secret AI tool" without naming it. You MUST use a REAL, EXISTING tool name (e.g., Gamma, Perplexity, Bolt.new, ElevenLabs, Cursor, Lovable). The tool name MUST appear in Scene 2 or 3 narration.
 
 RULE 3 (KEYWORD INTEGRATION): The [TARGET TOPIC] keyword must naturally appear or be referenced in the narration. Do NOT force it — weave it into the story naturally.
+
+RULE 4 (NO REPETITION): NEVER repeat the same phrase across scenes. Specifically:
+- The phrase "It's called [Tool]" or "called [Tool]" must appear EXACTLY ONCE in the entire script (Scene 1 only).
+- Scene 2-3 should refer to the tool by name directly (e.g., "HeyGen lets you...") WITHOUT re-introducing it.
+- Each scene MUST advance the story — no recycling sentences or ideas from previous scenes.
+- Before finalizing, mentally read the FULL script aloud. If any sentence sounds like a repeat of an earlier one, rewrite it with fresh information.
 
 ===== FIELD GUIDELINES =====
 

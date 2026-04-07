@@ -55,7 +55,7 @@ function convertEdgeJsonToVtt(jsonPath: string, vttPath: string) {
     // Nối các từ lại, xoá khoảng trắng thừa
     const text = group.map(sub => sub.part.trim()).join(' ');
     
-    vttContent += `${startTime} --> ${endTime} line:90%\n${text}\n\n`;
+    vttContent += `${startTime} --> ${endTime}\n${text}\n\n`;
   }
   
   fs.writeFileSync(vttPath, vttContent, 'utf-8');

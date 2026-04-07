@@ -496,3 +496,14 @@ Pipeline run HeyGen: YouTube upload OK nhưng thumbnail crash + bitrate chỉ 1.
 | Bitrate 1.34 Mbps (target ≥2M) | CRF mode ignores `-minrate` — chỉ quantize theo chất lượng | Chuyển sang **VBR** (`-b:v 3M -minrate 2M -maxrate 8M -bufsize 16M`) | `media-stitcher.ts` |
 
 > **Encoding note**: VBR target 3M, floor 2M, ceiling 8M. File size cải thiện: ~41s video ≈ 15-20 MB (vẫn dưới YouTube Shorts 50MB limit).
+
+### Subtitle Position + Script Quality Fix (2026-04-07)
+
+Pipeline run HeyGen: Subtitles hiển thị ở TOP thay vì bottom, kịch bản lặp "It's called HeyGen" 2 lần.
+
+| Bug | Root Cause | Fix | File |
+|-----|-----------|-----|------|
+| Subtitle ở TOP video | VTT `line:90%` override FFmpeg ASS `MarginV=200` → libass dùng VTT position thay vì ASS | **Xóa `line:90%`** khỏi VTT output, để ASS `Alignment=2 + MarginV=200` kiểm soát | `tts-client.ts` |
+| Kịch bản lặp "It's called [Tool]" 2+ lần | LLM prompt thiếu anti-repetition rule → Gemini lặp tool intro ở Hook + Body | **Thêm RULE 4** (NO REPETITION): tool intro 1 lần duy nhất ở Hook, Body dùng tên trực tiếp | `generator.ts` |
+
+> **Subtitle note**: FFmpeg ASS `force_style` giờ kiểm soát 100% vị trí: `Alignment=2` (bottom-center) + `MarginV=200` (200px from bottom edge).
