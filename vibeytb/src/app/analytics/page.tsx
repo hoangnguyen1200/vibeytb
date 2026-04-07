@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  BarChart, Bar, CartesianGrid,
+  CartesianGrid,
 } from 'recharts';
 import StatsCard from '../components/StatsCard';
 
@@ -182,29 +182,32 @@ export default function AnalyticsPage() {
           avgViews: Math.round(d.totalViews / d.count),
           count: d.count,
         })).sort((a, b) => b.avgViews - a.avgViews);
+        const maxStyleViews = styleData[0]?.avgViews || 1;
 
         return styleData.length > 0 ? (
           <div className="card" style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
               🧪 A/B Title Style Performance
             </h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={styleData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-                <XAxis dataKey="style" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="avgViews" name="Avg Views" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-            <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {styleData.map(s => (
-                <span key={s.style} style={{
-                  padding: '4px 12px', borderRadius: 12, fontSize: 12,
-                  background: 'var(--bg-hover)', color: 'var(--text-secondary)',
-                }}>
-                  {s.style}: <strong>{s.avgViews}</strong> avg views ({s.count} videos)
-                </span>
+                <div key={s.style} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ width: 100, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'right' }}>
+                    {s.style}
+                  </span>
+                  <div style={{ flex: 1, height: 24, background: 'var(--bg-hover)', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{
+                      width: `${(s.avgViews / maxStyleViews) * 100}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #f59e0b, #f97316)',
+                      borderRadius: 6,
+                      transition: 'width 0.6s ease',
+                    }} />
+                  </div>
+                  <span style={{ width: 80, fontSize: 12, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                    {s.avgViews.toLocaleString()} avg
+                  </span>
+                </div>
               ))}
             </div>
           </div>
@@ -218,25 +221,38 @@ export default function AnalyticsPage() {
         </h3>
         {topVideos.length > 0 ? (
           <>
-            <ResponsiveContainer width="100%" height={Math.max(200, topVideos.length * 40)}>
-              <BarChart data={topVideos} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-                <YAxis
-                  type="category"
-                  dataKey="_label"
-                  tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
-                  width={120}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar
-                  dataKey="_views"
-                  name="Views"
-                  fill="#8b5cf6"
-                  radius={[0, 6, 6, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* CSS Bar Chart */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              {topVideos.map((v, i) => {
+                const maxViews = topVideos[0]?._views || 1;
+                return (
+                  <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{
+                      width: 24, textAlign: 'center', fontSize: 13,
+                      color: i < 3 ? 'var(--accent)' : 'var(--text-muted)',
+                      fontWeight: i < 3 ? 700 : 400,
+                    }}>
+                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                    </span>
+                    <span style={{ width: 100, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {v._label}
+                    </span>
+                    <div style={{ flex: 1, height: 22, background: 'var(--bg-hover)', borderRadius: 6, overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${(v._views / maxViews) * 100}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
+                        borderRadius: 6,
+                        transition: 'width 0.6s ease',
+                      }} />
+                    </div>
+                    <span style={{ width: 70, fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                      {v._views.toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
             <div className="table-container" style={{ marginTop: 16 }}>
               <table>
