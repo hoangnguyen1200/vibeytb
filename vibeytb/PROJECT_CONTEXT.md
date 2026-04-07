@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-07 (Context audit — fix stale items, verify accuracy)
+> Cập nhật lần cuối: 2026-04-07 (Upload reliability fix — throw on fail, URL validation, bitrate floor, OAuth token regeneration)
 
 ---
 
@@ -473,3 +473,15 @@ Refactored dashboard from single long-scroll page (10 sections, 2400px+) to tabb
 | Tab Animation | fadeIn transition (opacity + translateY) khi chuyển tab | `globals.css` |
 | Compact Health Bar | Pipeline Health thu gọn thành 1 dòng (thay vì 1 card riêng) | `dashboard/page.tsx` |
 
+### Upload Reliability Fix (2026-04-07)
+
+Pipeline run 2026-04-07: YouTube upload thất bại (`invalid_grant`) nhưng pipeline vẫn đánh `PUBLISHED` + xóa video.
+
+| Bug | Root Cause | Fix | File |
+|-----|-----------|-----|------|
+| Upload fail → fake URL returned | `uploadToYouTube()` returned `https://youtu.be/error_...` thay vì throw | **Throw Error** on all retries exhausted + permanent error detection (`invalid_grant`) | `youtube-uploader.ts` |
+| Orchestrator accept fake URL | `hasAnyUrl = !!(youtubeUrl)` — any non-empty string = success | **URL validation**: must start with valid prefix + reject `error_` URLs | `the-orchestrator.ts` |
+| Bitrate 0.73 Mbps | CRF 18 on static UI (code editor) produces very low bitrate | Added `-minrate 2M` floor to scene merge + concat | `media-stitcher.ts` |
+| OAuth `invalid_grant` | Google Cloud app ở "Testing" mode → refresh token hết hạn 7 ngày | Regenerate token + chuyển app sang "Production" (miễn phí) | Manual: Google Cloud Console |
+
+> **Lưu ý OAuth**: Google Cloud app ở "Testing" mode → refresh token hết hạn mỗi 7 ngày. Chuyển sang "Production" để token vĩnh viễn. Hoàn toàn MIỄN PHÍ.

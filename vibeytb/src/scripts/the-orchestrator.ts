@@ -705,7 +705,10 @@ export class TheMasterOrchestrator {
     }
 
     // ── Determine final status ──────────────────────────────────────────
-    const hasAnyUrl = !!(youtubeUrl || tiktokUrl);
+    // Defense-in-depth: validate URLs are real, not error placeholders
+    const isValidYouTube = youtubeUrl.startsWith('https://youtu.be/') && !youtubeUrl.includes('error_');
+    const isValidTikTok = tiktokUrl.startsWith('https://www.tiktok.com/');
+    const hasAnyUrl = isValidYouTube || isValidTikTok;
 
     if (hasAnyUrl) {
       // At least one platform succeeded → PUBLISHED

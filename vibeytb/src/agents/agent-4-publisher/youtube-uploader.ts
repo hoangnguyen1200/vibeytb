@@ -213,6 +213,15 @@ export async function uploadToYouTube(
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`❌ [YouTube Upload] Lỗi (Attempt ${attempt}/${maxRetries}): ${errorMessage}`);
+
+      // PERMANENT ERRORS: OAuth token expired/revoked — retrying is wasteful
+      const permanentErrors = ['invalid_grant', 'invalid_client', 'unauthorized_client'];
+      if (permanentErrors.some(code => errorMessage.includes(code))) {
+        console.error('⛔ [YouTube] OAuth token expired or revoked.');
+        console.error('💡 FIX: Regenerate token with: npx tsx src/scripts/get-youtube-token.ts');
+        console.error('   Then update GOOGLE_REFRESH_TOKEN in .env + GitHub Secrets.');
+        throw new Error(`YouTube OAuth error (permanent): ${errorMessage}`);
+      }
       
       if (attempt < maxRetries) {
         const waitTime = attempt * 5000; // 5s, 10s
@@ -223,6 +232,6 @@ export async function uploadToYouTube(
   }
 
   console.error(`❌ [YouTube Upload] Đã thử ${maxRetries} lần đều thất bại.`);
-  return `https://youtu.be/error_${projectId}`;
+  throw new Error(`YouTube upload failed after ${maxRetries} attempts`);
 }
 

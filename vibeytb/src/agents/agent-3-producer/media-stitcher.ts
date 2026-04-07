@@ -105,6 +105,7 @@ export async function mergeAudioVideoScene(
         // CRF lets encoder allocate bits based on visual complexity instead.
         '-crf 18',
         '-maxrate 12M',
+        '-minrate 2M',
         '-bufsize 24M',
         '-pix_fmt yuv420p',
         '-r 30',
@@ -189,6 +190,7 @@ export async function concatScenes(
           // CRF 18 for concat too — consistent quality across all steps
           '-crf 18',
           '-maxrate 12M',
+          '-minrate 2M',
           '-bufsize 24M',
           '-pix_fmt yuv420p',
           '-r 30',
