@@ -15,6 +15,7 @@ const authUrl = oauth2Client.generateAuthUrl({
   access_type: 'offline',
   scope: [
     'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.readonly',  // Required for analytics-tracker (videos.list statistics)
     'https://www.googleapis.com/auth/youtube.force-ssl', // Required for posting comments
   ],
   prompt: 'consent'

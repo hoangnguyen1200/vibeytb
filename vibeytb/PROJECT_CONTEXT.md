@@ -507,3 +507,23 @@ Pipeline run HeyGen: Subtitles hiển thị ở TOP thay vì bottom, kịch bả
 | Kịch bản lặp "It's called [Tool]" 2+ lần | LLM prompt thiếu anti-repetition rule → Gemini lặp tool intro ở Hook + Body | **Thêm RULE 4** (NO REPETITION): tool intro 1 lần duy nhất ở Hook, Body dùng tên trực tiếp | `generator.ts` |
 
 > **Subtitle note**: FFmpeg ASS `force_style` giờ kiểm soát 100% vị trí: `Alignment=2` (bottom-center) + `MarginV=200` (200px from bottom edge).
+
+### Analytics Overhaul (2026-04-07)
+
+Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fixes:
+
+| Bug | Root Cause | Fix | File |
+|-----|-----------|-----|------|
+| 0 videos tracked (all "No stats found") | OAuth token thiếu `youtube.readonly` scope — chỉ có `youtube.upload` | Thêm scope + **cần regenerate token** | `get-youtube-token.ts` |
+| Tracks `error_` fake URLs | DB có 4+ video với `error_xxxxx` URLs từ bug cũ | Filter `isValidYoutubeUrl()` skip error URLs | `analytics-tracker.ts` |
+| One-shot tracking (24h only) | Chỉ track 1 lần rồi skip | **Multi-snapshot**: `views_24h` (first) + `views_latest` (updated daily) | `analytics-tracker.ts` |
+
+**New columns** (Migration 08): `views_latest`, `likes_latest`, `comments_latest`, `analytics_updated_at`
+
+**Analytics page** cải thiện:
+- Filter error URLs khỏi display
+- Dùng `views_latest` (fallback `views_24h`)
+- Thêm columns: **Like Rate**, **Growth Factor** (views_latest / views_24h)
+- Stats cards: Total Views, Total Likes, Avg Views/Video, Like Rate
+
+> ⚠️ **ACTION REQUIRED**: Cần regenerate OAuth token với scope `youtube.readonly`. Chạy `npx tsx src/scripts/get-youtube-token.ts` rồi update `.env` + GitHub Secrets.

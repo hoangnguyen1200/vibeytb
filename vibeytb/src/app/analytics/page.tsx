@@ -15,6 +15,10 @@ interface VideoRow {
   views_24h: number | null;
   likes_24h: number | null;
   comments_24h: number | null;
+  views_latest: number | null;
+  likes_latest: number | null;
+  comments_latest: number | null;
+  analytics_updated_at: string | null;
   created_at: string | null;
   title_style: string | null;
   status: string;
@@ -45,18 +49,26 @@ export default function AnalyticsPage() {
     fetchData();
   }, []);
 
+  // Helper: get best available views (latest > 24h)
+  const getViews = (v: VideoRow) => v.views_latest ?? v.views_24h ?? 0;
+  const getLikes = (v: VideoRow) => v.likes_latest ?? v.likes_24h ?? 0;
+  const getComments = (v: VideoRow) => v.comments_latest ?? v.comments_24h ?? 0;
+
+  // Filter out error_ URLs
+  const validVideos = videos.filter(v => !v.youtube_url?.includes('error_'));
+
   // Compute chart data: group by date
   const chartData: ChartDataPoint[] = (() => {
     const map = new Map<string, { views: number; likes: number }>();
-    for (const v of videos) {
+    for (const v of validVideos) {
       if (!v.created_at) continue;
       const date = new Date(v.created_at).toLocaleDateString('en-US', {
         month: 'short', day: 'numeric',
       });
       const existing = map.get(date) ?? { views: 0, likes: 0 };
       map.set(date, {
-        views: existing.views + (v.views_24h ?? 0),
-        likes: existing.likes + (v.likes_24h ?? 0),
+        views: existing.views + getViews(v),
+        likes: existing.likes + getLikes(v),
       });
     }
     return Array.from(map.entries())
@@ -64,18 +76,19 @@ export default function AnalyticsPage() {
       .reverse(); // chronological
   })();
 
-  // Top performers
-  const topVideos = [...videos]
-    .filter(v => v.views_24h != null)
-    .sort((a, b) => (b.views_24h ?? 0) - (a.views_24h ?? 0))
+  // Top performers (by latest views)
+  const topVideos = [...validVideos]
+    .filter(v => getViews(v) > 0)
+    .sort((a, b) => getViews(b) - getViews(a))
     .slice(0, 10);
 
-  // Aggregates
-  const totalViews = videos.reduce((s, v) => s + (v.views_24h ?? 0), 0);
-  const totalLikes = videos.reduce((s, v) => s + (v.likes_24h ?? 0), 0);
-  const totalComments = videos.reduce((s, v) => s + (v.comments_24h ?? 0), 0);
-  const publishedCount = videos.length;
+  // Aggregates (using latest data)
+  const totalViews = validVideos.reduce((s, v) => s + getViews(v), 0);
+  const totalLikes = validVideos.reduce((s, v) => s + getLikes(v), 0);
+  const totalComments = validVideos.reduce((s, v) => s + getComments(v), 0);
+  const publishedCount = validVideos.length;
   const avgViews = publishedCount > 0 ? Math.round(totalViews / publishedCount) : 0;
+  const likeRate = totalViews > 0 ? ((totalLikes / totalViews) * 100).toFixed(1) : '0';
 
   const tooltipStyle = {
     backgroundColor: 'var(--bg-card)',
@@ -107,8 +120,8 @@ export default function AnalyticsPage() {
       <div className="card-grid">
         <StatsCard label="Total Views" value={totalViews.toLocaleString()} color="purple" />
         <StatsCard label="Total Likes" value={totalLikes.toLocaleString()} color="green" />
-        <StatsCard label="Total Comments" value={totalComments.toLocaleString()} color="blue" />
-        <StatsCard label="Avg Views/Video" value={avgViews.toLocaleString()} color="amber" />
+        <StatsCard label="Avg Views/Video" value={avgViews.toLocaleString()} color="blue" />
+        <StatsCard label="Like Rate" value={`${likeRate}%`} color="amber" />
       </div>
 
       {/* Views Over Time Chart */}
@@ -227,7 +240,8 @@ export default function AnalyticsPage() {
                     <th>Tool</th>
                     <th>Views</th>
                     <th>Likes</th>
-                    <th>Comments</th>
+                    <th>Like Rate</th>
+                    <th>Growth</th>
                     <th>Link</th>
                   </tr>
                 </thead>
@@ -244,16 +258,21 @@ export default function AnalyticsPage() {
                         </a>
                       </td>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                        {v.views_24h?.toLocaleString() ?? '—'}
+                        {getViews(v).toLocaleString()}
                       </td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {v.likes_24h?.toLocaleString() ?? '—'}
+                        {getLikes(v).toLocaleString()}
+                      </td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
+                        {getViews(v) > 0 ? `${((getLikes(v) / getViews(v)) * 100).toFixed(1)}%` : '—'}
                       </td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {v.comments_24h?.toLocaleString() ?? '—'}
+                        {v.views_24h != null && getViews(v) > 0 && v.views_24h > 0
+                          ? `${(getViews(v) / v.views_24h).toFixed(1)}x`
+                          : '—'}
                       </td>
                       <td>
-                        {v.youtube_url && (
+                        {v.youtube_url && !v.youtube_url.includes('error_') && (
                           <a href={v.youtube_url} target="_blank" rel="noopener noreferrer"
                             style={{ textDecoration: 'none' }}>▶️</a>
                         )}
