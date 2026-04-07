@@ -1,6 +1,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';
+import { detectFont } from '../../utils/font-detect';
 
 /**
  * Generate a 3-second outro CTA clip using FFmpeg.
@@ -23,6 +24,12 @@ export async function generateOutro(jobId: string): Promise<string> {
   }
 
   console.log('[OUTRO] Generating 3s outro CTA clip...');
+
+  const { fontfile, fontname } = detectFont();
+  // Use fontfile on Linux (absolute path), font name on Windows
+  const fontOpts = fontfile
+    ? { fontfile }
+    : { font: fontname || 'Impact' };
 
   return new Promise((resolve, reject) => {
     ffmpeg()
@@ -57,7 +64,7 @@ export async function generateOutro(jobId: string): Promise<string> {
             fontsize: 44,
             x: '(w-text_w)/2',
             y: '(h/2)-100',
-            font: 'Impact',
+            ...fontOpts,
           },
           inputs: 'accent',
           outputs: 'txt1',
@@ -71,7 +78,7 @@ export async function generateOutro(jobId: string): Promise<string> {
             fontsize: 34,
             x: '(w-text_w)/2',
             y: '(h/2)-30',
-            font: 'Impact',
+            ...fontOpts,
           },
           inputs: 'txt1',
           outputs: 'txt2',
@@ -85,7 +92,7 @@ export async function generateOutro(jobId: string): Promise<string> {
             fontsize: 28,
             x: '(w-text_w)/2',
             y: '(h/2)+40',
-            font: 'Impact',
+            ...fontOpts,
           },
           inputs: 'txt2',
           outputs: 'out_v',

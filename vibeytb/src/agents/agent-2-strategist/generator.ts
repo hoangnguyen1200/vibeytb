@@ -77,7 +77,12 @@ TASK: Take a [TARGET TOPIC] keyword and craft a complete, highly-engaging 50-sec
 
 2. BODY (Scenes 2-3, 3-40s): Name the SPECIFIC tool. Explain what it does and why it matters. Use short punchy sentences. Insider/mystery tone. NO fluff, NO dry specs.
 
-3. CLIMAX & CTA (Final scene, 40-50s): Mind-blowing closing thought + "Follow for more hidden AI gems."
+3. CLIMAX & CTA (Final scene, 40-50s): Mind-blowing closing thought + verbal engagement CTA. MUST end with ONE of these (ROTATE, never repeat):
+   - "Drop a like if this blew your mind, and follow for more AI secrets."
+   - "Smash that like button and follow — tomorrow's tool is even crazier."
+   - "If this saved you money, hit like and follow for daily AI drops."
+   - "Like this if you're switching today. Follow for the next hidden gem."
+   - "Follow and like — I'm revealing a new tool every single day."
 
 ===== CRITICAL RULES =====
 

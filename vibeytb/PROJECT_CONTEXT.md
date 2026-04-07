@@ -526,4 +526,24 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 - Thêm columns: **Like Rate**, **Growth Factor** (views_latest / views_24h)
 - Stats cards: Total Views, Total Likes, Avg Views/Video, Like Rate
 
-> ⚠️ **ACTION REQUIRED**: Cần regenerate OAuth token với scope `youtube.readonly`. Chạy `npx tsx src/scripts/get-youtube-token.ts` rồi update `.env` + GitHub Secrets.
+> ✅ **DONE**: OAuth token regenerated với `youtube.readonly` scope. Analytics tracker đã fetch thành công 8 videos (4,203 total views).
+
+### DB Cleanup + Video CTA (2026-04-07)
+
+**DB Cleanup**:
+- Backfilled tool_name cho 7 videos từ YouTube API titles
+- Manual fix 3 videos: Crossnode, Perplexity, Gumroad
+- Marked 16 videos as `failed`: 4 error URLs + 12 deleted từ YouTube
+- Result: 15 published videos giờ đều có tool_name + youtube_title
+
+**Video CTA Improvements**:
+- Fix outro font crash Linux: shared `detectFont()` utility (`utils/font-detect.ts`)
+- Script verbal CTA: 5 diverse templates thay vì generic "Follow for more hidden AI gems"
+- Templates bắt buộc chứa "like" + "follow" (tăng engagement)
+
+| File | Change |
+|------|--------|
+| `utils/font-detect.ts` | [NEW] Shared cross-platform font detection |
+| `outro-generator.ts` | Import `detectFont()`, replace hardcoded `Impact` |
+| `generator.ts` | 5 CTA templates với "like" + "follow" rotation |
+| `backfill-metadata.ts` | [NEW] Script backfill tool names từ YouTube API |
