@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-07 (Thumbnail font fix + VBR encoding — fix crash on Linux, guarantee ≥2M bitrate)
+> Cập nhật lần cuối: 2026-04-08 (Analytics crash fix + Thumbnail fontfile + Vercel auto-deploy)
 
 ---
 
@@ -547,3 +547,29 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | `outro-generator.ts` | Import `detectFont()`, replace hardcoded `Impact` |
 | `generator.ts` | 5 CTA templates với "like" + "follow" rotation |
 | `backfill-metadata.ts` | [NEW] Script backfill tool names từ YouTube API |
+
+### Analytics Crash Fix + Vercel Auto-Deploy (2026-04-08)
+
+**Analytics page crash** (Recharts 3.8.1 + React 19 incompatibility):
+- Root cause: `<Bar>` component passes style as string → React 19 rejects
+- Fix: Replace Recharts BarChart → pure CSS gradient bars (A/B + Top Videos)
+- Added `views_latest`, `likes_latest`, `comments_latest` to `/api/videos` select
+- Null safety for all Recharts dataKeys
+
+**Thumbnail font fix** (Windows self-hosted runner):
+- Root cause: `font=Impact` by name unreliable in FFmpeg — need `fontfile=` absolute path
+- Fix: `font-detect.ts` now returns `fontfile: 'C:/Windows/Fonts/impact.ttf'` on Windows
+- `thumbnail-generator.ts` refactored to use shared `detectFont()` utility
+- Removed leading space in badge text (`' TRENDING'` → `'TRENDING'`)
+
+**Vercel auto-deploy**:
+- Reconnected GitHub → Vercel (was disconnected)
+- Set Root Directory = `vibeytb`
+- Auto-deploy now triggers on every `git push master`
+
+| File | Change |
+|------|--------|
+| `analytics/page.tsx` | Replace Recharts BarChart → CSS bars, null safety |
+| `api/videos/route.ts` | Add 4 missing analytics columns to select |
+| `utils/font-detect.ts` | Windows: fontfile= absolute path instead of font= |
+| `thumbnail-generator.ts` | Use shared detectFont(), fix badge space |

@@ -2,46 +2,22 @@ import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import { ffmpegPath } from '../../utils/ffmpeg';
-
-/**
- * Detect a usable font for FFmpeg drawtext on the current OS.
- * Linux (GitHub Actions) doesn't have Impact — use system fallback.
- */
-function detectFont(): string {
-  // Linux system font paths (GitHub Actions Ubuntu runners)
-  const linuxFonts = [
-    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-    '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-    '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
-    '/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf',
-  ];
-
-  for (const fontPath of linuxFonts) {
-    if (fs.existsSync(fontPath)) {
-      return fontPath;
-    }
-  }
-
-  // Windows: Impact is available by name
-  if (process.platform === 'win32') {
-    return ''; // empty = use font= parameter instead of fontfile=
-  }
-
-  return ''; // fallback: let FFmpeg use its default
-}
+import { detectFont } from '../../utils/font-detect';
 
 /**
  * Build the font parameter string for drawtext.
- * Uses fontfile= on Linux, font= on Windows.
+ * Uses fontfile= with absolute path (reliable across all OS).
  */
 function fontParam(): string {
-  const fontPath = detectFont();
-  if (fontPath) {
-    const escaped = fontPath.replace(/\\/g, '/').replace(/:/g, '\\\\:');
+  const { fontfile, fontname } = detectFont();
+  if (fontfile) {
+    const escaped = fontfile.replace(/\\/g, '/').replace(/:/g, '\\\\:');
     return `fontfile='${escaped}'`;
   }
-  // Windows fallback
-  return 'font=Impact';
+  if (fontname) {
+    return `font=${fontname}`;
+  }
+  return 'font=Arial';
 }
 
 /**
@@ -125,7 +101,7 @@ export async function generateThumbnail(
   const safeToolName = escapeDrawtext(toolName);
   const badge = pickBadge(tagline || '');
   const emoji = badgeEmoji(badge);
-  const safeBadge = escapeDrawtext(`${emoji} ${badge}`);
+  const safeBadge = escapeDrawtext(badge);
 
   // Normalize paths for FFmpeg (forward slashes)
   const inputPath = videoPath.replace(/\\/g, '/');

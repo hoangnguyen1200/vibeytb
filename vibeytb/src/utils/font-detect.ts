@@ -20,9 +20,19 @@ export function detectFont(): { fontfile: string; fontname: string } {
     }
   }
 
-  // Windows/macOS: use font by name (no fontfile needed)
+  // Windows: use fontfile with absolute path (font= by name is unreliable in FFmpeg)
   if (process.platform === 'win32') {
-    return { fontfile: '', fontname: 'Impact' };
+    const winFonts = [
+      'C:/Windows/Fonts/impact.ttf',
+      'C:/Windows/Fonts/arialbd.ttf',
+      'C:/Windows/Fonts/arial.ttf',
+    ];
+    for (const fontPath of winFonts) {
+      if (fs.existsSync(fontPath)) {
+        return { fontfile: fontPath, fontname: '' };
+      }
+    }
+    return { fontfile: '', fontname: 'Arial' };
   }
 
   // Fallback: let FFmpeg try its default
