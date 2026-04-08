@@ -30,6 +30,8 @@ interface VideoRow {
   tiktok_url: string | null;
   views_24h: number | null;
   likes_24h: number | null;
+  views_latest: number | null;
+  likes_latest: number | null;
   created_at: string | null;
 }
 
@@ -341,8 +343,8 @@ export default function DashboardPage() {
                           </a>
                         </td>
                         <td><VideoStatusBadge status={video.status} /></td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{video.views_24h ?? '—'}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{video.likes_24h ?? '—'}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{video.views_latest ?? video.views_24h ?? '—'}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{video.likes_latest ?? video.likes_24h ?? '—'}</td>
                         <td>
                           {video.youtube_url && (
                             <a href={video.youtube_url} target="_blank" rel="noopener noreferrer" title="YouTube"
