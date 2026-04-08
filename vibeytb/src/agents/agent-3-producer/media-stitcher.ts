@@ -43,17 +43,14 @@ export async function mergeAudioVideoScene(
           inputs: 'scaled_v',
           outputs: 'padded_v'
         },
-        // Subtitles: modern viral-style (compact, dark bg box, deep safe zone)
-        // Fontsize=17 on 1080x1920 = readable on mobile, less overlap with website text
-        // BorderStyle=4 = box + outline (dark background behind text for readability)
-        // BackColour=A0 (63% opaque) = darker box to contrast animated website text
-        // MarginV=200 = pushed deep into bottom black padding zone (y~1720)
-        // Content area ends at y=1560, YouTube UI at ~y1700 → MarginV=200 avoids both
-        // original_size=1080x1920 = force FFmpeg subtitle renderer to use padded canvas
-        //   (without this, renderer may use pre-pad resolution → subtitles at center)
+        // Subtitles: ASS format with positioning baked in the file header
+        // Using `ass` filter (not `subtitles`) for native ASS support.
+        // Position: Alignment=2 (bottom-center) + MarginV=200 → y≈1720
+        // These values are in the .ass file header — no force_style needed.
+        // original_size not needed: PlayResX/Y in ASS header handles scaling.
         {
-          filter: 'subtitles',
-          options: `'${escapedVttPath}':original_size=1080x1920:force_style='Fontname=Arial,Fontsize=17,PrimaryColour=&H00FFFFFF,OutlineColour=&H60000000,BackColour=&HA0000000,BorderStyle=4,Outline=1,Shadow=0,Alignment=2,MarginV=200,MarginL=80,MarginR=80,Bold=1'`,
+          filter: 'ass',
+          options: `'${escapedVttPath}'`,
           inputs: 'padded_v',
           outputs: hookText ? 'sub_v_pre' : 'sub_v'
         },

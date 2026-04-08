@@ -11,7 +11,7 @@ import crypto from 'crypto';
 import { EdgeTTS } from 'node-edge-tts';
 
 /**
- * Chuyển đổi ms sang định dạng VTT Timestamp (HH:MM:SS.mmm)
+ * Chuyển đổi ms sang định dạng VTT Timestamp (HH:MM:SS.mmm) — kept for reference
  */
 function msToVttTimestamp(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -22,16 +22,47 @@ function msToVttTimestamp(ms: number): string {
 }
 
 /**
- * Đọc file JSON subtitle do node-edge-tts sinh ra và convert sang dạng .vtt, sau đó xóa file .json
+ * Chuyển đổi ms sang ASS Timestamp format (H:MM:SS.cc) — centiseconds
  */
-function convertEdgeJsonToVtt(jsonPath: string, vttPath: string) {
+function msToAssTimestamp(ms: number): string {
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const centiseconds = Math.floor((ms % 1000) / 10);
+  return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Đọc file JSON subtitle do node-edge-tts sinh ra và convert sang dạng .ass
+ * ASS format bakes positioning into the file header — FFmpeg always respects it.
+ * Using ASS instead of VTT because FFmpeg's `force_style` is unreliable for WebVTT.
+ */
+function convertEdgeJsonToAss(jsonPath: string, assPath: string) {
   if (!fs.existsSync(jsonPath)) return;
   
   const rawData = fs.readFileSync(jsonPath, 'utf-8');
   const subs = JSON.parse(rawData) as Array<{ part: string, start: number, end: number }>;
   
-  let vttContent = 'WEBVTT\n\n';
-  
+  // ASS header with bottom-center positioning baked in
+  // PlayResX/Y = target video resolution (1080x1920 portrait)
+  // Alignment=2 = bottom-center (ASS standard)
+  // MarginV=200 = 200px from bottom edge → subtitle at y≈1720 (safe zone)
+  const assHeader = `[Script Info]
+Title: VibeYtb Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,17,&H00FFFFFF,&H000000FF,&H60000000,&HA0000000,1,0,0,0,100,100,0,0,4,1,0,2,80,80,200,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+  let assContent = assHeader;
   const MIN_CAPTION_MS = 1500;
 
   for (let i = 0; i < subs.length; i += 3) {
@@ -49,16 +80,16 @@ function convertEdgeJsonToVtt(jsonPath: string, vttPath: string) {
       endMs = nextGroup.start - 50; // 50ms gap
     }
 
-    const startTime = msToVttTimestamp(startMs);
-    const endTime = msToVttTimestamp(endMs);
+    const startTime = msToAssTimestamp(startMs);
+    const endTime = msToAssTimestamp(endMs);
 
     // Nối các từ lại, xoá khoảng trắng thừa
     const text = group.map(sub => sub.part.trim()).join(' ');
     
-    vttContent += `${startTime} --> ${endTime}\n${text}\n\n`;
+    assContent += `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}\n`;
   }
   
-  fs.writeFileSync(vttPath, vttContent, 'utf-8');
+  fs.writeFileSync(assPath, assContent, 'utf-8');
   fs.unlinkSync(jsonPath); // Xoá file json dọn dẹp
 }
 
@@ -153,10 +184,11 @@ export async function generateAudioFromText(
       throw lastError; // All retries exhausted
     }
 
-    // Chuyển đổi JSON sinh ra (filePath + '.json') thành VTT cho FFmpeg đốt phụ đề
+    // Chuyển đổi JSON sinh ra thành ASS cho FFmpeg đốt phụ đề
+    // ASS format bakes positioning vào file header → subtitle luôn ở bottom
     const jsonSubPath = filePath + '.json';
-    const vttPath = filePath.replace('.mp3', '.vtt');
-    convertEdgeJsonToVtt(jsonSubPath, vttPath);
+    const vttPath = filePath.replace('.mp3', '.ass');
+    convertEdgeJsonToAss(jsonSubPath, vttPath);
 
     // Đọc ffprobe để lấy chính xác duration
     const duration = await getMediaDuration(filePath); 
