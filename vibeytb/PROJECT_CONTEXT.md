@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Input Hunter V4 + Anti-duplicate queries + Subtitle/Thumbnail/Bitrate fixes)
+> Cập nhật lần cuối: 2026-04-09 (Code dedup refactor: video-config.ts + branding.ts + shared fontParam)
 
 ---
 
@@ -642,4 +642,31 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | File | Change |
 |------|--------|
 | `youtube-uploader.ts` | `buildSEODescription()` → pass-through (remove duplicate footer) |
+
+### Code Deduplication Refactor (2026-04-09)
+
+**Problem**: 5 categories of duplicated/conflicting logic tích lũy qua nhiều sessions.
+
+**New shared modules** (Single Source of Truth):
+- `utils/video-config.ts` — VIDEO_WIDTH/HEIGHT, VBR_*, AUDIO_*, SUB_*, colorSource(), PAD_FILTER_OPTIONS
+- `utils/branding.ts` — CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, DISCORD_FOOTER
+- `utils/font-detect.ts` — added shared `fontParam()` export
+
+**Bug fixed**: Concat step in `media-stitcher.ts` had stale bitrate (`3M/2M`) vs scene merge (`3.5M/2.5M`) → concat could **lower** bitrate back to 2M. Now both use shared `VBR_TARGET`/`VBR_MIN`.
+
+| File | Change |
+|------|--------|
+| `video-config.ts` | [NEW] Shared video constants |
+| `branding.ts` | [NEW] Shared branding constants |
+| `font-detect.ts` | Added `fontParam()` export |
+| `media-stitcher.ts` | Import video-config, fix concat bitrate mismatch |
+| `tts-client.ts` | Import shared ffmpeg + video-config for ASS header |
+| `veo-client.ts` | Import shared ffmpeg (was direct @ffmpeg-installer) |
+| `outro-generator.ts` | Import branding + video-config + colorSource |
+| `pexels-client.ts` | Import colorSource (was hardcoded 1080x1920) |
+| `qc-video.ts` | Import VIDEO_WIDTH/HEIGHT (was hardcoded) |
+| `thumbnail-generator.ts` | Import shared fontParam (removed local copy) |
+| `the-orchestrator.ts` | Import branding constants for desc footer |
+| `youtube-uploader.ts` | Import CHANNEL_HANDLE for pinned comments |
+| `notifier.ts` | Import DISCORD_FOOTER/DISCORD_DIGEST_FOOTER |
 

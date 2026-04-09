@@ -1,4 +1,5 @@
 import { ffmpeg } from '../../utils/ffmpeg';
+import { VIDEO_WIDTH, PAD_FILTER_OPTIONS, VBR_TARGET, VBR_MIN, VBR_MAX, VBR_BUFSIZE, AUDIO_BITRATE, AUDIO_SAMPLE_RATE, VIDEO_FPS } from '../../utils/video-config';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,14 +33,14 @@ export async function mergeAudioVideoScene(
         // Scale to exactly 1080px wide (handles edge cases)
         {
           filter: 'scale',
-          options: { w: 1080, h: -2 },
+          options: { w: VIDEO_WIDTH, h: -2 },
           inputs: '0:v',
           outputs: 'scaled_v'
         },
         // Pad to 9:16 portrait (center vertically, black bars top/bottom)
         {
           filter: 'pad',
-          options: '1080:1920:(ow-iw)/2:(oh-ih)/2:color=black',
+          options: PAD_FILTER_OPTIONS,
           inputs: 'scaled_v',
           outputs: 'padded_v'
         },
@@ -95,22 +96,19 @@ export async function mergeAudioVideoScene(
       .outputOptions([
         '-map [sub_v]',
         '-map [final_a]',
-        '-c:v libx264',
-        '-preset fast',
-        // VBR mode: -b:v target, -minrate floor, -maxrate ceiling.
-        // CRF 18 was quality-correct but produced 0.7-1.3 Mbps on static UI
-        // (CRF ignores -minrate). VBR guarantees minimum for YouTube quality.
-        // 2M floor hit on ElevenLabs (2.02 Mbps) → raised to 2.5M (2026-04-09)
-        '-b:v 3.5M',
-        '-minrate 2.5M',
-        '-maxrate 8M',
-        '-bufsize 16M',
-        '-pix_fmt yuv420p',
-        '-r 30',
-        '-c:a aac',
-        '-b:a 128k',
-        '-ar 48000',
-        '-ac 2',
+        '-c:v', 'libx264',
+        '-preset', 'fast',
+        // VBR from shared video-config.ts (Single Source of Truth)
+        `-b:v`, VBR_TARGET,
+        `-minrate`, VBR_MIN,
+        `-maxrate`, VBR_MAX,
+        `-bufsize`, VBR_BUFSIZE,
+        '-pix_fmt', 'yuv420p',
+        `-r`, String(VIDEO_FPS),
+        '-c:a', 'aac',
+        `-b:a`, AUDIO_BITRATE,
+        `-ar`, String(AUDIO_SAMPLE_RATE),
+        '-ac', '2',
         '-shortest',
         `-t ${duration}`,
         '-max_muxing_queue_size', '2048',
@@ -183,19 +181,19 @@ export async function concatScenes(
         .outputOptions([
           '-map [outv]',
           '-map [outa]',
-          '-c:v libx264',
-          '-preset fast',
-          // VBR mode: consistent with scene merge step
-          '-b:v 3M',
-          '-minrate 2M',
-          '-maxrate 8M',
-          '-bufsize 16M',
-          '-pix_fmt yuv420p',
-          '-r 30',
-          '-c:a aac',
-          '-b:a 128k',
-          '-ar 48000',
-          '-ac 2',
+          '-c:v', 'libx264',
+          '-preset', 'fast',
+          // VBR from shared video-config.ts (same as scene merge)
+          `-b:v`, VBR_TARGET,
+          `-minrate`, VBR_MIN,
+          `-maxrate`, VBR_MAX,
+          `-bufsize`, VBR_BUFSIZE,
+          '-pix_fmt', 'yuv420p',
+          `-r`, String(VIDEO_FPS),
+          '-c:a', 'aac',
+          `-b:a`, AUDIO_BITRATE,
+          `-ar`, String(AUDIO_SAMPLE_RATE),
+          '-ac', '2',
           '-movflags +faststart'
         ])
         .save(tempConcat)

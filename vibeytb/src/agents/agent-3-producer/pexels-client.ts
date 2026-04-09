@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { createClient } from 'pexels';
 import axios from 'axios';
 import ffmpeg from 'fluent-ffmpeg';
+import { colorSource, VIDEO_FPS } from '../../utils/video-config';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -30,7 +31,7 @@ async function generateDummyVideo(filePath: string, sceneIndex: number): Promise
     return new Promise((resolve, reject) => {
         ffmpeg()
             // Tạo một video màn hình mảng màu xám (gray), kích thước dọc, độ dài 5 giây
-            .input('color=c=gray:s=1080x1920:d=5')
+            .input(colorSource('gray', 5))
             .inputFormat('lavfi')
             .outputOptions([
                 '-c:v libx264',

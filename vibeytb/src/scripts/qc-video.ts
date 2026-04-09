@@ -1,4 +1,5 @@
 import { ffmpeg } from '../utils/ffmpeg';
+import { VIDEO_WIDTH, VIDEO_HEIGHT } from '../utils/video-config';
 import fs from 'fs';
 import path from 'path';
 
@@ -144,7 +145,7 @@ export async function validateVideo(filePath: string): Promise<boolean> {
   const audioCodec = audioStream?.codec_name;
 
   const hasAudio = !!audioStream;
-  const aspectOk = width === 1080 && height === 1920;
+  const aspectOk = width === VIDEO_WIDTH && height === VIDEO_HEIGHT;
   const durationOk = typeof durationSec === 'number' && durationSec >= MIN_DURATION && durationSec <= MAX_DURATION;
   const bitrateOk = typeof videoBitrate === 'number' && videoBitrate >= MIN_VIDEO_BITRATE;
   const lowBitrateWarning =
@@ -172,7 +173,7 @@ export async function validateVideo(filePath: string): Promise<boolean> {
   }
 
   const errors: string[] = [];
-  if (!aspectOk) errors.push('Aspect ratio must be 1080x1920 (9:16).');
+  if (!aspectOk) errors.push(`Aspect ratio must be ${VIDEO_WIDTH}x${VIDEO_HEIGHT} (9:16).`);
   if (!durationOk) errors.push('Duration must be between 15s and 60s.');
   if (!hasAudio) errors.push('Audio stream is required.');
   if (!audioOk) errors.push('Audio codec must be AAC.');

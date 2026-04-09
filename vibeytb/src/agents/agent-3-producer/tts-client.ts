@@ -1,11 +1,8 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-import ffprobeInstaller from '@ffprobe-installer/ffprobe';
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
+import { ffmpeg } from '../../utils/ffmpeg';
+import { VIDEO_WIDTH, VIDEO_HEIGHT, SUB_FONTSIZE, SUB_MARGIN_V, SUB_MARGIN_LR } from '../../utils/video-config';
 import crypto from 'crypto';
 
 import { EdgeTTS } from 'node-edge-tts';
@@ -51,13 +48,13 @@ function convertEdgeJsonToAss(jsonPath: string, assPath: string) {
   const assHeader = `[Script Info]
 Title: VibeYtb Subtitles
 ScriptType: v4.00+
-PlayResX: 1080
-PlayResY: 1920
+PlayResX: ${VIDEO_WIDTH}
+PlayResY: ${VIDEO_HEIGHT}
 WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,28,&H00FFFFFF,&H000000FF,&H60000000,&HA0000000,1,0,0,0,100,100,0,0,4,1,0,2,80,80,200,1
+Style: Default,Arial,${SUB_FONTSIZE},&H00FFFFFF,&H000000FF,&H60000000,&HA0000000,1,0,0,0,100,100,0,0,4,1,0,2,${SUB_MARGIN_LR},${SUB_MARGIN_LR},${SUB_MARGIN_V},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

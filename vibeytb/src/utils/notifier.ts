@@ -3,6 +3,7 @@
  * Set DISCORD_WEBHOOK_URL in .env to enable.
  * $0 cost — Discord webhooks are free.
  */
+import { DISCORD_FOOTER, DISCORD_DIGEST_FOOTER } from './branding';
 
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
@@ -52,7 +53,7 @@ export async function notifyDiscord(payload: NotifyPayload): Promise<void> {
     color,
     fields,
     timestamp: new Date().toISOString(),
-    footer: { text: 'VibeYtb Pipeline • @TechHustleLabs' },
+    footer: { text: DISCORD_FOOTER },
   };
 
   // Embed YouTube thumbnail as image if available
@@ -138,7 +139,7 @@ export async function notifyDailyDigest(opts: {
           color: isSuccess ? 0x22c55e : 0xef4444,
           fields,
           timestamp: new Date().toISOString(),
-          footer: { text: 'VibeYtb Daily Digest • @TechHustleLabs' },
+          footer: { text: DISCORD_DIGEST_FOOTER },
         }],
       }),
     });

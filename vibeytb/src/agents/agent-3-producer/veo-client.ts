@@ -2,9 +2,7 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+import { ffmpeg } from '../../utils/ffmpeg';
 
 /**
  * Gọi API Veo (hoặc tương đương) sinh Video AI có độ dài khớp với giọng đọc

@@ -1,5 +1,6 @@
 import { google, youtube_v3 } from 'googleapis';
 import fs from 'fs';
+import { CHANNEL_HANDLE } from '../../utils/branding';
 
 /**
  * Build final YouTube description.
@@ -36,7 +37,7 @@ const PINNED_COMMENT_TEMPLATES = [
     toolUrl || 'Link in description!',
     '',
     '💬 What AI tool should I review next? Drop it in the comments! 👇',
-    '👉 Follow @TechHustleLabs for daily AI tool reviews!',
+    `👉 Follow ${CHANNEL_HANDLE} for daily AI tool reviews!`,
   ].join('\n'),
 
   (toolName?: string, toolUrl?: string) => [
@@ -44,7 +45,7 @@ const PINNED_COMMENT_TEMPLATES = [
     toolUrl ? `👉 ${toolUrl}` : '',
     '',
     '🤔 Have you tried this one yet? Let me know your thoughts! 👇',
-    '🔔 Follow @TechHustleLabs + turn on notifications!',
+    `🔔 Follow ${CHANNEL_HANDLE} + turn on notifications!`,
   ].join('\n'),
 
   (toolName?: string, toolUrl?: string) => [
@@ -52,7 +53,7 @@ const PINNED_COMMENT_TEMPLATES = [
     toolUrl ? `Try it free: ${toolUrl}` : 'Link in description!',
     '',
     '📌 Which AI tool saves YOU the most time? Comment below! 👇',
-    '👉 Follow @TechHustleLabs for daily discoveries!',
+    `👉 Follow ${CHANNEL_HANDLE} for daily discoveries!`,
   ].join('\n'),
 
   (toolName?: string, toolUrl?: string) => [
@@ -60,7 +61,7 @@ const PINNED_COMMENT_TEMPLATES = [
     toolUrl ? `Check it out: ${toolUrl}` : 'Link below!',
     '',
     '💡 Comment "YES" if you want more AI tools like this!',
-    '🔔 Follow @TechHustleLabs — new AI tool every day!',
+    `🔔 Follow ${CHANNEL_HANDLE} — new AI tool every day!`,
   ].join('\n'),
 ];
 

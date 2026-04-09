@@ -1,7 +1,9 @@
 import ffmpeg from 'fluent-ffmpeg';
 import path from 'path';
 import fs from 'fs';
-import { detectFont } from '../../utils/font-detect';
+import { detectFont, fontParam } from '../../utils/font-detect';
+import { CHANNEL_HANDLE } from '../../utils/branding';
+import { colorSource, AUDIO_SAMPLE_RATE } from '../../utils/video-config';
 
 /**
  * Generate a 3-second outro CTA clip using FFmpeg.
@@ -33,12 +35,12 @@ export async function generateOutro(jobId: string): Promise<string> {
 
   return new Promise((resolve, reject) => {
     ffmpeg()
-      .input('color=c=black:s=1080x1920:d=3:r=30')
+      .input(colorSource('black', 3))
       .inputFormat('lavfi')
       // Inaudible 1Hz sine (-60dB) instead of dead silence (anullsrc).
       // This keeps the audio stream "active" so BGM naturally overlaps
       // during Phase 2 amix — outro won't end in abrupt dead silence.
-      .input('sine=frequency=1:sample_rate=48000:duration=3')
+      .input(`sine=frequency=1:sample_rate=${AUDIO_SAMPLE_RATE}:duration=3`)
       .inputFormat('lavfi')
       .complexFilter([
         // Purple accent bar at top (brand color)
@@ -59,7 +61,7 @@ export async function generateOutro(jobId: string): Promise<string> {
         {
           filter: 'drawtext',
           options: {
-            text: 'Follow @TechHustleLabs',
+            text: `Follow ${CHANNEL_HANDLE}`,
             fontcolor: 'white',
             fontsize: 44,
             x: '(w-text_w)/2',
@@ -103,7 +105,7 @@ export async function generateOutro(jobId: string): Promise<string> {
         '-map', '1:a',
         '-c:v', 'libx264',
         '-c:a', 'aac',
-        '-ar', '48000',
+        '-ar', String(AUDIO_SAMPLE_RATE),
         '-ac', '2',
         '-t', '3',
         '-pix_fmt', 'yuv420p',

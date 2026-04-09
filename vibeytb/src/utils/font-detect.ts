@@ -38,3 +38,22 @@ export function detectFont(): { fontfile: string; fontname: string } {
   // Fallback: let FFmpeg try its default
   return { fontfile: '', fontname: 'Arial' };
 }
+
+/**
+ * Build the font parameter string for FFmpeg drawtext filter.
+ * Uses fontfile= with absolute path (reliable across all OS).
+ * No colon escaping needed — execSync/fluent-ffmpeg handle paths natively.
+ */
+export function fontParam(): string {
+  const { fontfile, fontname } = detectFont();
+  if (fontfile) {
+    // Forward slashes only — works in both fluent-ffmpeg and execSync
+    const escaped = fontfile.replace(/\\/g, '/');
+    return `fontfile='${escaped}'`;
+  }
+  if (fontname) {
+    return `font=${fontname}`;
+  }
+  return 'font=Arial';
+}
+

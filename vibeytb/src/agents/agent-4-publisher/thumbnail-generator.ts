@@ -2,26 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { execSync } from 'child_process';
 import { ffmpegPath } from '../../utils/ffmpeg';
-import { detectFont } from '../../utils/font-detect';
-
-/**
- * Build the font parameter string for drawtext.
- * Uses fontfile= with absolute path (reliable across all OS).
- * NOTE: No colon escaping needed here — the entire -vf filter is
- * wrapped in quotes by execSync, so C:/path works as-is.
- */
-function fontParam(): string {
-  const { fontfile, fontname } = detectFont();
-  if (fontfile) {
-    // Forward slashes only — no colon escaping for execSync raw commands
-    const escaped = fontfile.replace(/\\/g, '/');
-    return `fontfile='${escaped}'`;
-  }
-  if (fontname) {
-    return `font=${fontname}`;
-  }
-  return 'font=Arial';
-}
+import { fontParam } from '../../utils/font-detect';
 
 /**
  * Determine the badge text based on the tool's tagline content.

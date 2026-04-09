@@ -17,6 +17,7 @@ import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
+import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS } from '../utils/branding';
 
 type Mode = 'cron' | 'worker' | 'all';
 
@@ -620,12 +621,12 @@ export class TheMasterOrchestrator {
       toolUrl ? `🔗 Try it: ${toolUrl}` : '',
       toolName ? `📌 Tool featured: ${toolName}` : '',
       '',
-      '👉 Follow @TechHustleLabs for daily AI tool reviews!',
+      `👉 Follow ${CHANNEL_HANDLE} for daily AI tool reviews!`,
       '🔔 Turn on notifications to never miss a new discovery.',
       '📅 New AI tool review uploaded EVERY DAY',
-      '🔗 All links: https://linktr.ee/techhustlelabs',
+      `🔗 All links: ${LINKTREE_URL}`,
       '',
-      `#shorts #ai #aitools #tech #trending #productivity ${toolHashtag}`.trim(),
+      `${DEFAULT_HASHTAGS} ${toolHashtag}`.trim(),
     ].filter(Boolean);
     const desc = descParts.join('\n');
 
