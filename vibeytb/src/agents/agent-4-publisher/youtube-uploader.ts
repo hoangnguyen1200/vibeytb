@@ -2,23 +2,13 @@ import { google, youtube_v3 } from 'googleapis';
 import fs from 'fs';
 
 /**
- * Append SEO-optimized footer to YouTube description.
- * Adds channel branding, CTA, and trending hashtags.
+ * Build final YouTube description.
+ * NOTE: The orchestrator already appends CTA footer, hashtags, and tool link
+ * in the-orchestrator.ts (descParts). This function just passes through.
+ * Previously this duplicated the footer causing doubled CTA blocks.
  */
-function buildSEODescription(original: string, toolName?: string, toolUrl?: string): string {
-  const seoFooter = [
-    '',
-    '━━━━━━━━━━━━━━━━━━━━',
-    toolUrl ? `🔗 Try ${toolName ?? 'this tool'}: ${toolUrl}` : '',
-    '',
-    '🔔 Subscribe for daily AI tool reviews!',
-    '👉 Follow @TechHustleLabs for more!',
-    '',
-    '#shorts #ai #aitools #tech #free #productivity',
-    toolName ? `#${toolName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}` : '',
-  ].filter(Boolean).join('\n');
-
-  return `${original}\n${seoFooter}`;
+function buildSEODescription(original: string, _toolName?: string, _toolUrl?: string): string {
+  return original;
 }
 
 /**

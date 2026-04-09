@@ -627,3 +627,19 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | File | Change |
 |------|--------|
 | `playwright-recorder.ts` | SMART_QUERIES string→string[], Dual-Submit V3→V4, page-wide fallback |
+
+### YouTube Description Duplicate Fix (2026-04-09)
+
+**Problem**: YouTube description hiển thị 2 block CTA + hashtags trùng nhau.
+
+| Source | Nội dung |
+|--------|----------|
+| Orchestrator (`the-orchestrator.ts` L617-630) | 🔗 Try it + 📌 Tool featured + Follow + Subscribe + hashtags |
+| `buildSEODescription()` (`youtube-uploader.ts`) | 🔗 Try + Subscribe + Follow + hashtags (DUPLICATE!) |
+
+**Fix**: `buildSEODescription()` giờ chỉ return `original` — orchestrator đã build description hoàn chỉnh.
+
+| File | Change |
+|------|--------|
+| `youtube-uploader.ts` | `buildSEODescription()` → pass-through (remove duplicate footer) |
+
