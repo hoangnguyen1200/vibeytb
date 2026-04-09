@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Engagement-driven content selection + weighted title styles)
+> Cập nhật lần cuối: 2026-04-09 (Engagement-driven content + A/B thumbnail testing)
 
 ---
 
@@ -328,6 +328,7 @@ Final video 1080×1920 9:16
 91. **Error categorization (A4)**: New `categorizeError()` classifies failures into 7 types: gemini_rate_limit, gemini_api, playwright_timeout, ffmpeg, network, visual_qc, database, unknown. Category included in error_logs + Discord notifications for faster debugging (2026-04-03)
 92. **Affiliate system**: Supabase `affiliate_links` table + dashboard CRUD `/affiliates` + DB-backed resolver `resolveAffiliateUrlFromDb()` + performance tracking (clicks/signups/earnings) + retroactive description/comment updater scripts. ElevenLabs live on YouTube (2026-04-09)
 93. **Engagement-driven content selection**: New `engagement-analyzer.ts` analyzes past video performance (views/day normalized by age). Scoring criterion #7: +20 boost for tools matching top-performing categories. Title style selection now weighted by historical performance instead of random. Cached per pipeline run (2026-04-09)
+94. **A/B Thumbnail testing**: 3 diverse thumbnail styles (Editorial, Minimalist, Bold Gradient) randomly selected per video. `thumbnail_style` column saved to Supabase. Migration `09_thumbnail_style.sql`. Enables measuring which style drives higher CTR after 20+ videos (2026-04-09)
 
 ## 🚨 Platform Status (tính đến 2026-04-07)
 

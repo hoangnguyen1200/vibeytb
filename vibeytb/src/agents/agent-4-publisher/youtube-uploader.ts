@@ -1,6 +1,7 @@
 import { google, youtube_v3 } from 'googleapis';
 import fs from 'fs';
 import { CHANNEL_HANDLE } from '../../utils/branding';
+import { supabase } from '../../lib/supabase/client';
 
 /**
  * Build final YouTube description.
@@ -184,12 +185,16 @@ export async function uploadToYouTube(
       try {
         if (toolName) {
           const { generateThumbnail } = await import('./thumbnail-generator.js');
-          const thumbPath = await generateThumbnail(videoPath, toolName, projectId, toolTagline);
+          const { thumbnailPath, thumbnailStyle } = await generateThumbnail(videoPath, toolName, projectId, toolTagline);
           await youtube.thumbnails.set({
             videoId,
-            media: { body: fs.createReadStream(thumbPath) },
+            media: { body: fs.createReadStream(thumbnailPath) },
           });
-          console.log(`🖼️ [Thumbnail] Custom thumbnail uploaded for ${videoId}`);
+          console.log(`🖼️ [Thumbnail] Custom thumbnail uploaded for ${videoId} (style: ${thumbnailStyle})`);
+          // Save thumbnail_style to DB (best-effort)
+          try {
+            await supabase.from('video_projects').update({ thumbnail_style: thumbnailStyle }).eq('id', projectId);
+          } catch { /* non-fatal */ }
         }
       } catch (thumbErr) {
         const msg = thumbErr instanceof Error ? thumbErr.message : String(thumbErr);
