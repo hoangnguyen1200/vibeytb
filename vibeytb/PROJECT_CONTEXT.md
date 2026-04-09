@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-08 (Analytics crash fix + Thumbnail fontfile + Vercel auto-deploy)
+> Cập nhật lần cuối: 2026-04-09 (Subtitle VTT→ASS bottom fix + Dashboard views consistency)
 
 ---
 
@@ -106,7 +106,7 @@ Playwright recording 1080×1200 (compact desktop viewport)
 scale to 1080px wide (ensure exact width)
   ↓ FFmpeg pad
 pad 1080×1920 (black bars top/bottom → 9:16 portrait)
-  ↓ subtitles + aresample 48kHz stereo
+  ↓ ASS subtitles (native ass filter) + aresample 48kHz stereo
 Per-scene merge (libx264 8M CBR)
   ↓ concat FILTER (re-encode, NOT demuxer)
 All scenes merged with consistent audio
@@ -130,7 +130,7 @@ Final video 1080×1920 9:16
 | `src/agents/agent-3-producer/visual-qc.ts` | Gemini Visual QC (kiểm tra video quality) |
 | `src/agents/agent-3-producer/tts-client.ts` | Edge TTS voice |
 | `src/agents/agent-3-producer/pixabay-client.ts` | Local BGM picker (chọn random từ `assets/bgm/`) |
-| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (scale+pad 1080×1920, subtitles `original_size=1080x1920`, concat filter 8M CBR, BGM mix `-c:v copy`) |
+| `src/agents/agent-3-producer/media-stitcher.ts` | FFmpeg video assembly (scale+pad 1080×1920, ASS subtitles via native `ass` filter, concat filter VBR 3M, BGM mix `-c:v copy`) |
 | `src/agents/agent-3-producer/outro-generator.ts` | 3s outro CTA clip (FFmpeg drawtext) |
 | `src/agents/agent-4-publisher/youtube-uploader.ts` | YouTube upload + pinned comment CTA + thumbnail |
 | `src/agents/agent-4-publisher/thumbnail-generator.ts` | Auto-generate 1280×720 thumbnail from video frame (uses `ffmpegPath` from `@ffmpeg-installer`) |
@@ -336,7 +336,7 @@ Final video 1080×1920 9:16
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
-- **Subtitle overlay**: `Fontname=Arial,Fontsize=18,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `MarginV=180` (bottom black zone, y≈1740) + `MarginL/R=80` + `original_size=1080x1920` (force padded canvas). Modern viral style, không che website content, tránh YouTube UI
+- **Subtitle overlay**: Chuyển từ VTT → **ASS format** (2026-04-08). Style baked vào ASS header: `Fontname=Arial,Fontsize=17,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `Alignment=2` (bottom-center) + `MarginV=200` (y≈1720) + `MarginL/R=80` + `PlayResX/Y=1080x1920`. Dùng native `ass` filter (không `subtitles` + `force_style` — không đáng tin cậy với WebVTT input)
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1080×1200 compact desktop → PRE-WARM (load + wait 4s) → FFmpeg `-ss 2` (skip initial frames) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
@@ -503,10 +503,10 @@ Pipeline run HeyGen: Subtitles hiển thị ở TOP thay vì bottom, kịch bả
 
 | Bug | Root Cause | Fix | File |
 |-----|-----------|-----|------|
-| Subtitle ở TOP video | VTT `line:90%` override FFmpeg ASS `MarginV=200` → libass dùng VTT position thay vì ASS | **Xóa `line:90%`** khỏi VTT output, để ASS `Alignment=2 + MarginV=200` kiểm soát | `tts-client.ts` |
+| Subtitle ở TOP video | FFmpeg `subtitles` filter với `force_style` không đáng tin cậy cho WebVTT input — bị ignore | **Chuyển VTT → ASS format** với positioning baked vào header + dùng native `ass` filter | `tts-client.ts`, `media-stitcher.ts` |
 | Kịch bản lặp "It's called [Tool]" 2+ lần | LLM prompt thiếu anti-repetition rule → Gemini lặp tool intro ở Hook + Body | **Thêm RULE 4** (NO REPETITION): tool intro 1 lần duy nhất ở Hook, Body dùng tên trực tiếp | `generator.ts` |
 
-> **Subtitle note**: FFmpeg ASS `force_style` giờ kiểm soát 100% vị trí: `Alignment=2` (bottom-center) + `MarginV=200` (200px from bottom edge).
+> **Subtitle note**: Dùng native `ass` filter (không `subtitles` + `force_style`). Style baked vào `.ass` file header: `PlayResY=1920`, `Alignment=2` (bottom-center), `MarginV=200` (200px from bottom edge).
 
 ### Analytics Overhaul (2026-04-07)
 
@@ -573,3 +573,22 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | `api/videos/route.ts` | Add 4 missing analytics columns to select |
 | `utils/font-detect.ts` | Windows: fontfile= absolute path instead of font= |
 | `thumbnail-generator.ts` | Use shared detectFont(), fix badge space |
+
+### Subtitle VTT→ASS + Dashboard Views Consistency (2026-04-08)
+
+**Subtitle position fix** (lần cuối — root cause thật):
+- Root cause: FFmpeg `subtitles` filter với `force_style` **không đáng tin cậy với WebVTT input** — bị ignore
+- Fix: Chuyển từ `.vtt` → **`.ass` format** với positioning baked vào file header
+- ASS header: `PlayResX=1080, PlayResY=1920, Alignment=2, MarginV=200`
+- Dùng native `ass` filter thay vì `subtitles` + `force_style`
+- **Kết quả**: Subtitle luôn ở bottom-center, không phụ thuộc FFmpeg version
+
+**Dashboard views consistency**:
+- Dashboard Video List đang dùng `views_24h` (snapshot cũ) → không khớp với Analytics (`views_latest`)
+- Fix: `video.views_latest ?? video.views_24h` cho cả views và likes
+
+| File | Change |
+|------|--------|
+| `tts-client.ts` | `convertEdgeJsonToVtt()` → `convertEdgeJsonToAss()` + `msToAssTimestamp()` |
+| `media-stitcher.ts` | `subtitles` filter → `ass` filter, remove `force_style` |
+| `dashboard/page.tsx` | `views_24h` → `views_latest ?? views_24h` |
