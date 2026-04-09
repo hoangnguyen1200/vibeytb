@@ -31,6 +31,8 @@ const KNOWN_PROGRAMS = [
 
 const emptyForm = { tool_name: '', affiliate_url: '', direct_url: '', commission: '', signup_url: '', notes: '' };
 
+const PAGE_SIZE = 5;
+
 export default function AffiliatesPage() {
   const [affiliates, setAffiliates] = useState<AffiliateLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,8 @@ export default function AffiliatesPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(0);
+  const [showAllPrograms, setShowAllPrograms] = useState(false);
 
   const fetchAffiliates = useCallback(async () => {
     try {
@@ -141,6 +145,15 @@ export default function AffiliatesPage() {
   }
 
   const activeCount = affiliates.filter(a => a.active).length;
+  const totalPages = Math.max(1, Math.ceil(affiliates.length / PAGE_SIZE));
+  const pagedAffiliates = affiliates.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const INITIAL_PROGRAMS_SHOWN = 4;
+  const unadded = KNOWN_PROGRAMS.filter(p => !affiliates.some(a => a.tool_name.toLowerCase() === p.name.toLowerCase()));
+  const added = KNOWN_PROGRAMS.filter(p => affiliates.some(a => a.tool_name.toLowerCase() === p.name.toLowerCase()));
+  const sortedPrograms = [...added, ...unadded];
+  const visiblePrograms = showAllPrograms ? sortedPrograms : sortedPrograms.slice(0, INITIAL_PROGRAMS_SHOWN);
+  const hasMore = sortedPrograms.length > INITIAL_PROGRAMS_SHOWN;
 
   return (
     <div>
@@ -281,79 +294,128 @@ export default function AffiliatesPage() {
         )}
       </div>
 
-      {/* Active Affiliates Table */}
+      {/* Active Affiliates Table with Pagination */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>🔗 Your Affiliate Links</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600 }}>🔗 Your Affiliate Links</h3>
+          {affiliates.length > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, affiliates.length)} of {affiliates.length}
+            </span>
+          )}
+        </div>
         {loading ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading...</p>
         ) : affiliates.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No affiliate links yet. Add one above or pick from known programs below.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th style={thStyle}>Tool</th>
-                  <th style={thStyle}>Affiliate URL</th>
-                  <th style={thStyle}>Commission</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {affiliates.map(aff => (
-                  <tr key={aff.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td style={tdStyle}>
-                      <span style={{ fontWeight: 600 }}>{aff.tool_name}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      <a
-                        href={aff.affiliate_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 12, wordBreak: 'break-all' }}
-                      >
-                        {aff.affiliate_url.length > 45 ? aff.affiliate_url.slice(0, 45) + '...' : aff.affiliate_url}
-                      </a>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{aff.commission || '—'}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      <button
-                        onClick={() => handleToggleActive(aff)}
-                        style={{
-                          padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                          border: 'none', cursor: 'pointer',
-                          background: aff.active ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                          color: aff.active ? 'var(--status-success)' : 'var(--status-error)',
-                        }}
-                      >
-                        {aff.active ? '✅ Active' : '⏸ Paused'}
-                      </button>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => startEdit(aff)} style={actionBtnStyle} title="Edit">✏️</button>
-                        <button onClick={() => handleDelete(aff)} style={{ ...actionBtnStyle, color: 'var(--status-error)' }} title="Delete">🗑️</button>
-                      </div>
-                    </td>
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th style={thStyle}>Tool</th>
+                    <th style={thStyle}>Affiliate URL</th>
+                    <th style={thStyle}>Commission</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Actions</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {pagedAffiliates.map(aff => (
+                    <tr key={aff.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={tdStyle}>
+                        <span style={{ fontWeight: 600 }}>{aff.tool_name}</span>
+                      </td>
+                      <td style={tdStyle}>
+                        <a
+                          href={aff.affiliate_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 12, wordBreak: 'break-all' }}
+                        >
+                          {aff.affiliate_url.length > 45 ? aff.affiliate_url.slice(0, 45) + '...' : aff.affiliate_url}
+                        </a>
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{aff.commission || '—'}</span>
+                      </td>
+                      <td style={tdStyle}>
+                        <button
+                          onClick={() => handleToggleActive(aff)}
+                          style={{
+                            padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
+                            border: 'none', cursor: 'pointer',
+                            background: aff.active ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                            color: aff.active ? 'var(--status-success)' : 'var(--status-error)',
+                          }}
+                        >
+                          {aff.active ? '✅ Active' : '⏸ Paused'}
+                        </button>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => startEdit(aff)} style={actionBtnStyle} title="Edit">✏️</button>
+                          <button onClick={() => handleDelete(aff)} style={{ ...actionBtnStyle, color: 'var(--status-error)' }} title="Delete">🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
+                <button
+                  id="btn-page-prev"
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  style={{ ...paginationBtnStyle, opacity: page === 0 ? 0.4 : 1, cursor: page === 0 ? 'default' : 'pointer' }}
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i)}
+                    style={{
+                      ...paginationBtnStyle,
+                      background: i === page ? 'var(--accent)' : 'var(--bg-hover)',
+                      color: i === page ? '#fff' : 'var(--text-secondary)',
+                      minWidth: 32,
+                    }}
+                  >
+                    {i + 1}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                <button
+                  id="btn-page-next"
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page === totalPages - 1}
+                  style={{ ...paginationBtnStyle, opacity: page === totalPages - 1 ? 0.4 : 1, cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Known Programs (suggestions) */}
+      {/* Known Programs (collapsible) */}
       <div className="card">
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>📋 Known Affiliate Programs</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600 }}>📋 Known Affiliate Programs</h3>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {added.length} added · {unadded.length} available
+          </span>
+        </div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
           AI tools with affiliate programs. Click &quot;Apply&quot; to visit signup, then add your link above.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-          {KNOWN_PROGRAMS.map(prog => {
+          {visiblePrograms.map(prog => {
             const isAdded = affiliates.some(a => a.tool_name.toLowerCase() === prog.name.toLowerCase());
             return (
               <div
@@ -407,6 +469,20 @@ export default function AffiliatesPage() {
             );
           })}
         </div>
+        {hasMore && (
+          <button
+            id="btn-toggle-programs"
+            onClick={() => setShowAllPrograms(!showAllPrograms)}
+            style={{
+              display: 'block', width: '100%', marginTop: 12, padding: '8px 0',
+              background: 'transparent', border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            {showAllPrograms ? '▲ Show Less' : `▼ Show All ${sortedPrograms.length} Programs`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -435,6 +511,13 @@ const tdStyle: React.CSSProperties = {
 
 const actionBtnStyle: React.CSSProperties = {
   padding: '4px 8px', fontSize: 13, background: 'transparent',
+  border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)',
+  cursor: 'pointer', transition: 'all 0.15s',
+};
+
+const paginationBtnStyle: React.CSSProperties = {
+  padding: '4px 12px', fontSize: 12, fontWeight: 600,
+  background: 'var(--bg-hover)', color: 'var(--text-secondary)',
   border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)',
   cursor: 'pointer', transition: 'all 0.15s',
 };
