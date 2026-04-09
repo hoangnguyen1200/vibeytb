@@ -640,9 +640,10 @@ export async function recordWebsiteScroll(
         console.log(`[Input Hunter] Pressed Enter on input`);
 
         await page.waitForTimeout(1000);
+        let wasClicked = false;
         try {
           // Scope button search tightly to the input's vicinity to avoid clicking random CTAs
-          const wasClicked = await inputLocator.evaluate((el) => {
+          wasClicked = await inputLocator.evaluate((el) => {
             let current = el.parentElement;
             let clicked = false;
             // Search up to 3 levels up for a button near the input
