@@ -46,12 +46,19 @@ export interface KnownAffiliateProgram {
  * Add your referral URL here after signing up for each program.
  */
 export const AFFILIATE_REGISTRY: Record<string, AffiliateEntry> = {
-  // Example (uncomment + replace with your real link after signup):
-  // 'elevenlabs': {
-  //   name: 'ElevenLabs',
-  //   affiliateUrl: 'https://elevenlabs.io/?via=techhustlelabs',
-  //   commission: '22% recurring (12 months)',
-  //   signupUrl: 'https://elevenlabs.io/affiliates',
+  'elevenlabs': {
+    name: 'ElevenLabs',
+    affiliateUrl: 'https://try.elevenlabs.io/usuat31azvbv',
+    commission: '22% recurring (12 months)',
+    signupUrl: 'https://elevenlabs.io/affiliates',
+    active: true,
+  },
+  // HeyGen — pending approval
+  // 'heygen': {
+  //   name: 'HeyGen',
+  //   affiliateUrl: 'https://www.heygen.com/?via=YOUR_ID',
+  //   commission: '35% (3 months)',
+  //   signupUrl: 'https://www.heygen.com/affiliate-program',
   //   active: true,
   // },
 };
