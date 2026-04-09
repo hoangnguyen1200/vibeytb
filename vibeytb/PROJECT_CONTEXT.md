@@ -15,6 +15,43 @@ Pipeline 4 phase:
 3. **Producer**: TTS + Playwright recording + FFmpeg stitching
 4. **Publisher**: Upload lên YouTube + TikTok (sequential, graceful fallback)
 
+## 🗺️ Architecture Registry — Ai sở hữu gì?
+
+> **PHẢI đọc bảng này TRƯỚC khi thêm/sửa bất kỳ constant hay logic nào.**
+> Rule chi tiết: `.agent/rules/pre-change-check.md`
+
+### Shared Modules (Single Source of Truth)
+
+| Domain | Owner File | Exports chính | ⚠️ Cấm hardcode |
+|--------|-----------|---------------|-----------------|
+| Video dimensions | `utils/video-config.ts` | `VIDEO_WIDTH`, `VIDEO_HEIGHT`, `VIDEO_FPS` | `1080`, `1920`, `30` |
+| Encoding/bitrate | `utils/video-config.ts` | `VBR_TARGET`, `VBR_MIN`, `VBR_MAX`, `VBR_BUFSIZE` | `'-b:v 3.5M'` |
+| Audio settings | `utils/video-config.ts` | `AUDIO_BITRATE`, `AUDIO_SAMPLE_RATE` | `'128k'`, `48000` |
+| Subtitle style | `utils/video-config.ts` | `SUB_FONTSIZE`, `SUB_MARGIN_V`, `SUB_MARGIN_LR` | Giá trị trong ASS header |
+| FFmpeg helpers | `utils/video-config.ts` | `colorSource()`, `PAD_FILTER_OPTIONS`, `VBR_OUTPUT_OPTIONS` | Lavfi string thủ công |
+| Channel branding | `utils/branding.ts` | `CHANNEL_HANDLE`, `LINKTREE_URL`, `DEFAULT_HASHTAGS` | `@TechHustleLabs` |
+| Discord footer | `utils/branding.ts` | `DISCORD_FOOTER`, `DISCORD_DIGEST_FOOTER` | Footer string trực tiếp |
+| FFmpeg binary | `utils/ffmpeg.ts` | `ffmpeg`, `ffmpegPath`, `ffprobePath` | Import `@ffmpeg-installer` trực tiếp |
+| Font detection | `utils/font-detect.ts` | `detectFont()`, `fontParam()` | Font logic riêng |
+| Stealth browser | `utils/playwright.ts` | `launchStealthBrowser()`, `CROP_OUTPUT`, `DEFAULT_VIEWPORT` | Viewport hardcode |
+| Discord notify | `utils/notifier.ts` | `notifyDiscord()`, `notifyDailyDigest()` | Gọi webhook trực tiếp |
+
+### Agent Files (Logic Owner)
+
+| Logic | Owner File | Notes |
+|-------|-----------|-------|
+| YouTube description footer | `the-orchestrator.ts` L617-630 | `youtube-uploader.ts` chỉ pass-through |
+| Pinned comment templates | `youtube-uploader.ts` L34-66 | 4 rotating templates |
+| ASS subtitle generation | `tts-client.ts` | Dùng constants từ `video-config.ts` |
+| Scene merge (FFmpeg) | `media-stitcher.ts` `mergeAudioVideoScene()` | Dùng VBR từ `video-config.ts` |
+| Scene concat (FFmpeg) | `media-stitcher.ts` `concatScenes()` | Dùng VBR từ `video-config.ts` |
+| Outro CTA clip | `outro-generator.ts` | Dùng branding + video-config |
+| Thumbnail generation | `thumbnail-generator.ts` | Dùng shared `fontParam()` |
+| Video QC validation | `qc-video.ts` | Dùng `VIDEO_WIDTH`/`VIDEO_HEIGHT` |
+| Input Hunter interaction | `playwright-recorder.ts` | Dual-Submit V4 + SMART_QUERIES |
+| Tool discovery | `tool-discovery.ts` | Gemini AI Search |
+| Script generation | `generator.ts` | Gemini structured output |
+
 ## 💰 Ngân Sách
 
 **$0** — Dự án không có vốn. Tất cả services phải miễn phí.
