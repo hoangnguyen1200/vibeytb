@@ -10,6 +10,7 @@
  */
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { hasKnownAffiliateProgram } from '../../utils/affiliate-registry';
 
 export interface DiscoveredTool {
   name: string;
@@ -305,6 +306,7 @@ const VIDEO_BOOST_KEYWORDS = [
  *   Tagline quality:  0-15 based on description length
  *   Name quality:     0-10 based on memorability (short = better)
  *   Video keywords:   +5 if tagline contains video-friendly terms
+ *   Affiliate boost:  +15 if tool has a known affiliate program
  */
 function scoreTool(tool: DiscoveredTool): number {
   let score = 0;
@@ -330,6 +332,13 @@ function scoreTool(tool: DiscoveredTool): number {
   // 5. Video-friendly keywords — tools that sound exciting
   const tagLower = (tool.tagline || '').toLowerCase();
   if (VIDEO_BOOST_KEYWORDS.some(kw => tagLower.includes(kw))) score += 5;
+
+  // 6. Affiliate boost — prioritize tools with monetization potential
+  const affiliateProg = hasKnownAffiliateProgram(tool.name, tool.websiteUrl);
+  if (affiliateProg) {
+    score += 15;
+    console.log(`  💰 [Score] +15 affiliate boost: ${tool.name} (${affiliateProg.commission})`);
+  }
 
   return score;
 }

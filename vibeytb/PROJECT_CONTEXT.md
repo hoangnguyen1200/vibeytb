@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Code dedup refactor: video-config.ts + branding.ts + shared fontParam)
+> Cập nhật lần cuối: 2026-04-09 (Affiliate link integration + scoring boost)
 
 ---
 
@@ -35,12 +35,13 @@ Pipeline 4 phase:
 | Font detection | `utils/font-detect.ts` | `detectFont()`, `fontParam()` | Font logic riêng |
 | Stealth browser | `utils/playwright.ts` | `launchStealthBrowser()`, `CROP_OUTPUT`, `DEFAULT_VIEWPORT` | Viewport hardcode |
 | Discord notify | `utils/notifier.ts` | `notifyDiscord()`, `notifyDailyDigest()` | Gọi webhook trực tiếp |
+| Affiliate links | `utils/affiliate-registry.ts` | `resolveAffiliateUrl()`, `hasKnownAffiliateProgram()`, `KNOWN_AFFILIATE_PROGRAMS` | Hardcode affiliate URLs |
 
 ### Agent Files (Logic Owner)
 
 | Logic | Owner File | Notes |
 |-------|-----------|-------|
-| YouTube description footer | `the-orchestrator.ts` L617-630 | `youtube-uploader.ts` chỉ pass-through |
+| YouTube description footer | `the-orchestrator.ts` L618-637 | `youtube-uploader.ts` chỉ pass-through, affiliate URL resolved here |
 | Pinned comment templates | `youtube-uploader.ts` L34-66 | 4 rotating templates |
 | ASS subtitle generation | `tts-client.ts` | Dùng constants từ `video-config.ts` |
 | Scene merge (FFmpeg) | `media-stitcher.ts` `mergeAudioVideoScene()` | Dùng VBR từ `video-config.ts` |

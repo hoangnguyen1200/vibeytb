@@ -17,7 +17,8 @@ import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
-import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS } from '../utils/branding';
+import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
+import { resolveAffiliateUrl } from '../utils/affiliate-registry';
 
 type Mode = 'cron' | 'worker' | 'all';
 
@@ -597,6 +598,12 @@ export class TheMasterOrchestrator {
     const toolUrl = scenes.find(s => typeof s.target_website_url === 'string')?.target_website_url as string | undefined;
     const toolName = scenes.find(s => typeof s.tool_name === 'string')?.tool_name as string | undefined;
 
+    // Affiliate: resolve direct URL → affiliate URL (or UTM-tagged fallback)
+    const { url: resolvedUrl, isAffiliate } = resolveAffiliateUrl(toolName || '', toolUrl || '');
+    if (isAffiliate) {
+      console.log(`[AFFILIATE] 💰 Using affiliate link for ${toolName}: ${resolvedUrl}`);
+    }
+
     // SEO: Auto-inject tool name into tags if LLM forgot
     if (toolName) {
       const toolLower = toolName.toLowerCase();
@@ -618,7 +625,7 @@ export class TheMasterOrchestrator {
     const descParts = [
       cleanDesc,
       '',
-      toolUrl ? `🔗 Try it: ${toolUrl}` : '',
+      resolvedUrl ? `🔗 Try it: ${resolvedUrl}` : '',
       toolName ? `📌 Tool featured: ${toolName}` : '',
       '',
       `👉 Follow ${CHANNEL_HANDLE} for daily AI tool reviews!`,
@@ -627,6 +634,8 @@ export class TheMasterOrchestrator {
       `🔗 All links: ${LINKTREE_URL}`,
       '',
       `${DEFAULT_HASHTAGS} ${toolHashtag}`.trim(),
+      // FTC disclosure — only when affiliate link is present
+      ...(isAffiliate ? ['', `📋 ${AFFILIATE_DISCLOSURE}`] : []),
     ].filter(Boolean);
     const desc = descParts.join('\n');
 
@@ -675,7 +684,7 @@ export class TheMasterOrchestrator {
     if (hasYouTube) {
       try {
         console.log('[PHASE 4] ▶ Uploading to YouTube...');
-        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, toolUrl, toolName, toolTagline);
+        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, resolvedUrl || toolUrl, toolName, toolTagline);
         console.log(`[PHASE 4] ✅ YouTube upload OK: ${youtubeUrl}`);
         this.logEntry(4, 'info', `🎬 YouTube published: ${youtubeUrl}`);
       } catch (ytErr: unknown) {
@@ -692,7 +701,7 @@ export class TheMasterOrchestrator {
     if (hasTikTok) {
       try {
         console.log('[PHASE 4] ▶ Uploading to TikTok...');
-        tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, toolUrl, toolName);
+        tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, resolvedUrl || toolUrl, toolName);
         console.log(`[PHASE 4] ✅ TikTok upload OK: ${tiktokUrl}`);
         this.logEntry(4, 'info', `📱 TikTok published: ${tiktokUrl}`);
       } catch (ttErr: unknown) {

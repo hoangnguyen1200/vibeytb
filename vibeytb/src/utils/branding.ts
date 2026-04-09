@@ -11,3 +11,6 @@ export const DEFAULT_HASHTAGS = '#shorts #ai #aitools #tech #trending #productiv
 /** Discord embed footer text */
 export const DISCORD_FOOTER = `VibeYtb Pipeline • ${CHANNEL_HANDLE}`;
 export const DISCORD_DIGEST_FOOTER = `VibeYtb Daily Digest • ${CHANNEL_HANDLE}`;
+
+/** Affiliate disclosure (FTC / YouTube compliance) */
+export const AFFILIATE_DISCLOSURE = 'Some links above are affiliate links — we may earn a small commission at no extra cost to you.';
