@@ -99,9 +99,10 @@ export async function mergeAudioVideoScene(
         '-preset fast',
         // VBR mode: -b:v target, -minrate floor, -maxrate ceiling.
         // CRF 18 was quality-correct but produced 0.7-1.3 Mbps on static UI
-        // (CRF ignores -minrate). VBR guarantees minimum 2M for YouTube quality.
-        '-b:v 3M',
-        '-minrate 2M',
+        // (CRF ignores -minrate). VBR guarantees minimum for YouTube quality.
+        // 2M floor hit on ElevenLabs (2.02 Mbps) → raised to 2.5M (2026-04-09)
+        '-b:v 3.5M',
+        '-minrate 2.5M',
         '-maxrate 8M',
         '-bufsize 16M',
         '-pix_fmt yuv420p',

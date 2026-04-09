@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Subtitle VTT→ASS bottom fix + Dashboard views consistency)
+> Cập nhật lần cuối: 2026-04-09 (Subtitle font 17→28 + Thumbnail fontfile escape fix + Bitrate 2M→2.5M)
 
 ---
 
@@ -336,7 +336,7 @@ Final video 1080×1920 9:16
 - **URL Resolution**: Gemini tools có URL sẵn. CSE tools: extract tool name từ article title → resolve via Gemini + Google Search grounding → fallback `guessWebsiteUrl()`
 - **URL Verification**: 2-layer (alive + content relevance) — wrong URLs auto-skip
 - **Visual cascade**: Website Recording (Layer 1) → Pexels Stock (Layer 3). Layer 2 removed
-- **Subtitle overlay**: Chuyển từ VTT → **ASS format** (2026-04-08). Style baked vào ASS header: `Fontname=Arial,Fontsize=17,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `Alignment=2` (bottom-center) + `MarginV=200` (y≈1720) + `MarginL/R=80` + `PlayResX/Y=1080x1920`. Dùng native `ass` filter (không `subtitles` + `force_style` — không đáng tin cậy với WebVTT input)
+- **Subtitle overlay**: ASS format (2026-04-08). Style baked vào ASS header: `Fontname=Arial,Fontsize=28,Bold=1` + `BorderStyle=4` (semi-transparent dark box) + `Alignment=2` (bottom-center) + `MarginV=200` (y≈1720) + `MarginL/R=80` + `PlayResX/Y=1080x1920`. Dùng native `ass` filter. Font 17→28 (2026-04-09): 17 quá nhỏ trên mobile Shorts
 - **SKIP_UPLOAD**: Chỉ active khi `$env:SKIP_UPLOAD='true'` — không ảnh hưởng GitHub Actions
 - **UPLOAD_PENDING**: Video produced but upload failed/skipped — set `UPLOAD_PENDING` thay vì `FAILED` để retry sau
 - **Video recording**: Viewport 1080×1200 compact desktop → PRE-WARM (load + wait 4s) → FFmpeg `-ss 2` (skip initial frames) → scale 1080w → pad 1080×1920 (9:16). NO horizontal crop → full website visible
@@ -592,3 +592,23 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | `tts-client.ts` | `convertEdgeJsonToVtt()` → `convertEdgeJsonToAss()` + `msToAssTimestamp()` |
 | `media-stitcher.ts` | `subtitles` filter → `ass` filter, remove `force_style` |
 | `dashboard/page.tsx` | `views_24h` → `views_latest ?? views_24h` |
+
+### Pipeline ElevenLabs Analysis Fixes (2026-04-09)
+
+**Subtitle font size** (user feedback: gần invisible trên mobile):
+- Root cause: `Fontsize=17` trên canvas 1920px cao = quá nhỏ. YouTube auto-captions ở TOP gây nhầm lẫn
+- Fix: `Fontsize=17` → `28` (viral Shorts standard: 24-32px trên 1080×1920)
+
+**Thumbnail crash** (Pass 2 `Error reinitializing filters`):
+- Root cause: `fontParam()` escape `:` trong Windows path (`C:\\:`) → FFmpeg drawtext crash
+- Fix: Remove colon escaping — `execSync` raw `-vf "..."` handles `C:/path` natively
+
+**Bitrate floor** (2.02 Mbps on static UI):
+- Root cause: VBR `-minrate 2M` hit floor on ElevenLabs (mostly text/static)
+- Fix: `-b:v 3M → 3.5M`, `-minrate 2M → 2.5M`
+
+| File | Change |
+|------|--------|
+| `tts-client.ts` | ASS header `Fontsize=17` → `28` |
+| `thumbnail-generator.ts` | `fontParam()` remove colon escaping |
+| `media-stitcher.ts` | VBR `-b:v 3.5M -minrate 2.5M` |

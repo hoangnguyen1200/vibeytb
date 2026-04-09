@@ -7,11 +7,14 @@ import { detectFont } from '../../utils/font-detect';
 /**
  * Build the font parameter string for drawtext.
  * Uses fontfile= with absolute path (reliable across all OS).
+ * NOTE: No colon escaping needed here — the entire -vf filter is
+ * wrapped in quotes by execSync, so C:/path works as-is.
  */
 function fontParam(): string {
   const { fontfile, fontname } = detectFont();
   if (fontfile) {
-    const escaped = fontfile.replace(/\\/g, '/').replace(/:/g, '\\\\:');
+    // Forward slashes only — no colon escaping for execSync raw commands
+    const escaped = fontfile.replace(/\\/g, '/');
     return `fontfile='${escaped}'`;
   }
   if (fontname) {
