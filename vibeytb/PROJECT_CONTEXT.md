@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Affiliate link integration + scoring boost)
+> Cập nhật lần cuối: 2026-04-09 (Affiliate dashboard CRUD + Supabase table + DB-backed resolver)
 
 ---
 
