@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
+import { analyzeTopPerformers, selectWeightedTitleStyle } from '../../utils/engagement-analyzer';
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
@@ -175,9 +176,17 @@ export async function generateScriptFromTrend(keyword: string, language: string 
     try {
       console.log(`🧠 [Gemini] Scripting for keyword: "${keyword}" (Target: ${language}, Tone: ${tone})... (Remaining retries: ${retries})`);
 
-      // A/B Title Style — random per run
-      const titleStyle = TITLE_STYLES[Math.floor(Math.random() * TITLE_STYLES.length)];
-      console.log(`[A/B TITLE] Using style: "${titleStyle.id}"`);
+      // A/B Title Style — weighted by engagement performance
+      let titleStyleId: string;
+      try {
+        const insights = await analyzeTopPerformers();
+        titleStyleId = selectWeightedTitleStyle(insights.titleStyleWeights);
+      } catch {
+        // Fallback to random if engagement analysis fails
+        titleStyleId = TITLE_STYLES[Math.floor(Math.random() * TITLE_STYLES.length)].id;
+      }
+      const titleStyle = TITLE_STYLES.find(s => s.id === titleStyleId) || TITLE_STYLES[0];
+      console.log(`[A/B TITLE] Using style: "${titleStyle.id}" (engagement-weighted)`);
       
       let prompt = `Current Trending Keyword: "${keyword}". Please craft an engaging video script immediately!
       Target Language/Locale: ${language}

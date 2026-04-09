@@ -11,6 +11,7 @@
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { hasKnownAffiliateProgram } from '../../utils/affiliate-registry';
+import { analyzeTopPerformers, matchesTopCategory, type EngagementInsights } from '../../utils/engagement-analyzer';
 
 export interface DiscoveredTool {
   name: string;
@@ -308,7 +309,7 @@ const VIDEO_BOOST_KEYWORDS = [
  *   Video keywords:   +5 if tagline contains video-friendly terms
  *   Affiliate boost:  +15 if tool has a known affiliate program
  */
-function scoreTool(tool: DiscoveredTool): number {
+function scoreTool(tool: DiscoveredTool, insights?: EngagementInsights): number {
   let score = 0;
 
   // 1. URL reliability — pre-resolved URLs (gemini-search, google-cse) are reliable
@@ -338,6 +339,14 @@ function scoreTool(tool: DiscoveredTool): number {
   if (affiliateProg) {
     score += 15;
     console.log(`  💰 [Score] +15 affiliate boost: ${tool.name} (${affiliateProg.commission})`);
+  }
+
+  // 7. Engagement boost — prioritize categories that perform well historically
+  if (insights && insights.topCategories.length > 0) {
+    if (matchesTopCategory(tool.name, tool.tagline, insights.topCategories)) {
+      score += 20;
+      console.log(`  📈 [Score] +20 engagement boost: ${tool.name} (matches top category)`);
+    }
   }
 
   return score;
@@ -370,8 +379,16 @@ export async function pickBestTool(
 
   if (candidates.length === 0) return null;
 
-  // Step 2: Score and sort (highest score first)
-  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool) }));
+  // Step 2: Load engagement insights (cached, 1 DB query)
+  let insights: EngagementInsights | undefined;
+  try {
+    insights = await analyzeTopPerformers();
+  } catch (err) {
+    console.warn('[Picker] ⚠️ Engagement analysis failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
+
+  // Step 3: Score and sort (highest score first)
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insights) }));
   scored.sort((a, b) => b.score - a.score);
 
   // Log top 5 candidates with scores
@@ -426,7 +443,15 @@ export async function pickTopTools(
 
   if (candidates.length === 0) return [];
 
-  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool) }));
+  // Load engagement insights (uses same cache as pickBestTool)
+  let insightsForTop: EngagementInsights | undefined;
+  try {
+    insightsForTop = await analyzeTopPerformers();
+  } catch {
+    // Non-fatal — score without engagement data
+  }
+
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insightsForTop) }));
   scored.sort((a, b) => b.score - a.score);
 
   console.log(`[Picker] 📊 Top candidates (${candidates.length} total):`);

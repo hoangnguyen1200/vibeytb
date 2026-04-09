@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Affiliate dashboard CRUD + Supabase table + DB-backed resolver)
+> Cập nhật lần cuối: 2026-04-09 (Engagement-driven content selection + weighted title styles)
 
 ---
 
@@ -36,6 +36,7 @@ Pipeline 4 phase:
 | Stealth browser | `utils/playwright.ts` | `launchStealthBrowser()`, `CROP_OUTPUT`, `DEFAULT_VIEWPORT` | Viewport hardcode |
 | Discord notify | `utils/notifier.ts` | `notifyDiscord()`, `notifyDailyDigest()` | Gọi webhook trực tiếp |
 | Affiliate links | `utils/affiliate-registry.ts` | `resolveAffiliateUrl()`, `hasKnownAffiliateProgram()`, `KNOWN_AFFILIATE_PROGRAMS` | Hardcode affiliate URLs |
+| Engagement analysis | `utils/engagement-analyzer.ts` | `analyzeTopPerformers()`, `matchesTopCategory()`, `selectWeightedTitleStyle()` | Hardcode category logic |
 
 ### Agent Files (Logic Owner)
 
@@ -110,7 +111,9 @@ scoreTool():
   Tagline quality:  0-15 (length ≥ 40 = 15pts)
   Name quality:     0-10 (length ≤ 12 = 10pts)
   Video keywords:   +5 ("AI", "free", "automation", etc.)
-  Max: 100pts
+  Affiliate boost:  +15 (has known affiliate program)
+  Engagement boost: +20 (matches top-performing category by views/day)
+  Max: 135pts
 ```
 
 ### URL Verification (3-layer)
@@ -323,6 +326,8 @@ Final video 1080×1920 9:16
 89. **Gemini exponential backoff (A2)**: Retry delay upgraded from flat 2s to exponential 3s→6s→12s. Rate limit (429) waits 15s. Transient network errors (ECONNRESET) retry at 2s. Better recovery from API instability (2026-04-03)
 90. **Pipeline run logging (A3)**: Orchestrator now writes to `pipeline_runs` table — INSERT at start (status=running), UPDATE at end (completed/failed + duration + error). Dashboard Pipeline History auto-populates (2026-04-03)
 91. **Error categorization (A4)**: New `categorizeError()` classifies failures into 7 types: gemini_rate_limit, gemini_api, playwright_timeout, ffmpeg, network, visual_qc, database, unknown. Category included in error_logs + Discord notifications for faster debugging (2026-04-03)
+92. **Affiliate system**: Supabase `affiliate_links` table + dashboard CRUD `/affiliates` + DB-backed resolver `resolveAffiliateUrlFromDb()` + performance tracking (clicks/signups/earnings) + retroactive description/comment updater scripts. ElevenLabs live on YouTube (2026-04-09)
+93. **Engagement-driven content selection**: New `engagement-analyzer.ts` analyzes past video performance (views/day normalized by age). Scoring criterion #7: +20 boost for tools matching top-performing categories. Title style selection now weighted by historical performance instead of random. Cached per pipeline run (2026-04-09)
 
 ## 🚨 Platform Status (tính đến 2026-04-07)
 
