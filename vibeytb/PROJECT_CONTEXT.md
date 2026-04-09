@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-09 (Subtitle font 17→28 + Thumbnail fontfile escape fix + Bitrate 2M→2.5M)
+> Cập nhật lần cuối: 2026-04-09 (Input Hunter V4 + Anti-duplicate queries + Subtitle/Thumbnail/Bitrate fixes)
 
 ---
 
@@ -612,3 +612,18 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | `tts-client.ts` | ASS header `Fontsize=17` → `28` |
 | `thumbnail-generator.ts` | `fontParam()` remove colon escaping |
 | `media-stitcher.ts` | VBR `-b:v 3.5M -minrate 2.5M` |
+
+### Input Hunter V4 + Anti-duplicate Queries (2026-04-09)
+
+**Input Hunter V4** (ElevenLabs: type → nothing happens × 4 scenes):
+- Root cause: Dual-Submit Engine chỉ tìm `button[type="submit"]` → bỏ sót "Generate", "Create", "Run", "Send" (common cho AI tools)
+- Fix 1: Mở rộng querySelector thêm `[aria-label*="generate" i]`, `[class*="generate" i]`, etc.
+- Fix 2: Thêm page-wide fallback — nếu không tìm thấy button gần input, tìm `button:has-text("Generate")` trên toàn page
+
+**Anti-duplicate queries** (Scene 1 = Scene 4 = "create something amazing with AI"):
+- Root cause: `SMART_QUERIES` là 1 string duy nhất, khi Gemini trả null thì cả 4 scenes dùng chung
+- Fix: Đổi thành mảng 4 queries, rotate theo `sceneIndex % queries.length`
+
+| File | Change |
+|------|--------|
+| `playwright-recorder.ts` | SMART_QUERIES string→string[], Dual-Submit V3→V4, page-wide fallback |

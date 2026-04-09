@@ -5,11 +5,22 @@ import { Browser, BrowserContext, Page } from 'playwright-chromium';
 
 type InputType = 'url' | 'email' | 'search' | 'text';
 
-const SMART_QUERIES: Record<InputType, string> = {
-  url: 'https://example.com',
-  email: 'demo@example.com',
-  search: 'create something amazing with AI',
-  text: 'create something amazing with AI',
+// Rotated per sceneIndex to avoid duplicate queries across scenes
+const SMART_QUERIES: Record<InputType, string[]> = {
+  url: ['https://example.com', 'https://mysite.io', 'https://demo.app', 'https://startup.co'],
+  email: ['demo@example.com', 'test@company.io', 'user@startup.co', 'hello@myapp.dev'],
+  search: [
+    'best AI tools for productivity in 2026',
+    'how to automate my workflow with AI',
+    'create a professional presentation about tech',
+    'design a modern landing page for startup',
+  ],
+  text: [
+    'create something amazing with AI',
+    'write a creative story about the future',
+    'generate a professional email template',
+    'build a simple app for my business',
+  ],
 };
 
 function detectInputType(attrs: Record<string, string>): InputType {
@@ -616,7 +627,8 @@ export async function recordWebsiteScroll(
           'aria-label': el.getAttribute('aria-label') || '',
         }));
         const inputType = detectInputType(inputAttrs);
-        const query = searchQuery || SMART_QUERIES[inputType];
+        const queries = SMART_QUERIES[inputType];
+        const query = searchQuery || queries[sceneIndex % queries.length];
         console.log(`[Input Hunter] Detected type: ${inputType}, query: "${query}"`);
 
         await inputLocator.waitFor({ state: 'visible', timeout: 5000 });
@@ -635,8 +647,15 @@ export async function recordWebsiteScroll(
             let clicked = false;
             // Search up to 3 levels up for a button near the input
             for (let i = 0; i < 3 && current && !clicked; i++) {
-              // V3: Strictly target Search/Submit to avoid clicking "Attach" or "Voice" buttons
-              const btn = current.querySelector('button[type="submit"], input[type="submit"], [aria-label*="search" i], [aria-label*="submit" i], [class*="search" i]');
+              // V4: Expanded to detect AI tool action buttons (Generate, Create, Run, Send)
+              const btn = current.querySelector(
+                'button[type="submit"], input[type="submit"], ' +
+                '[aria-label*="search" i], [aria-label*="submit" i], ' +
+                '[aria-label*="generate" i], [aria-label*="create" i], ' +
+                '[aria-label*="send" i], [aria-label*="run" i], ' +
+                '[class*="search" i], [class*="submit" i], ' +
+                '[class*="generate" i], [class*="send" i]'
+              );
               if (btn && !btn.hasAttribute('disabled') && btn !== el) {
                 (btn as HTMLElement).click();
                 clicked = true;
@@ -651,6 +670,28 @@ export async function recordWebsiteScroll(
           }
         } catch (sendErr: unknown) {
           console.warn('[Input Hunter] Dual-Submit Engine failed.', sendErr);
+        }
+
+        // Fallback: If no button found near input, try page-wide action buttons
+        if (!wasClicked) {
+          const actionButtonSelectors = [
+            'button:has-text("Generate")', 'button:has-text("Create")',
+            'button:has-text("Run")', 'button:has-text("Send")',
+            'button:has-text("Go")', 'button:has-text("Start")',
+            'button:has-text("Submit")', 'button:has-text("Search")',
+            'button[aria-label*="send" i]', 'button[aria-label*="generate" i]',
+          ];
+          for (const sel of actionButtonSelectors) {
+            try {
+              const btn = page.locator(sel).first();
+              if ((await btn.count()) > 0 && (await btn.isVisible())) {
+                await btn.click({ force: true, timeout: 2000 });
+                wasClicked = true;
+                console.log(`[Input Hunter] 🎯 Clicked action button: ${sel}`);
+                break;
+              }
+            } catch { /* skip */ }
+          }
         }
 
         // Step 4: Validation check — wait for error to appear then scan DOM
