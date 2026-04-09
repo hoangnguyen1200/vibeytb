@@ -278,3 +278,82 @@ export function getAffiliateStats(): {
     activeNames: active.map((e) => e.name),
   };
 }
+
+// ─── Supabase-backed resolution (for pipeline runtime) ─────────────────────
+
+/** In-memory cache of DB affiliates (refreshed per pipeline run) */
+let _dbCache: AffiliateEntry[] | null = null;
+
+/**
+ * Load affiliate links from Supabase `affiliate_links` table.
+ * Caches result in memory for the duration of the pipeline run.
+ * Falls back to hardcoded AFFILIATE_REGISTRY if DB is unavailable.
+ */
+export async function loadAffiliatesFromDb(): Promise<AffiliateEntry[]> {
+  if (_dbCache) return _dbCache;
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error('No Supabase credentials');
+
+    const supabase = createClient(url, key);
+    const { data, error } = await supabase
+      .from('affiliate_links')
+      .select('tool_name, affiliate_url, commission, signup_url, active')
+      .eq('active', true);
+
+    if (error) throw error;
+
+    _dbCache = (data ?? []).map((row) => ({
+      name: row.tool_name,
+      affiliateUrl: row.affiliate_url,
+      commission: row.commission || '',
+      signupUrl: row.signup_url || '',
+      active: row.active,
+    }));
+
+    console.log(`[AFFILIATE] 📦 Loaded ${_dbCache.length} affiliate links from DB`);
+    return _dbCache;
+  } catch (err) {
+    console.warn(`[AFFILIATE] ⚠️ DB unavailable, using hardcoded registry: ${(err as Error).message?.slice(0, 60)}`);
+    _dbCache = Object.values(AFFILIATE_REGISTRY).filter((e) => e.active);
+    return _dbCache;
+  }
+}
+
+/**
+ * Resolve affiliate URL using Supabase DB (async version).
+ * Call this from the pipeline orchestrator for up-to-date links.
+ *
+ * Priority:
+ * 1. DB match (by tool name)
+ * 2. Hardcoded AFFILIATE_REGISTRY match
+ * 3. UTM fallback
+ */
+export async function resolveAffiliateUrlFromDb(
+  toolName: string,
+  directUrl: string,
+): Promise<{ url: string; isAffiliate: boolean }> {
+  if (!directUrl) return { url: '', isAffiliate: false };
+
+  const dbAffiliates = await loadAffiliatesFromDb();
+  const key = toolName.toLowerCase().trim();
+
+  // 1. DB match by name
+  const dbMatch = dbAffiliates.find(
+    (a) => a.name.toLowerCase().trim() === key,
+  );
+  if (dbMatch?.affiliateUrl) {
+    return { url: dbMatch.affiliateUrl, isAffiliate: true };
+  }
+
+  // 2. Fallback to sync resolver (hardcoded + UTM)
+  return resolveAffiliateUrl(toolName, directUrl);
+}
+
+/** Reset DB cache (call at start of each pipeline run) */
+export function resetAffiliateCache(): void {
+  _dbCache = null;
+}

@@ -18,7 +18,7 @@ import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleC
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
 import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
-import { resolveAffiliateUrl } from '../utils/affiliate-registry';
+import { resolveAffiliateUrlFromDb, resetAffiliateCache } from '../utils/affiliate-registry';
 
 type Mode = 'cron' | 'worker' | 'all';
 
@@ -599,7 +599,7 @@ export class TheMasterOrchestrator {
     const toolName = scenes.find(s => typeof s.tool_name === 'string')?.tool_name as string | undefined;
 
     // Affiliate: resolve direct URL → affiliate URL (or UTM-tagged fallback)
-    const { url: resolvedUrl, isAffiliate } = resolveAffiliateUrl(toolName || '', toolUrl || '');
+    const { url: resolvedUrl, isAffiliate } = await resolveAffiliateUrlFromDb(toolName || '', toolUrl || '');
     if (isAffiliate) {
       console.log(`[AFFILIATE] 💰 Using affiliate link for ${toolName}: ${resolvedUrl}`);
     }
