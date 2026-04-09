@@ -9,8 +9,13 @@ interface AffiliateLink {
   direct_url: string;
   commission: string;
   signup_url: string;
+  dashboard_url: string;
   active: boolean;
   notes: string;
+  monthly_clicks: number;
+  monthly_signups: number;
+  monthly_earnings: number;
+  last_synced_at: string | null;
   created_at: string;
 }
 
@@ -29,7 +34,7 @@ const KNOWN_PROGRAMS = [
   { name: 'AdCreative.ai', signup: 'https://www.adcreative.ai/affiliate', commission: '30% lifetime' },
 ];
 
-const emptyForm = { tool_name: '', affiliate_url: '', direct_url: '', commission: '', signup_url: '', notes: '' };
+const emptyForm = { tool_name: '', affiliate_url: '', direct_url: '', commission: '', signup_url: '', dashboard_url: '', notes: '' };
 
 const PAGE_SIZE = 5;
 
@@ -43,6 +48,8 @@ export default function AffiliatesPage() {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(0);
   const [showAllPrograms, setShowAllPrograms] = useState(false);
+  const [editingPerf, setEditingPerf] = useState<AffiliateLink | null>(null);
+  const [perfForm, setPerfForm] = useState({ monthly_clicks: 0, monthly_signups: 0, monthly_earnings: 0 });
 
   const fetchAffiliates = useCallback(async () => {
     try {
@@ -127,10 +134,41 @@ export default function AffiliatesPage() {
       direct_url: aff.direct_url || '',
       commission: aff.commission || '',
       signup_url: aff.signup_url || '',
+      dashboard_url: aff.dashboard_url || '',
       notes: aff.notes || '',
     });
     setEditingId(aff.id);
     setShowForm(true);
+  }
+
+  function startPerfEdit(aff: AffiliateLink) {
+    setPerfForm({
+      monthly_clicks: aff.monthly_clicks || 0,
+      monthly_signups: aff.monthly_signups || 0,
+      monthly_earnings: aff.monthly_earnings || 0,
+    });
+    setEditingPerf(aff);
+  }
+
+  async function handlePerfSave() {
+    if (!editingPerf) return;
+    try {
+      await fetch('/api/affiliates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingPerf.id,
+          ...perfForm,
+          last_synced_at: new Date().toISOString(),
+        }),
+      });
+      setMessage({ type: 'success', text: `✅ Updated performance for ${editingPerf.tool_name}` });
+      setEditingPerf(null);
+      await fetchAffiliates();
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to update performance' });
+    }
+    clearMessage();
   }
 
   function prefillFromKnown(prog: typeof KNOWN_PROGRAMS[0]) {
@@ -147,6 +185,8 @@ export default function AffiliatesPage() {
   const activeCount = affiliates.filter(a => a.active).length;
   const totalPages = Math.max(1, Math.ceil(affiliates.length / PAGE_SIZE));
   const pagedAffiliates = affiliates.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalEarnings = affiliates.reduce((sum, a) => sum + (Number(a.monthly_earnings) || 0), 0);
+  const totalClicks = affiliates.reduce((sum, a) => sum + (a.monthly_clicks || 0), 0);
 
   const INITIAL_PROGRAMS_SHOWN = 4;
   const unadded = KNOWN_PROGRAMS.filter(p => !affiliates.some(a => a.tool_name.toLowerCase() === p.name.toLowerCase()));
@@ -163,14 +203,18 @@ export default function AffiliatesPage() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div className="card" style={{ padding: '16px 20px', textAlign: 'center' }}>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent)' }}>{activeCount}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Active Links</div>
         </div>
         <div className="card" style={{ padding: '16px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{affiliates.length}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Total Registered</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{totalClicks}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Monthly Clicks</div>
+        </div>
+        <div className="card" style={{ padding: '16px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--status-success)' }}>${totalEarnings.toFixed(2)}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Monthly Earnings</div>
         </div>
         <div className="card" style={{ padding: '16px 20px', textAlign: 'center' }}>
           <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--status-warning)' }}>{KNOWN_PROGRAMS.length - affiliates.length}</div>
@@ -266,6 +310,16 @@ export default function AffiliatesPage() {
                 />
               </div>
               <div>
+                <label style={labelStyle}>Dashboard URL</label>
+                <input
+                  id="input-dashboard-url"
+                  style={inputStyle}
+                  placeholder="https://elevenlabs.io/affiliate-dashboard"
+                  value={form.dashboard_url}
+                  onChange={e => setForm({ ...form, dashboard_url: e.target.value })}
+                />
+              </div>
+              <div>
                 <label style={labelStyle}>Notes</label>
                 <input
                   id="input-notes"
@@ -315,8 +369,9 @@ export default function AffiliatesPage() {
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <th style={thStyle}>Tool</th>
-                    <th style={thStyle}>Affiliate URL</th>
-                    <th style={thStyle}>Commission</th>
+                    <th style={thStyle}>Clicks</th>
+                    <th style={thStyle}>Signups</th>
+                    <th style={thStyle}>Earnings</th>
                     <th style={thStyle}>Status</th>
                     <th style={thStyle}>Actions</th>
                   </tr>
@@ -325,20 +380,22 @@ export default function AffiliatesPage() {
                   {pagedAffiliates.map(aff => (
                     <tr key={aff.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td style={tdStyle}>
-                        <span style={{ fontWeight: 600 }}>{aff.tool_name}</span>
+                        <div>
+                          <span style={{ fontWeight: 600 }}>{aff.tool_name}</span>
+                          <br />
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{aff.commission || '—'}</span>
+                        </div>
                       </td>
-                      <td style={tdStyle}>
-                        <a
-                          href={aff.affiliate_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 12, wordBreak: 'break-all' }}
-                        >
-                          {aff.affiliate_url.length > 45 ? aff.affiliate_url.slice(0, 45) + '...' : aff.affiliate_url}
-                        </a>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{aff.monthly_clicks || 0}</span>
                       </td>
-                      <td style={tdStyle}>
-                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{aff.commission || '—'}</span>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{aff.monthly_signups || 0}</span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--status-success)' }}>
+                          ${Number(aff.monthly_earnings || 0).toFixed(2)}
+                        </span>
                       </td>
                       <td style={tdStyle}>
                         <button
@@ -354,7 +411,11 @@ export default function AffiliatesPage() {
                         </button>
                       </td>
                       <td style={tdStyle}>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={() => startPerfEdit(aff)} style={actionBtnStyle} title="Update Performance">📊</button>
+                          {aff.dashboard_url && (
+                            <a href={aff.dashboard_url} target="_blank" rel="noopener noreferrer" style={{ ...actionBtnStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }} title="Open Dashboard">🔗</a>
+                          )}
                           <button onClick={() => startEdit(aff)} style={actionBtnStyle} title="Edit">✏️</button>
                           <button onClick={() => handleDelete(aff)} style={{ ...actionBtnStyle, color: 'var(--status-error)' }} title="Delete">🗑️</button>
                         </div>
@@ -484,6 +545,84 @@ export default function AffiliatesPage() {
           </button>
         )}
       </div>
+
+      {/* Performance Edit Modal */}
+      {editingPerf && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div className="card" style={{ width: 420, maxWidth: '90vw', padding: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+              📊 Update Performance — {editingPerf.tool_name}
+            </h3>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+              Enter data from the affiliate platform dashboard.
+              {editingPerf.last_synced_at && (
+                <> Last updated: {new Date(editingPerf.last_synced_at).toLocaleDateString()}</>
+              )}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={labelStyle}>Monthly Clicks</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="0"
+                  value={perfForm.monthly_clicks}
+                  onChange={e => setPerfForm({ ...perfForm, monthly_clicks: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Monthly Signups</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="0"
+                  value={perfForm.monthly_signups}
+                  onChange={e => setPerfForm({ ...perfForm, monthly_signups: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Monthly Earnings ($)</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={perfForm.monthly_earnings}
+                  onChange={e => setPerfForm({ ...perfForm, monthly_earnings: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setEditingPerf(null)}
+                style={{
+                  padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                  background: 'var(--bg-hover)', color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePerfSave}
+                style={{
+                  padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                  background: 'var(--accent)', color: '#fff',
+                  border: 'none', borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                💾 Save Performance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
