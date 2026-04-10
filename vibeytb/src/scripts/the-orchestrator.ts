@@ -17,7 +17,7 @@ import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
-import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
+import { CHANNEL_HANDLE, LINKTREE_URL, TOOLS_PAGE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
 import { resolveAffiliateUrlFromDb, loadAffiliatesFromDb } from '../utils/affiliate-registry';
 
 type Mode = 'cron' | 'worker' | 'all';
@@ -656,6 +656,7 @@ export class TheMasterOrchestrator {
       '🔔 Turn on notifications to never miss a new discovery.',
       '📅 New AI tool review uploaded EVERY DAY',
       `🔗 All links: ${LINKTREE_URL}`,
+      `🤖 All AI tools I recommend: ${TOOLS_PAGE_URL}`,
       '',
       `${DEFAULT_HASHTAGS} ${toolHashtag}`.trim(),
       // FTC disclosure — only when affiliate link is present

@@ -19,6 +19,7 @@ export default function ConditionalLayout({
 }) {
   const pathname = usePathname();
   const isAuthPage = pathname === '/login' || pathname.startsWith('/auth');
+  const isPublicPage = pathname === '/tools' || pathname.startsWith('/go/');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -26,11 +27,12 @@ export default function ConditionalLayout({
   const bellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isAuthPage || isPublicPage) return;
     fetch('/api/notifications')
       .then(r => r.json())
       .then(d => setNotifs(d.notifications ?? []))
       .catch(() => {});
-  }, []);
+  }, [isAuthPage, isPublicPage]);
 
   // Close on click outside
   const handleClickOutside = useCallback((e: MouseEvent) => {
@@ -60,7 +62,7 @@ export default function ConditionalLayout({
     return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  if (isAuthPage) {
+  if (isAuthPage || isPublicPage) {
     return <>{children}</>;
   }
 

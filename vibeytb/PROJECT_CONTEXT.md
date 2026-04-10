@@ -337,6 +337,7 @@ Final video 1080×1920 9:16
 100. **Auto-save pending affiliates**: When Gemini detects affiliate program, orchestrator auto-inserts to `affiliate_links` table (active=false, pending). Discord alert when affiliate tool publishes without registered referral URL (2026-04-10)
 101. **Smart affiliate scoring**: Tiered boost — +30 for tools with registered referral URL in DB (active), +10 for detected-but-not-registered (pending). `enrichAffiliateStatus()` checks DB before scoring (2026-04-10)
 102. **Subtitle font size fix**: `SUB_FONTSIZE` 28→52 in `video-config.ts`. Font 28 was nearly invisible on actual YouTube Shorts playback (confirmed via published video). 52 matches professional Shorts channels for readability on mobile (2026-04-10)
+103. **Public tools directory**: `/tools` page — public landing page listing all active affiliate tools. No login required. Server-side rendered, SEO optimized. `/go/[slug]` redirect route with click tracking. Every video description now links to tools page for evergreen affiliate traffic (2026-04-10)
 
 ## 🚨 Platform Status (tính đến 2026-04-07)
 
