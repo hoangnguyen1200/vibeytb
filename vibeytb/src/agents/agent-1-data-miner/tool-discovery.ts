@@ -10,8 +10,90 @@
  */
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { hasKnownAffiliateProgram } from '../../utils/affiliate-registry';
 import { analyzeTopPerformers, matchesTopCategory, type EngagementInsights } from '../../utils/engagement-analyzer';
+
+// ─── Dynamic Affiliate Detection ────────────────────────────────────────────
+
+export interface AffiliateDetection {
+  hasAffiliate: boolean;
+  commission?: string;
+  signupUrl?: string;
+}
+
+/**
+ * Use Gemini to dynamically detect which discovered tools have affiliate programs.
+ * Returns a Map of tool name (lowercase) → affiliate info.
+ *
+ * No hardcoded list — Gemini searches its knowledge to find programs.
+ * If the API call fails, returns empty Map (scoring continues without boost).
+ */
+export async function detectAffiliatePrograms(
+  tools: DiscoveredTool[]
+): Promise<Map<string, AffiliateDetection>> {
+  const result = new Map<string, AffiliateDetection>();
+  if (tools.length === 0) return result;
+
+  const toolList = tools.map(t => `- ${t.name} (${t.websiteUrl})`).join('\n');
+
+  const prompt = `You are an affiliate marketing researcher.
+Given these AI tools, identify which ones have an affiliate/referral program.
+
+Tools:
+${toolList}
+
+For EACH tool, respond in this exact JSON format:
+[
+  { "name": "ToolName", "hasAffiliate": true, "commission": "30% recurring", "signupUrl": "https://..." },
+  { "name": "ToolName2", "hasAffiliate": false }
+]
+
+Rules:
+- Only mark hasAffiliate: true if you are CONFIDENT the program exists
+- Include the actual signup URL if known
+- If unsure, mark hasAffiliate: false
+- Respond with ONLY the JSON array, no other text`;
+
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('No GEMINI_API_KEY');
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const response = await model.generateContent(prompt);
+    const text = response.response.text().trim();
+
+    // Parse JSON (handle markdown code blocks)
+    const jsonStr = text.replace(/```json?\s*/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(jsonStr) as Array<{
+      name: string;
+      hasAffiliate: boolean;
+      commission?: string;
+      signupUrl?: string;
+    }>;
+
+    let affiliateCount = 0;
+    for (const item of parsed) {
+      result.set(item.name.toLowerCase().trim(), {
+        hasAffiliate: item.hasAffiliate,
+        commission: item.commission,
+        signupUrl: item.signupUrl,
+      });
+      if (item.hasAffiliate) affiliateCount++;
+    }
+
+    console.log(`[AFFILIATE DETECT] 🔍 Gemini found ${affiliateCount}/${tools.length} tools with affiliate programs`);
+    for (const [name, info] of result) {
+      if (info.hasAffiliate) {
+        console.log(`  💰 ${name}: ${info.commission || 'unknown'} — ${info.signupUrl || 'URL unknown'}`);
+      }
+    }
+  } catch (err) {
+    console.warn('[AFFILIATE DETECT] ⚠️ Gemini check failed (non-fatal):',
+      (err as Error).message?.slice(0, 80));
+  }
+
+  return result;
+}
 
 export interface DiscoveredTool {
   name: string;
@@ -307,9 +389,14 @@ const VIDEO_BOOST_KEYWORDS = [
  *   Tagline quality:  0-15 based on description length
  *   Name quality:     0-10 based on memorability (short = better)
  *   Video keywords:   +5 if tagline contains video-friendly terms
- *   Affiliate boost:  +15 if tool has a known affiliate program
+ *   Affiliate boost:  +30 if Gemini detected an affiliate program (dynamic)
+ *   Engagement boost: +20 if matches top-performing category
  */
-function scoreTool(tool: DiscoveredTool, insights?: EngagementInsights): number {
+function scoreTool(
+  tool: DiscoveredTool,
+  insights?: EngagementInsights,
+  affiliateMap?: Map<string, AffiliateDetection>,
+): number {
   let score = 0;
 
   // 1. URL reliability — pre-resolved URLs (gemini-search, google-cse) are reliable
@@ -334,11 +421,11 @@ function scoreTool(tool: DiscoveredTool, insights?: EngagementInsights): number 
   const tagLower = (tool.tagline || '').toLowerCase();
   if (VIDEO_BOOST_KEYWORDS.some(kw => tagLower.includes(kw))) score += 5;
 
-  // 6. Affiliate boost — prioritize tools with monetization potential
-  const affiliateProg = hasKnownAffiliateProgram(tool.name, tool.websiteUrl);
-  if (affiliateProg) {
-    score += 15;
-    console.log(`  💰 [Score] +15 affiliate boost: ${tool.name} (${affiliateProg.commission})`);
+  // 6. Affiliate boost — dynamic detection via Gemini API
+  const affiliateInfo = affiliateMap?.get(tool.name.toLowerCase().trim());
+  if (affiliateInfo?.hasAffiliate) {
+    score += 30;
+    console.log(`  💰 [Score] +30 affiliate boost: ${tool.name} (${affiliateInfo.commission || 'detected'})`);
   }
 
   // 7. Engagement boost — prioritize categories that perform well historically
@@ -365,7 +452,8 @@ function scoreTool(tool: DiscoveredTool, insights?: EngagementInsights): number 
  */
 export async function pickBestTool(
   tools: DiscoveredTool[],
-  avoidNames: string[]
+  avoidNames: string[],
+  affiliateMap?: Map<string, AffiliateDetection>,
 ): Promise<DiscoveredTool | null> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
@@ -388,7 +476,7 @@ export async function pickBestTool(
   }
 
   // Step 3: Score and sort (highest score first)
-  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insights) }));
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insights, affiliateMap) }));
   scored.sort((a, b) => b.score - a.score);
 
   // Log top 5 candidates with scores
@@ -430,7 +518,8 @@ export async function pickBestTool(
 export async function pickTopTools(
   tools: DiscoveredTool[],
   avoidNames: string[],
-  topN: number = 3
+  topN: number = 3,
+  affiliateMap?: Map<string, AffiliateDetection>,
 ): Promise<DiscoveredTool[]> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
@@ -451,7 +540,7 @@ export async function pickTopTools(
     // Non-fatal — score without engagement data
   }
 
-  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insightsForTop) }));
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insightsForTop, affiliateMap) }));
   scored.sort((a, b) => b.score - a.score);
 
   console.log(`[Picker] 📊 Top candidates (${candidates.length} total):`);

@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-10 (Thumbnail crash fix + Visual QC 503 + Input Hunter validation)
+> Cập nhật lần cuối: 2026-04-10 (Dynamic affiliate detection via Gemini)
 
 ---
 
@@ -332,6 +332,7 @@ Final video 1080×1920 9:16
 95. **Thumbnail crash fix**: `escapeDrawtext()` was over-escaping for fluent-ffmpeg context when we use execSync. Simplified to minimal `\:` + `%%`. Fixed `Error reinitializing filters` on Sora 2.0 run (2026-04-10)
 96. **Visual QC 503 auto-pass**: Gemini 503 (overloaded/high demand) now treated as transient → model fallback → auto-PASS. Prevents good website recordings from being wasted on stock fallback (2026-04-10)
 97. **Input Hunter validation**: Added size (≥200×25px) + position (in viewport) + context (not in header/nav/footer) checks before typing. Prevents typing random queries on marketing pages like openai.com/sora (2026-04-10)
+98. **Dynamic affiliate detection**: Replaced hardcoded `KNOWN_AFFILIATE_PROGRAMS` (13 entries) with dynamic Gemini API call. After discovering 10 trending tools, Gemini checks which ones have affiliate programs → +30 scoring boost (was +15). No manual maintenance needed — fully automatic (2026-04-10)
 
 ## 🚨 Platform Status (tính đến 2026-04-07)
 

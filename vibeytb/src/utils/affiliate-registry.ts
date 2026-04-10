@@ -26,19 +26,6 @@ export interface AffiliateEntry {
   active: boolean;
 }
 
-export interface KnownAffiliateProgram {
-  /** Tool name */
-  name: string;
-  /** Domains associated with this tool */
-  domains: string[];
-  /** Affiliate program signup URL */
-  signupUrl: string;
-  /** Commission info */
-  commission: string;
-  /** How long does the cookie last */
-  cookieDays: number;
-}
-
 // ─── Your Affiliate Links (fill in after signup) ────────────────────────────
 
 /**
@@ -63,106 +50,6 @@ export const AFFILIATE_REGISTRY: Record<string, AffiliateEntry> = {
   // },
 };
 
-// ─── Known Affiliate Programs (for scoring boost) ──────────────────────────
-
-/**
- * AI tools that have affiliate programs.
- * Used by tool-discovery scoring to PRIORITIZE tools with monetization potential.
- * This list does NOT require you to have signed up — it's for discovery boost only.
- */
-export const KNOWN_AFFILIATE_PROGRAMS: KnownAffiliateProgram[] = [
-  {
-    name: 'ElevenLabs',
-    domains: ['elevenlabs.io'],
-    signupUrl: 'https://elevenlabs.io/affiliates',
-    commission: '22% recurring (12mo)',
-    cookieDays: 90,
-  },
-  {
-    name: 'HeyGen',
-    domains: ['heygen.com'],
-    signupUrl: 'https://www.heygen.com/affiliate-program',
-    commission: '35% (3 months)',
-    cookieDays: 30,
-  },
-  {
-    name: 'Jasper',
-    domains: ['jasper.ai'],
-    signupUrl: 'https://www.jasper.ai/partners',
-    commission: '25-30% recurring (12mo)',
-    cookieDays: 30,
-  },
-  {
-    name: 'Copy.ai',
-    domains: ['copy.ai'],
-    signupUrl: 'https://www.copy.ai/affiliate',
-    commission: '45% recurring (12mo)',
-    cookieDays: 60,
-  },
-  {
-    name: 'Writesonic',
-    domains: ['writesonic.com'],
-    signupUrl: 'https://writesonic.com/affiliate',
-    commission: '30% lifetime recurring',
-    cookieDays: 30,
-  },
-  {
-    name: 'Murf AI',
-    domains: ['murf.ai'],
-    signupUrl: 'https://murf.ai/resources/affiliate-program',
-    commission: '20% recurring (24mo)',
-    cookieDays: 30,
-  },
-  {
-    name: 'AdCreative.ai',
-    domains: ['adcreative.ai'],
-    signupUrl: 'https://www.adcreative.ai/affiliate',
-    commission: '30% lifetime recurring',
-    cookieDays: 30,
-  },
-  {
-    name: 'Synthesia',
-    domains: ['synthesia.io'],
-    signupUrl: 'https://www.synthesia.io/affiliates',
-    commission: '20% recurring',
-    cookieDays: 30,
-  },
-  {
-    name: 'Pictory',
-    domains: ['pictory.ai'],
-    signupUrl: 'https://pictory.ai/affiliates',
-    commission: '20% recurring',
-    cookieDays: 30,
-  },
-  {
-    name: 'Descript',
-    domains: ['descript.com'],
-    signupUrl: 'https://www.descript.com/affiliates',
-    commission: '15% recurring',
-    cookieDays: 30,
-  },
-  {
-    name: 'Runway',
-    domains: ['runwayml.com', 'runway.com'],
-    signupUrl: 'https://runwayml.com/affiliate',
-    commission: '20% recurring',
-    cookieDays: 30,
-  },
-  {
-    name: 'TubeBuddy',
-    domains: ['tubebuddy.com'],
-    signupUrl: 'https://www.tubebuddy.com/affiliates',
-    commission: 'Up to 50% recurring',
-    cookieDays: 365,
-  },
-  {
-    name: 'Luma AI',
-    domains: ['lumalabs.ai'],
-    signupUrl: 'https://lumalabs.ai/affiliate',
-    commission: '20%',
-    cookieDays: 30,
-  },
-];
 
 // ─── UTM Tracking ──────────────────────────────────────────────────────────
 
@@ -243,37 +130,14 @@ export function resolveAffiliateUrl(
 }
 
 /**
- * Check if a tool name or domain has a KNOWN affiliate program.
- * Used by tool-discovery scoring to prioritize monetizable tools.
- */
-export function hasKnownAffiliateProgram(
-  toolName: string,
-  websiteUrl?: string,
-): KnownAffiliateProgram | undefined {
-  const nameLower = toolName.toLowerCase().trim();
-  const domain = websiteUrl ? extractDomain(websiteUrl) : null;
-
-  return KNOWN_AFFILIATE_PROGRAMS.find((prog) => {
-    // Match by name
-    if (prog.name.toLowerCase() === nameLower) return true;
-    if (nameLower.includes(prog.name.toLowerCase())) return true;
-    // Match by domain
-    if (domain && prog.domains.some((d) => domain.includes(d))) return true;
-    return false;
-  });
-}
-
-/**
  * Get summary stats for display.
  */
 export function getAffiliateStats(): {
-  totalKnown: number;
   totalActive: number;
   activeNames: string[];
 } {
   const active = Object.values(AFFILIATE_REGISTRY).filter((e) => e.active);
   return {
-    totalKnown: KNOWN_AFFILIATE_PROGRAMS.length,
     totalActive: active.length,
     activeNames: active.map((e) => e.name),
   };
