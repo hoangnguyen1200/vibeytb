@@ -619,6 +619,24 @@ export async function recordWebsiteScroll(
 
       const hasInput = (await inputLocator.count()) > 0;
       if (hasInput) {
+        // Validate: input must be in main content area, not header/nav/footer
+        const isMainInput = await inputLocator.evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          // Must be visible and reasonably sized (not a tiny hidden search)
+          if (rect.width < 200 || rect.height < 25) return false;
+          // Must be in the visible viewport (not offscreen)
+          if (rect.top < 0 || rect.top > window.innerHeight) return false;
+          // Reject if inside header/nav/footer (site-wide search, login, etc.)
+          const parent = el.closest('header, nav, footer, [role="navigation"], [role="banner"], [role="contentinfo"]');
+          if (parent) return false;
+          return true;
+        }).catch(() => false);
+
+        if (!isMainInput) {
+          console.log('[Input Hunter] ⏭️ Found input but not in main content area — skipping to Demo Hunter.');
+          throw new Error('INPUT_NOT_MAIN');
+        }
+
         // Step 1: Detect input type from DOM attributes
         const inputAttrs = await inputLocator.evaluate((el) => ({
           type: el.getAttribute('type') || '',

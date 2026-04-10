@@ -39,14 +39,15 @@ function pickBadge(tagline: string): string {
 }
 
 /**
- * Escape text for FFmpeg drawtext filter.
+ * Escape text for FFmpeg drawtext filter (execSync + double-quoted -vf "...").
+ * Only escapes characters that break FFmpeg filter syntax.
+ * NOTE: Do NOT pass fontParam() through this — only user-facing text.
  */
 function escapeDrawtext(text: string): string {
   return text
     .replace(/[^\x20-\x7E]/g, '')
-    .replace(/\\/g, '\\\\\\\\')
-    .replace(/'/g, "'\\\\\\\\'")
-    .replace(/:/g, '\\\\:')
+    .replace(/'/g, '\u2019')
+    .replace(/:/g, '\\:')
     .replace(/%/g, '%%');
 }
 

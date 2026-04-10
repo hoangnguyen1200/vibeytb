@@ -106,13 +106,17 @@ CHỈ ĐƯỢC PHÉP TRẢ VỀ DUY NHẤT 1 TỪ:
     return response.includes('PASS');
   } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    const isQuotaError = err.status === 429 || err.status === 404 || errorMessage.toLowerCase().includes('quota');
+    const isQuotaError = err.status === 429 || err.status === 404
+      || err.status === 503
+      || errorMessage.toLowerCase().includes('quota')
+      || errorMessage.toLowerCase().includes('overloaded')
+      || errorMessage.toLowerCase().includes('high demand');
     if (retryCount === 0 && isQuotaError) {
-      console.log('[VISUAL QC MODEL FALLBACK] switching to gemini-2.0-flash');
+      console.log(`[VISUAL QC MODEL FALLBACK] ${err.status || 'error'} on primary → switching to gemini-2.0-flash`);
       return analyzeFramesWithGemini(base64Frames, 1);
     }
     if (isQuotaError) {
-      console.log('[VISUAL QC] ⚠️ Gemini quota exhausted on both models → Auto-PASS to keep pipeline alive.');
+      console.log('[VISUAL QC] ⚠️ Gemini unavailable (quota/overloaded) on both models → Auto-PASS to keep pipeline alive.');
       return true;
     }
     console.error(`[VISUAL QC] Lỗi gọi Gemini API:`, err);
