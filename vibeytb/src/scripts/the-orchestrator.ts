@@ -63,6 +63,7 @@ export class TheMasterOrchestrator {
   private currentToolName = '';
   private currentWebsiteUrl = '';
   private currentDataSource = '';
+  private selectedTool: DiscoveredTool | null = null;
   private pipelineRunId: string | null = null;
   private logBuffer: Map<number, Array<{ ts: string; level: string; msg: string; meta?: Record<string, unknown> }>> = new Map();
   /**
@@ -299,6 +300,13 @@ export class TheMasterOrchestrator {
           tool_url: tool.websiteUrl,
           discovery_source: tool.urlSource,
         });
+
+        this.selectedTool = tool;
+
+        // P0: Auto-save detected affiliate program to DB (pending status)
+        if (tool.hasAffiliate) {
+          await this.savePendingAffiliate(tool);
+        }
 
         try {
           this.logEntry(1, 'info', `✅ Tool verified: ${tool.name}`);
@@ -604,6 +612,19 @@ export class TheMasterOrchestrator {
       console.log(`[AFFILIATE] 💰 Using affiliate link for ${toolName}: ${resolvedUrl}`);
     }
 
+    // P0: Alert when affiliate tool publishes without registered referral URL
+    if (!isAffiliate && this.selectedTool?.hasAffiliate) {
+      console.warn(`[AFFILIATE] ⚠️ MISSED: ${toolName} has affiliate program but no referral URL registered`);
+      await notifyDiscord({
+        status: 'warning',
+        jobId,
+        title: `💰 Affiliate Opportunity Missed: ${toolName} (${this.selectedTool.affiliateCommission || 'detected'})`,
+        toolName,
+        websiteUrl: this.selectedTool.affiliateSignupUrl || toolUrl || '',
+        durationMs: 0,
+      });
+    }
+
     // SEO: Auto-inject tool name into tags if LLM forgot
     if (toolName) {
       const toolLower = toolName.toLowerCase();
@@ -871,6 +892,36 @@ export class TheMasterOrchestrator {
 
     console.log(`[PHASE 1] Total tools discovered: ${allTools.length}`);
     return allTools;
+  }
+
+  /**
+   * Save detected affiliate program to DB if not already registered.
+   * Sets active=false so dashboard shows it as "pending signup".
+   */
+  private async savePendingAffiliate(tool: DiscoveredTool): Promise<void> {
+    try {
+      const { data: existing } = await supabase
+        .from('affiliate_links')
+        .select('id')
+        .ilike('tool_name', tool.name)
+        .maybeSingle();
+
+      if (existing) return; // Already registered (active or pending)
+
+      await supabase.from('affiliate_links').insert([{
+        tool_name: tool.name,
+        affiliate_url: '',
+        direct_url: tool.websiteUrl,
+        commission: tool.affiliateCommission || '',
+        signup_url: tool.affiliateSignupUrl || '',
+        active: false,
+        notes: `Gemini auto-detected (${new Date().toISOString().slice(0, 10)})`,
+      }]);
+
+      console.log(`[AFFILIATE] 📥 Saved pending affiliate: ${tool.name} (${tool.affiliateCommission || 'detected'})`);
+    } catch (err) {
+      console.warn('[AFFILIATE] ⚠️ Failed to save pending:', (err as Error).message?.slice(0, 60));
+    }
   }
 
   /**
