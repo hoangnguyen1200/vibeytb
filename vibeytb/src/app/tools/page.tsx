@@ -21,18 +21,33 @@ interface PublicTool {
 
 async function getPublicTools(): Promise<PublicTool[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-      || process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
+    // Server component — query Supabase directly (no internal fetch needed)
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
 
-    const res = await fetch(`${baseUrl}/api/tools/public`, {
-      next: { revalidate: 300 }, // ISR: 5 minutes
-    });
+    const { data, error } = await supabase
+      .from('affiliate_links')
+      .select('tool_name, direct_url, commission, notes, affiliate_url')
+      .eq('active', true)
+      .order('tool_name', { ascending: true });
 
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.tools ?? [];
+    if (error) throw error;
+
+    return (data ?? [])
+      .filter(t => t.affiliate_url && t.affiliate_url.trim() !== '')
+      .map(t => ({
+        name: t.tool_name,
+        slug: t.tool_name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, ''),
+        url: t.direct_url || '',
+        commission: t.commission || '',
+        description: t.notes || '',
+      }));
   } catch {
     return [];
   }
