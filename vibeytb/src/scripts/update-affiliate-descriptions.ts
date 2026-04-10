@@ -7,7 +7,7 @@
 import 'dotenv/config';
 import { google } from 'googleapis';
 import { resolveAffiliateUrl, AFFILIATE_REGISTRY } from '../utils/affiliate-registry';
-import { AFFILIATE_DISCLOSURE } from '../utils/branding';
+import { AFFILIATE_DISCLOSURE, TOOLS_PAGE_URL, CHANNEL_HANDLE } from '../utils/branding';
 
 // Videos to update — tool name + YouTube video ID
 const VIDEOS_TO_UPDATE = [
@@ -108,6 +108,11 @@ async function updateVideoDescription(
     }
   }
 
+  // Add tools page link if not already present
+  if (!newDesc.includes(TOOLS_PAGE_URL)) {
+    newDesc += `\n🤖 All AI tools I recommend: ${TOOLS_PAGE_URL}`;
+  }
+
   // Add disclosure if not already present
   if (!newDesc.includes('affiliate')) {
     newDesc += `\n\n📋 ${AFFILIATE_DISCLOSURE}`;
@@ -147,11 +152,73 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * Update pinned comment with affiliate link + tools page
+ */
+async function updatePinnedComment(
+  youtube: ReturnType<typeof google.youtube>,
+  videoId: string,
+  toolName: string,
+  affiliateUrl: string,
+) {
+  console.log(`  💬 Updating pinned comment...`);
+
+  const commentText = [
+    `🔗 Try ${toolName} here: ${affiliateUrl}`,
+    `🤖 All AI tools I recommend: ${TOOLS_PAGE_URL}`,
+    '',
+    `👉 Follow ${CHANNEL_HANDLE} for daily AI tool reviews!`,
+    `📋 ${AFFILIATE_DISCLOSURE}`,
+  ].join('\n');
+
+  // List existing comments by channel to find pinned one
+  const { data: threads } = await youtube.commentThreads.list({
+    part: ['snippet'],
+    videoId,
+    order: 'relevance',
+    maxResults: 5,
+  });
+
+  // Find comment by channel (our own comment)
+  const ownComment = threads.items?.find(
+    t => t.snippet?.topLevelComment?.snippet?.authorChannelId?.value
+      && t.snippet?.isPublic !== false
+  );
+
+  if (ownComment?.snippet?.topLevelComment?.id) {
+    // Update existing comment
+    await youtube.comments.update({
+      part: ['snippet'],
+      requestBody: {
+        id: ownComment.snippet.topLevelComment.id,
+        snippet: {
+          textOriginal: commentText,
+        },
+      },
+    });
+    console.log(`  ✅ Pinned comment updated`);
+  } else {
+    // Insert new comment
+    await youtube.commentThreads.insert({
+      part: ['snippet'],
+      requestBody: {
+        snippet: {
+          videoId,
+          topLevelComment: {
+            snippet: { textOriginal: commentText },
+          },
+        },
+      },
+    });
+    console.log(`  ✅ New pinned comment created`);
+  }
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log('═══════════════════════════════════════════════════');
-  console.log('  AFFILIATE DESCRIPTION UPDATER');
+  console.log('  AFFILIATE DESCRIPTION + COMMENT UPDATER');
   console.log('═══════════════════════════════════════════════════');
 
   // Show active affiliates
@@ -168,7 +235,14 @@ async function main() {
   for (const video of VIDEOS_TO_UPDATE) {
     try {
       const ok = await updateVideoDescription(youtube, video.videoId, video.toolName, video.directUrl);
-      if (ok) success++;
+      if (ok) {
+        // Also update pinned comment
+        const { url: affiliateUrl, isAffiliate } = resolveAffiliateUrl(video.toolName, video.directUrl);
+        if (isAffiliate) {
+          await updatePinnedComment(youtube, video.videoId, video.toolName, affiliateUrl);
+        }
+        success++;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`  ❌ Failed: ${msg}`);
