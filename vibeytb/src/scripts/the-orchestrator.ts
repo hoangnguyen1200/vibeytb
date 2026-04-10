@@ -18,7 +18,7 @@ import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleC
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
 import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
-import { resolveAffiliateUrlFromDb, resetAffiliateCache } from '../utils/affiliate-registry';
+import { resolveAffiliateUrlFromDb } from '../utils/affiliate-registry';
 
 type Mode = 'cron' | 'worker' | 'all';
 

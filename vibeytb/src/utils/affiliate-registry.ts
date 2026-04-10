@@ -128,21 +128,6 @@ export function resolveAffiliateUrl(
   // 3. Fallback: UTM tracking on direct URL
   return { url: appendUtm(directUrl), isAffiliate: false };
 }
-
-/**
- * Get summary stats for display.
- */
-export function getAffiliateStats(): {
-  totalActive: number;
-  activeNames: string[];
-} {
-  const active = Object.values(AFFILIATE_REGISTRY).filter((e) => e.active);
-  return {
-    totalActive: active.length,
-    activeNames: active.map((e) => e.name),
-  };
-}
-
 // ─── Supabase-backed resolution (for pipeline runtime) ─────────────────────
 
 /** In-memory cache of DB affiliates (refreshed per pipeline run) */
