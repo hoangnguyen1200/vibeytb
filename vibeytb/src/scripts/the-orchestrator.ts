@@ -14,7 +14,7 @@ import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/m
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
-import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, detectAffiliatePrograms, type DiscoveredTool, type AffiliateDetection } from '../agents/agent-1-data-miner/tool-discovery';
+import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
 import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
@@ -271,10 +271,10 @@ export class TheMasterOrchestrator {
     const recentTools = await this.getRecentlyUsedTools();
 
     // Discovery source: Gemini AI Search only (Google CSE disabled 2026-04-06)
-    const { tools: allTools, affiliateMap } = await this.discoverFromAllSources(recentTools);
+    const allTools = await this.discoverFromAllSources(recentTools);
 
     // A1: Get top 3 verified tools for retry pool
-    const topTools = await pickTopTools(allTools, recentTools, 3, affiliateMap);
+    const topTools = await pickTopTools(allTools, recentTools, 3);
 
     const language = (typeof job.target_language === 'string' && job.target_language.trim()) || 'en-US';
     const tone = (typeof job.tone_of_voice === 'string' && job.tone_of_voice.trim()) || 'casual';
@@ -853,10 +853,10 @@ export class TheMasterOrchestrator {
    * Google CSE was disabled (2026-04-06) — user decision.
    * Returns tool list (unpicked). pickBestTool() runs separately.
    */
-  private async discoverFromAllSources(avoidTools: string[]): Promise<{ tools: DiscoveredTool[]; affiliateMap: Map<string, AffiliateDetection> }> {
+  private async discoverFromAllSources(avoidTools: string[]): Promise<DiscoveredTool[]> {
     const allTools: DiscoveredTool[] = [];
 
-    // Source 1: Gemini AI Search (primary — AI finds trending tools)
+    // Source 1: Gemini AI Search (primary — AI finds trending tools + affiliate detection)
     try {
       const geminiTools = await discoverViaGeminiSearch();
       allTools.push(...geminiTools);
@@ -869,16 +869,8 @@ export class TheMasterOrchestrator {
     const cseTools = await discoverViaGoogleCSE();
     if (cseTools.length > 0) allTools.push(...cseTools);
 
-    // Dynamic Affiliate Detection — Gemini checks which tools have affiliate programs
-    let affiliateMap = new Map<string, AffiliateDetection>();
-    try {
-      affiliateMap = await detectAffiliatePrograms(allTools);
-    } catch (err) {
-      console.warn('[PHASE 1] Affiliate detection failed (non-fatal):', (err as Error).message?.slice(0, 60));
-    }
-
     console.log(`[PHASE 1] Total tools discovered: ${allTools.length}`);
-    return { tools: allTools, affiliateMap };
+    return allTools;
   }
 
   /**

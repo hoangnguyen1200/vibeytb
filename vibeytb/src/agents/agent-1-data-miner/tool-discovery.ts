@@ -12,89 +12,6 @@ import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { analyzeTopPerformers, matchesTopCategory, type EngagementInsights } from '../../utils/engagement-analyzer';
 
-// ─── Dynamic Affiliate Detection ────────────────────────────────────────────
-
-export interface AffiliateDetection {
-  hasAffiliate: boolean;
-  commission?: string;
-  signupUrl?: string;
-}
-
-/**
- * Use Gemini to dynamically detect which discovered tools have affiliate programs.
- * Returns a Map of tool name (lowercase) → affiliate info.
- *
- * No hardcoded list — Gemini searches its knowledge to find programs.
- * If the API call fails, returns empty Map (scoring continues without boost).
- */
-export async function detectAffiliatePrograms(
-  tools: DiscoveredTool[]
-): Promise<Map<string, AffiliateDetection>> {
-  const result = new Map<string, AffiliateDetection>();
-  if (tools.length === 0) return result;
-
-  const toolList = tools.map(t => `- ${t.name} (${t.websiteUrl})`).join('\n');
-
-  const prompt = `You are an affiliate marketing researcher.
-Given these AI tools, identify which ones have an affiliate/referral program.
-
-Tools:
-${toolList}
-
-For EACH tool, respond in this exact JSON format:
-[
-  { "name": "ToolName", "hasAffiliate": true, "commission": "30% recurring", "signupUrl": "https://..." },
-  { "name": "ToolName2", "hasAffiliate": false }
-]
-
-Rules:
-- Only mark hasAffiliate: true if you are CONFIDENT the program exists
-- Include the actual signup URL if known
-- If unsure, mark hasAffiliate: false
-- Respond with ONLY the JSON array, no other text`;
-
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('No GEMINI_API_KEY');
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const response = await model.generateContent(prompt);
-    const text = response.response.text().trim();
-
-    // Parse JSON (handle markdown code blocks)
-    const jsonStr = text.replace(/```json?\s*/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(jsonStr) as Array<{
-      name: string;
-      hasAffiliate: boolean;
-      commission?: string;
-      signupUrl?: string;
-    }>;
-
-    let affiliateCount = 0;
-    for (const item of parsed) {
-      result.set(item.name.toLowerCase().trim(), {
-        hasAffiliate: item.hasAffiliate,
-        commission: item.commission,
-        signupUrl: item.signupUrl,
-      });
-      if (item.hasAffiliate) affiliateCount++;
-    }
-
-    console.log(`[AFFILIATE DETECT] 🔍 Gemini found ${affiliateCount}/${tools.length} tools with affiliate programs`);
-    for (const [name, info] of result) {
-      if (info.hasAffiliate) {
-        console.log(`  💰 ${name}: ${info.commission || 'unknown'} — ${info.signupUrl || 'URL unknown'}`);
-      }
-    }
-  } catch (err) {
-    console.warn('[AFFILIATE DETECT] ⚠️ Gemini check failed (non-fatal):',
-      (err as Error).message?.slice(0, 80));
-  }
-
-  return result;
-}
-
 export interface DiscoveredTool {
   name: string;
   tagline: string;
@@ -102,6 +19,10 @@ export interface DiscoveredTool {
   urlSource: 'gemini-search' | 'google-cse' | 'guess';
   topics: string[];
   popularityScore?: number;
+  /** Dynamic affiliate detection — populated by Gemini Search */
+  hasAffiliate?: boolean;
+  affiliateCommission?: string;
+  affiliateSignupUrl?: string;
 }
 
 
@@ -228,15 +149,20 @@ For each tool found, provide:
 - One-line description of what the tool does
 - Official website URL (the product's own domain)
 - Popularity rating from 1-10 (based on how much buzz/coverage the tool has)
+- Whether the tool has an affiliate/referral program
+- Commission rate and signup URL (if affiliate program exists)
 
 Respond in this exact JSON format (array of objects):
-[{"name": "ToolName", "tagline": "Short description of what it does", "url": "https://example.com", "popularity": 7}]
+[{"name": "ToolName", "tagline": "Short description", "url": "https://example.com", "popularity": 7, "hasAffiliate": true, "commission": "30% recurring", "affiliateSignupUrl": "https://example.com/affiliates"}]
 
 Rules:
 - Focus on AI/ML/LLM tools that are TRENDING or just LAUNCHED in ${year}
 - Only include tools with their OWN website URL (not github.com, twitter.com, producthunt.com, medium.com, linkedin.com)
 - Maximum 10 tools
 - popularity: 1=unknown niche tool, 5=moderate coverage, 10=viral/trending everywhere
+- hasAffiliate: true ONLY if you are CONFIDENT the affiliate program exists. If unsure, set false
+- commission: the commission rate (e.g. "30% recurring", "20% lifetime"). Omit if no affiliate
+- affiliateSignupUrl: the signup page URL for the affiliate program. Omit if no affiliate
 - If you find fewer than 3 tools from today, also include trending AI tools from this week
 - If you cannot find any tools, respond with: []
 - Respond with ONLY the JSON array, no other text`;
@@ -251,7 +177,7 @@ Rules:
       return [];
     }
 
-    const parsed: Array<{ name: string; tagline: string; url: string; popularity?: number }> = JSON.parse(jsonMatch[0]);
+    const parsed: Array<{ name: string; tagline: string; url: string; popularity?: number; hasAffiliate?: boolean; commission?: string; affiliateSignupUrl?: string }> = JSON.parse(jsonMatch[0]);
     const tools: DiscoveredTool[] = parsed
       .filter(t => t.name && t.url && t.url.startsWith('http'))
       .map(t => ({
@@ -260,14 +186,26 @@ Rules:
         websiteUrl: t.url,
         urlSource: 'gemini-search' as const,
         topics: [],
-
-        // Gemini popularity: 1-10 scale → multiply by 5 to match 0-50 range
         popularityScore: Math.min(50, (t.popularity ?? 5) * 5),
+        hasAffiliate: t.hasAffiliate ?? false,
+        affiliateCommission: t.commission,
+        affiliateSignupUrl: t.affiliateSignupUrl,
       }));
 
     console.log(`[Gemini Search] ✅ Found ${tools.length} AI tools`);
     for (const tool of tools) {
       console.log(`  → ${tool.name} — ${tool.tagline.slice(0, 50)}`);
+    }
+
+    // Log affiliate detection results
+    const affiliateTools = tools.filter(t => t.hasAffiliate);
+    if (affiliateTools.length > 0) {
+      console.log(`[Gemini Search] 💰 ${affiliateTools.length} tools have affiliate programs:`);
+      for (const t of affiliateTools) {
+        console.log(`  💰 ${t.name}: ${t.affiliateCommission || 'unknown'} — ${t.affiliateSignupUrl || 'URL unknown'}`);
+      }
+    } else {
+      console.log(`[Gemini Search] ℹ️ No affiliate programs detected in this batch`);
     }
 
     return tools;
@@ -395,7 +333,6 @@ const VIDEO_BOOST_KEYWORDS = [
 function scoreTool(
   tool: DiscoveredTool,
   insights?: EngagementInsights,
-  affiliateMap?: Map<string, AffiliateDetection>,
 ): number {
   let score = 0;
 
@@ -421,11 +358,10 @@ function scoreTool(
   const tagLower = (tool.tagline || '').toLowerCase();
   if (VIDEO_BOOST_KEYWORDS.some(kw => tagLower.includes(kw))) score += 5;
 
-  // 6. Affiliate boost — dynamic detection via Gemini API
-  const affiliateInfo = affiliateMap?.get(tool.name.toLowerCase().trim());
-  if (affiliateInfo?.hasAffiliate) {
+  // 6. Affiliate boost — detected inline by Gemini Search
+  if (tool.hasAffiliate) {
     score += 30;
-    console.log(`  💰 [Score] +30 affiliate boost: ${tool.name} (${affiliateInfo.commission || 'detected'})`);
+    console.log(`  💰 [Score] +30 affiliate boost: ${tool.name} (${tool.affiliateCommission || 'detected'})`);
   }
 
   // 7. Engagement boost — prioritize categories that perform well historically
@@ -453,7 +389,6 @@ function scoreTool(
 export async function pickBestTool(
   tools: DiscoveredTool[],
   avoidNames: string[],
-  affiliateMap?: Map<string, AffiliateDetection>,
 ): Promise<DiscoveredTool | null> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
@@ -476,7 +411,7 @@ export async function pickBestTool(
   }
 
   // Step 3: Score and sort (highest score first)
-  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insights, affiliateMap) }));
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insights) }));
   scored.sort((a, b) => b.score - a.score);
 
   // Log top 5 candidates with scores
@@ -519,7 +454,6 @@ export async function pickTopTools(
   tools: DiscoveredTool[],
   avoidNames: string[],
   topN: number = 3,
-  affiliateMap?: Map<string, AffiliateDetection>,
 ): Promise<DiscoveredTool[]> {
   const avoidLower = avoidNames.map(n => n.toLowerCase().trim());
 
@@ -540,7 +474,7 @@ export async function pickTopTools(
     // Non-fatal — score without engagement data
   }
 
-  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insightsForTop, affiliateMap) }));
+  const scored = candidates.map(tool => ({ tool, score: scoreTool(tool, insightsForTop) }));
   scored.sort((a, b) => b.score - a.score);
 
   console.log(`[Picker] 📊 Top candidates (${candidates.length} total):`);

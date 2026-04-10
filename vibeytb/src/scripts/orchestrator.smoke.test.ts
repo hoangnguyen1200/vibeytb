@@ -225,7 +225,7 @@ describe('Tool Discovery & Verification', () => {
     // Must import discovery functions (CSE is imported but disabled)
     expect(orchSource).toContain('discoverViaGeminiSearch');
     expect(orchSource).toContain('discoverViaGoogleCSE');
-    // Must have dynamic affiliate detection
-    expect(orchSource).toContain('detectAffiliatePrograms');
+    // Affiliate detection is built into Gemini Search prompt (no separate call)
+    expect(orchSource).not.toContain('detectAffiliatePrograms');
   });
 });
