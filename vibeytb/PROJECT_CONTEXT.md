@@ -332,7 +332,10 @@ Final video 1080×1920 9:16
 95. **Thumbnail crash fix**: `escapeDrawtext()` was over-escaping for fluent-ffmpeg context when we use execSync. Simplified to minimal `\:` + `%%`. Fixed `Error reinitializing filters` on Sora 2.0 run (2026-04-10)
 96. **Visual QC 503 auto-pass**: Gemini 503 (overloaded/high demand) now treated as transient → model fallback → auto-PASS. Prevents good website recordings from being wasted on stock fallback (2026-04-10)
 97. **Input Hunter validation**: Added size (≥200×25px) + position (in viewport) + context (not in header/nav/footer) checks before typing. Prevents typing random queries on marketing pages like openai.com/sora (2026-04-10)
-98. **Dynamic affiliate detection**: Gemini Search prompt now also detects affiliate programs inline (1 API call instead of 2). Each discovered tool includes `hasAffiliate`, `affiliateCommission`, `affiliateSignupUrl`. +30 scoring boost for affiliate tools. Removed hardcoded `KNOWN_AFFILIATE_PROGRAMS` (2026-04-10)
+98. **Dynamic affiliate detection**: Gemini Search prompt now also detects affiliate programs inline (1 API call instead of 2). Each discovered tool includes `hasAffiliate`, `affiliateCommission`, `affiliateSignupUrl`. Removed hardcoded `KNOWN_AFFILIATE_PROGRAMS` (2026-04-10)
+99. **Dead code cleanup**: Removed `getAffiliateStats()` (0 callers) and unused `resetAffiliateCache` import from orchestrator (2026-04-10)
+100. **Auto-save pending affiliates**: When Gemini detects affiliate program, orchestrator auto-inserts to `affiliate_links` table (active=false, pending). Discord alert when affiliate tool publishes without registered referral URL (2026-04-10)
+101. **Smart affiliate scoring**: Tiered boost — +30 for tools with registered referral URL in DB (active), +10 for detected-but-not-registered (pending). `enrichAffiliateStatus()` checks DB before scoring (2026-04-10)
 
 ## 🚨 Platform Status (tính đến 2026-04-07)
 

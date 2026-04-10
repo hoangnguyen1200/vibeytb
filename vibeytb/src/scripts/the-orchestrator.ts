@@ -18,7 +18,7 @@ import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleC
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
 import { CHANNEL_HANDLE, LINKTREE_URL, DEFAULT_HASHTAGS, AFFILIATE_DISCLOSURE } from '../utils/branding';
-import { resolveAffiliateUrlFromDb } from '../utils/affiliate-registry';
+import { resolveAffiliateUrlFromDb, loadAffiliatesFromDb } from '../utils/affiliate-registry';
 
 type Mode = 'cron' | 'worker' | 'all';
 
@@ -273,6 +273,9 @@ export class TheMasterOrchestrator {
 
     // Discovery source: Gemini AI Search only (Google CSE disabled 2026-04-06)
     const allTools = await this.discoverFromAllSources(recentTools);
+
+    // P1: Enrich tools with DB affiliate status for smart scoring
+    await this.enrichAffiliateStatus(allTools);
 
     // A1: Get top 3 verified tools for retry pool
     const topTools = await pickTopTools(allTools, recentTools, 3);
@@ -921,6 +924,30 @@ export class TheMasterOrchestrator {
       console.log(`[AFFILIATE] 📥 Saved pending affiliate: ${tool.name} (${tool.affiliateCommission || 'detected'})`);
     } catch (err) {
       console.warn('[AFFILIATE] ⚠️ Failed to save pending:', (err as Error).message?.slice(0, 60));
+    }
+  }
+
+  /**
+   * Check DB for which discovered tools have active referral URLs.
+   * Enriches tool.hasActiveReferralUrl for smart scoring (+30 vs +10).
+   */
+  private async enrichAffiliateStatus(tools: DiscoveredTool[]): Promise<void> {
+    const affiliateTools = tools.filter(t => t.hasAffiliate);
+    if (affiliateTools.length === 0) return;
+
+    try {
+      const dbAffiliates = await loadAffiliatesFromDb();
+      for (const tool of affiliateTools) {
+        const match = dbAffiliates.find(
+          a => a.name.toLowerCase().trim() === tool.name.toLowerCase().trim()
+        );
+        // Only mark as active if there's an actual referral URL (not just pending)
+        tool.hasActiveReferralUrl = !!(match?.affiliateUrl);
+      }
+      const activeCount = affiliateTools.filter(t => t.hasActiveReferralUrl).length;
+      console.log(`[AFFILIATE] 🔍 Enriched ${affiliateTools.length} affiliate tools (${activeCount} with registered URLs)`);
+    } catch (err) {
+      console.warn('[AFFILIATE] ⚠️ Enrichment failed (non-fatal):', (err as Error).message?.slice(0, 60));
     }
   }
 

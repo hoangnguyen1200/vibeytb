@@ -23,6 +23,8 @@ export interface DiscoveredTool {
   hasAffiliate?: boolean;
   affiliateCommission?: string;
   affiliateSignupUrl?: string;
+  /** True when tool has registered referral URL in DB — set by orchestrator enrichment */
+  hasActiveReferralUrl?: boolean;
 }
 
 
@@ -358,10 +360,15 @@ function scoreTool(
   const tagLower = (tool.tagline || '').toLowerCase();
   if (VIDEO_BOOST_KEYWORDS.some(kw => tagLower.includes(kw))) score += 5;
 
-  // 6. Affiliate boost — detected inline by Gemini Search
+  // 6. Affiliate boost — tiered: active referral URL > pending detection
   if (tool.hasAffiliate) {
-    score += 30;
-    console.log(`  💰 [Score] +30 affiliate boost: ${tool.name} (${tool.affiliateCommission || 'detected'})`);
+    if (tool.hasActiveReferralUrl) {
+      score += 30;
+      console.log(`  💰 [Score] +30 active affiliate: ${tool.name} (${tool.affiliateCommission || 'registered'})`);
+    } else {
+      score += 10;
+      console.log(`  📋 [Score] +10 pending affiliate: ${tool.name} (not yet registered)`);
+    }
   }
 
   // 7. Engagement boost — prioritize categories that perform well historically
