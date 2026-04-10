@@ -43,7 +43,7 @@ function convertEdgeJsonToAss(jsonPath: string, assPath: string) {
   // ASS header with bottom-center positioning baked in
   // PlayResX/Y = target video resolution (1080x1920 portrait)
   // Alignment=2 = bottom-center (ASS standard)
-  // Fontsize=28 = readable on mobile (17 was nearly invisible on Shorts)
+  // Fontsize=52 = large, readable on mobile Shorts (28 was too small on actual YouTube playback)
   // MarginV=200 = 200px from bottom edge → subtitle at y≈1720 (safe zone)
   const assHeader = `[Script Info]
 Title: VibeYtb Subtitles

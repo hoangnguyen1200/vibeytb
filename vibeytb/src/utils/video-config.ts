@@ -18,7 +18,8 @@ export const AUDIO_BITRATE = '128k';
 export const AUDIO_SAMPLE_RATE = 48000;
 
 // === Subtitle (ASS format) ===
-export const SUB_FONTSIZE = 28;
+// Font size 28 was nearly invisible on Shorts — increased to 52 for readability
+export const SUB_FONTSIZE = 52;
 export const SUB_MARGIN_V = 200;
 export const SUB_MARGIN_LR = 80;
 
