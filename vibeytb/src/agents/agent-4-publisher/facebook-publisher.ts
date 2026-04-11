@@ -345,14 +345,17 @@ STYLE: ${style.toUpperCase()}
 ${styleGuide[style]}
 
 RULES:
-- Length: 150-250 words MAX (this is social media, not a blog)
-- Tone: Casual, enthusiastic but honest. Like texting a friend about a cool tool
-- Use emojis naturally (not every line)
+- Length: 200-300 words (enough to inform, short enough to read on mobile)
+- First line MUST be a scroll-stopper — bold, curious, or surprising
+- Tone: Casual, enthusiastic but honest. Like a friend recommending over coffee
+- Use emojis sparingly — max 5-6 total, placed naturally
+- Include 1 specific detail or number to build credibility (e.g., "30+ languages", "free tier up to 10k chars")
+- End with a clear verdict or recommendation (not just "check it out")
 - DO NOT include links or hashtags (those are added separately)
-- DO NOT mention "affiliate" or "sponsored"
-- DO NOT use generic AI phrases like "In today's rapidly evolving landscape"
+- DO NOT mention "affiliate", "sponsored", or "commission"
+- DO NOT use generic AI phrases like "In today's rapidly evolving landscape" or "game-changer"
 - Write in English
-- Each review MUST feel different from previous ones — vary your opening, structure, and tone`;
+- Each review MUST feel unique — vary your opening, structure, and personality`;
 
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
