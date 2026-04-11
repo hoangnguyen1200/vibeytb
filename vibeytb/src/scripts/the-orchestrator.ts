@@ -735,8 +735,13 @@ export class TheMasterOrchestrator {
       try {
         console.log('[PHASE 4] ▶ Uploading to TikTok...');
         tiktokUrl = await uploadToTikTok(jobId, finalVideoOutput, title, tags, resolvedUrl || toolUrl, toolName);
-        console.log(`[PHASE 4] ✅ TikTok upload OK: ${tiktokUrl}`);
-        this.logEntry(4, 'info', `📱 TikTok published: ${tiktokUrl}`);
+        if (tiktokUrl) {
+          console.log(`[PHASE 4] ✅ TikTok upload OK: ${tiktokUrl}`);
+          this.logEntry(4, 'info', `📱 TikTok published: ${tiktokUrl}`);
+        } else {
+          console.log('[PHASE 4] ⚠️ TikTok returned no URL — treating as skipped');
+          tiktokUrl = '';
+        }
       } catch (ttErr: unknown) {
         const ttMsg = ttErr instanceof Error ? ttErr.message : String(ttErr);
         console.error(`[PHASE 4] ❌ TikTok upload failed: ${ttMsg}`);
