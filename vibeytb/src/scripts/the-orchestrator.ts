@@ -759,7 +759,8 @@ export class TheMasterOrchestrator {
           || (scriptData as Record<string, unknown>)?.hook as string
           || `Check out ${toolName} — an amazing AI tool! 🔥`;
 
-        const reelCaption = buildReelCaption(toolName, scriptHook, resolvedUrl);
+        const fbToolName = toolName || 'AI Tool';
+        const reelCaption = buildReelCaption(fbToolName, scriptHook, resolvedUrl);
         const reelResult = await publishFacebookReel(finalVideoOutput, reelCaption);
         if (reelResult.success) {
           fbReelId = reelResult.videoId || '';
@@ -769,11 +770,11 @@ export class TheMasterOrchestrator {
         // Generate mini-review via Gemini (varied blog-style format)
         const scriptText = typeof (scriptData as Record<string, unknown>)?.script === 'string'
           ? ((scriptData as Record<string, unknown>).script as string).slice(0, 800)
-          : `${toolName} is an incredible AI tool that can transform your workflow.`;
+          : `${fbToolName} is an incredible AI tool that can transform your workflow.`;
 
-        const miniReview = await generateFbMiniReview(toolName, scriptText, toolUrl);
-        const postDesc = buildPostDescription(toolName, miniReview, resolvedUrl);
-        const postResult = await publishFacebookPost(finalVideoOutput, `${toolName} — AI Tool Review`, postDesc);
+        const miniReview = await generateFbMiniReview(fbToolName, scriptText, toolUrl);
+        const postDesc = buildPostDescription(fbToolName, miniReview, resolvedUrl);
+        const postResult = await publishFacebookPost(finalVideoOutput, `${fbToolName} — AI Tool Review`, postDesc);
         if (postResult.success) {
           fbPostId = postResult.postId || '';
           this.logEntry(4, 'info', `📝 FB Post published: ${fbPostId}`);
