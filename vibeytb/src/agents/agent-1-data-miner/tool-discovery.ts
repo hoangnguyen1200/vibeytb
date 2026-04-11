@@ -162,9 +162,9 @@ Rules:
 - Only include tools with their OWN website URL (not github.com, twitter.com, producthunt.com, medium.com, linkedin.com)
 - Maximum 10 tools
 - popularity: 1=unknown niche tool, 5=moderate coverage, 10=viral/trending everywhere
-- hasAffiliate: true ONLY if you are CONFIDENT the affiliate program exists. If unsure, set false
-- commission: the commission rate (e.g. "30% recurring", "20% lifetime"). Omit if no affiliate
-- affiliateSignupUrl: the signup page URL for the affiliate program. Omit if no affiliate
+- hasAffiliate: ACTIVELY CHECK each tool's website for affiliate/partner/referral programs. Look for URLs like /affiliate, /partners, /referral, /partner-program, /earn. Set true if the tool likely has ANY kind of partner or referral program
+- commission: the commission rate (e.g. "30% recurring", "20% lifetime"). If program exists but rate unknown, use "unknown"
+- affiliateSignupUrl: the signup/info page URL for the affiliate/partner program
 - If you find fewer than 3 tools from today, also include trending AI tools from this week
 - If you cannot find any tools, respond with: []
 - Respond with ONLY the JSON array, no other text`;
