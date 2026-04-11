@@ -21,6 +21,11 @@ import {
   generateFbMiniReview,
   isFacebookConfigured,
 } from '../agents/agent-4-publisher/facebook-publisher';
+import {
+  publishInstagramReel,
+  buildInstagramCaption,
+  isInstagramConfigured,
+} from '../agents/agent-4-publisher/instagram-publisher';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
@@ -794,6 +799,38 @@ export class TheMasterOrchestrator {
       }
     } else {
       console.log('[PHASE 4] ⏭ Facebook skipped (no credentials)');
+    }
+
+    // 4) Instagram Reel
+    let igReelId = '';
+    let igPermalink = '';
+    if (isInstagramConfigured()) {
+      try {
+        console.log('[PHASE 4] ▶ Publishing to Instagram...');
+        const igToolName = toolName || 'AI Tool';
+        const igHook = (scriptData as Record<string, unknown>)?.__hook as string
+          || (scriptData as Record<string, unknown>)?.hook as string
+          || `Check out ${igToolName} — an amazing AI tool! 🔥`;
+
+        const igCaption = buildInstagramCaption(igToolName, igHook, resolvedUrl);
+        const igResult = await publishInstagramReel(finalVideoOutput, igCaption);
+        if (igResult.success) {
+          igReelId = igResult.mediaId || '';
+          igPermalink = igResult.permalink || '';
+          console.log(`[PHASE 4] ✅ Instagram Reel published: ${igPermalink || igReelId}`);
+          this.logEntry(4, 'info', `📸 IG Reel published: ${igPermalink || igReelId}`);
+        } else {
+          console.log(`[PHASE 4] ⚠️ Instagram Reel failed: ${igResult.error}`);
+          uploadErrors.push(`Instagram: ${igResult.error}`);
+        }
+      } catch (igErr: unknown) {
+        const igMsg = igErr instanceof Error ? igErr.message : String(igErr);
+        console.error(`[PHASE 4] ❌ Instagram failed: ${igMsg}`);
+        uploadErrors.push(`Instagram: ${igMsg}`);
+        this.logEntry(4, 'error', `❌ Instagram failed: ${igMsg.slice(0, 100)}`);
+      }
+    } else {
+      console.log('[PHASE 4] ⏭ Instagram skipped (no credentials)');
     }
 
     // ── Determine final status ──────────────────────────────────────────
