@@ -18,6 +18,7 @@ import {
   publishFacebookPost,
   buildReelCaption,
   buildPostDescription,
+  generateFbMiniReview,
   isFacebookConfigured,
 } from '../agents/agent-4-publisher/facebook-publisher';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
@@ -765,12 +766,13 @@ export class TheMasterOrchestrator {
           this.logEntry(4, 'info', `📱 FB Reel published: ${fbReelId}`);
         }
 
-        // Build post review from script (longer format)
-        const scriptSummary = typeof (scriptData as Record<string, unknown>)?.script === 'string'
-          ? ((scriptData as Record<string, unknown>).script as string).slice(0, 500)
-          : `${toolName} is an incredible AI tool that can transform your workflow. Watch the full review above!`;
+        // Generate mini-review via Gemini (varied blog-style format)
+        const scriptText = typeof (scriptData as Record<string, unknown>)?.script === 'string'
+          ? ((scriptData as Record<string, unknown>).script as string).slice(0, 800)
+          : `${toolName} is an incredible AI tool that can transform your workflow.`;
 
-        const postDesc = buildPostDescription(toolName, scriptSummary, resolvedUrl);
+        const miniReview = await generateFbMiniReview(toolName, scriptText, toolUrl);
+        const postDesc = buildPostDescription(toolName, miniReview, resolvedUrl);
         const postResult = await publishFacebookPost(finalVideoOutput, `${toolName} — AI Tool Review`, postDesc);
         if (postResult.success) {
           fbPostId = postResult.postId || '';

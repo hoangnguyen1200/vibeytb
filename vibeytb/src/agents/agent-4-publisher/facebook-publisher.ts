@@ -292,6 +292,89 @@ export function buildPostDescription(
   return parts.join('\n');
 }
 
+// ─── Gemini Mini-Review Generator ──────────────────────────────────────────
+
+const REVIEW_STYLES = [
+  'newsletter', // Quick newsletter-style review
+  'listicle',   // Feature-focused bullet points
+  'story',      // Personal experience narrative
+  'versus',     // Compare with alternatives
+  'quicktake',  // Rapid verdict format
+] as const;
+
+/**
+ * Generate a varied, blog-style mini-review for Facebook Post.
+ * Uses Gemini to create unique review text each time (150-250 words).
+ * Falls back to script summary if Gemini fails.
+ */
+export async function generateFbMiniReview(
+  toolName: string,
+  scriptSummary: string,
+  toolUrl?: string,
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.log('  ⚠ Gemini not available — using script summary for FB review');
+    return scriptSummary;
+  }
+
+  // Pick random style to vary format each time
+  const style = REVIEW_STYLES[Math.floor(Math.random() * REVIEW_STYLES.length)];
+
+  const styleGuide: Record<string, string> = {
+    newsletter: `Write as a quick newsletter digest. Start with a bold headline question.
+      Structure: Headline → 1-paragraph intro → 3 bullet key features → Verdict line.`,
+    listicle: `Write as a feature listicle. Start with an emoji-rich one-liner hook.
+      Structure: Hook → "🎯 What it does" (2 sentences) → "💡 Key features" (4-5 bullets) → "⚡ Who needs this?" (1 line) → "🏆 Verdict" (rating/10).`,
+    story: `Write as a personal recommendation. Start with "I've been using..." or "Last week I discovered...".
+      Structure: Personal intro → What impressed me → Real use cases → Would I recommend? → Verdict.`,
+    versus: `Write as a quick comparison. Start with "Forget [generic alternative]...".
+      Structure: Hook → Why this is different → 3 standout advantages → Price/value note → Verdict.`,
+    quicktake: `Write as a rapid-fire take. Start with "⚡ Quick Take:".
+      Structure: One-line verdict → Good (3 bullets) → Not great (1 bullet) → Bottom line → Rating.`,
+  };
+
+  const prompt = `You're a tech reviewer writing a SHORT Facebook post reviewing "${toolName}".
+
+Context from video script:
+${scriptSummary.slice(0, 800)}
+
+${toolUrl ? `Tool website: ${toolUrl}` : ''}
+
+STYLE: ${style.toUpperCase()}
+${styleGuide[style]}
+
+RULES:
+- Length: 150-250 words MAX (this is social media, not a blog)
+- Tone: Casual, enthusiastic but honest. Like texting a friend about a cool tool
+- Use emojis naturally (not every line)
+- DO NOT include links or hashtags (those are added separately)
+- DO NOT mention "affiliate" or "sponsored"
+- DO NOT use generic AI phrases like "In today's rapidly evolving landscape"
+- Write in English
+- Each review MUST feel different from previous ones — vary your opening, structure, and tone`;
+
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
+    if (text && text.length > 50) {
+      console.log(`  📝 FB mini-review generated (${style} style, ${text.length} chars)`);
+      return text;
+    }
+
+    throw new Error('Generated text too short');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`  ⚠ Gemini review generation failed (${msg}) — using script summary`);
+    return scriptSummary;
+  }
+}
+
 /**
  * Check if Facebook publishing is configured.
  */
