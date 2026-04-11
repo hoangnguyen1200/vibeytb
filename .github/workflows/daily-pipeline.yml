@@ -53,6 +53,11 @@ jobs:
           TIKTOK_CLIENT_KEY=${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET=${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN=${{ secrets.TIKTOK_REFRESH_TOKEN }}
+
+          FB_APP_ID=${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET=${{ secrets.FB_APP_SECRET }}
+          FB_PAGE_ID=${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN=${{ secrets.FB_PAGE_ACCESS_TOKEN }}
           "@
           $cleaned = ($envContent -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
           $cleaned | Out-File -FilePath .env -Encoding ascii -NoNewline
@@ -129,6 +134,11 @@ jobs:
           TIKTOK_CLIENT_KEY=${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET=${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN=${{ secrets.TIKTOK_REFRESH_TOKEN }}
+
+          FB_APP_ID=${{ secrets.FB_APP_ID }}
+          FB_APP_SECRET=${{ secrets.FB_APP_SECRET }}
+          FB_PAGE_ID=${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_ACCESS_TOKEN=${{ secrets.FB_PAGE_ACCESS_TOKEN }}
           "@
           $cleaned = ($envContent -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
           $cleaned | Out-File -FilePath .env -Encoding ascii -NoNewline

@@ -13,6 +13,13 @@ import { recordWebsiteScroll } from '../agents/agent-3-producer/playwright-recor
 import { mergeAudioVideoScene, concatScenes } from '../agents/agent-3-producer/media-stitcher';
 import { uploadToYouTube } from '../agents/agent-4-publisher/youtube-uploader';
 import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
+import {
+  publishFacebookReel,
+  publishFacebookPost,
+  buildReelCaption,
+  buildPostDescription,
+  isFacebookConfigured,
+} from '../agents/agent-4-publisher/facebook-publisher';
 import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
@@ -737,6 +744,48 @@ export class TheMasterOrchestrator {
       }
     } else {
       console.log('[PHASE 4] ⏭ TikTok skipped (no credentials)');
+    }
+
+    // 3) Facebook Page (Reel + Post)
+    let fbReelId = '';
+    let fbPostId = '';
+    if (isFacebookConfigured()) {
+      try {
+        console.log('[PHASE 4] ▶ Publishing to Facebook Page...');
+
+        // Build varied caption from script hook (different each video)
+        const scriptHook = (scriptData as Record<string, unknown>)?.__hook as string
+          || (scriptData as Record<string, unknown>)?.hook as string
+          || `Check out ${toolName} — an amazing AI tool! 🔥`;
+
+        const reelCaption = buildReelCaption(toolName, scriptHook, resolvedUrl);
+        const reelResult = await publishFacebookReel(finalVideoOutput, reelCaption);
+        if (reelResult.success) {
+          fbReelId = reelResult.videoId || '';
+          this.logEntry(4, 'info', `📱 FB Reel published: ${fbReelId}`);
+        }
+
+        // Build post review from script (longer format)
+        const scriptSummary = typeof (scriptData as Record<string, unknown>)?.script === 'string'
+          ? ((scriptData as Record<string, unknown>).script as string).slice(0, 500)
+          : `${toolName} is an incredible AI tool that can transform your workflow. Watch the full review above!`;
+
+        const postDesc = buildPostDescription(toolName, scriptSummary, resolvedUrl);
+        const postResult = await publishFacebookPost(finalVideoOutput, `${toolName} — AI Tool Review`, postDesc);
+        if (postResult.success) {
+          fbPostId = postResult.postId || '';
+          this.logEntry(4, 'info', `📝 FB Post published: ${fbPostId}`);
+        }
+
+        console.log(`[PHASE 4] ✅ Facebook done (Reel: ${fbReelId || 'failed'}, Post: ${fbPostId || 'failed'})`);
+      } catch (fbErr: unknown) {
+        const fbMsg = fbErr instanceof Error ? fbErr.message : String(fbErr);
+        console.error(`[PHASE 4] ❌ Facebook failed: ${fbMsg}`);
+        uploadErrors.push(`Facebook: ${fbMsg}`);
+        this.logEntry(4, 'error', `❌ Facebook failed: ${fbMsg.slice(0, 100)}`);
+      }
+    } else {
+      console.log('[PHASE 4] ⏭ Facebook skipped (no credentials)');
     }
 
     // ── Determine final status ──────────────────────────────────────────

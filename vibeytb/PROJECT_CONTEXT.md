@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-10 (Dynamic affiliate detection via Gemini)
+> Cập nhật lần cuối: 2026-04-11 (Facebook Page auto-publishing)
 
 ---
 
@@ -338,12 +338,14 @@ Final video 1080×1920 9:16
 101. **Smart affiliate scoring**: Tiered boost — +30 for tools with registered referral URL in DB (active), +10 for detected-but-not-registered (pending). `enrichAffiliateStatus()` checks DB before scoring (2026-04-10)
 102. **Subtitle font size fix**: `SUB_FONTSIZE` 28→52 in `video-config.ts`. Font 28 was nearly invisible on actual YouTube Shorts playback (confirmed via published video). 52 matches professional Shorts channels for readability on mobile (2026-04-10)
 103. **Public tools directory**: `/tools` page — public landing page listing all active affiliate tools. No login required. Server-side rendered, SEO optimized. `/go/[slug]` redirect route with click tracking. Every video description now links to tools page for evergreen affiliate traffic (2026-04-10)
+104. **Facebook Page auto-publishing**: New `facebook-publisher.ts` in agent-4-publisher. Publishes both FB Reels (3-step: init→upload→publish) and video Posts (resumable upload) to TechHustleLabs Page. Auto-triggered after YouTube publish in Phase 4. Varied captions via script hook text. Affiliate link + tools page embedded. Token exchange script `fb-token-exchange.ts` converts short-lived to permanent Page Token. GH Actions workflow updated with FB credentials (2026-04-11)
 
 ## 🚨 Platform Status (tính đến 2026-04-07)
 
 | Platform | Trạng thái | Chi tiết |
 |---|---|---|
 | **YouTube** | ✅ **ACTIVE** | OAuth working, daily auto-publish, SEO footer + tag optimizer |
+| **Facebook** | ✅ **ACTIVE** | Reel + Post auto-publish via Graph API v25, TechHustleLabs Page |
 | **TikTok** | ⏳ **PENDING** | Re-audit submitted (2026-04-04) with 5-point compliant UX — awaiting TikTok approval |
 | **Dashboard** | ✅ **LIVE v1.4** | https://vibeytb.vercel.app — Tabbed UI (Overview/Control/Insights), paginated tables, Supabase Auth |
 
