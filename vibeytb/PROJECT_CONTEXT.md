@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-11 (Facebook Page auto-publishing)
+> Cập nhật lần cuối: 2026-04-11 (Instagram Reels auto-publishing + TikTok false-positive fix)
 
 ---
 
@@ -13,7 +13,7 @@ Pipeline 4 phase:
 1. **Data Mining**: Tìm tool AI mới (Gemini AI Search only — CSE disabled)
 2. **Strategist**: Gemini viết script video
 3. **Producer**: TTS + Playwright recording + FFmpeg stitching
-4. **Publisher**: Upload lên YouTube + TikTok (sequential, graceful fallback)
+4. **Publisher**: Upload lên YouTube + TikTok + Facebook + Instagram (sequential, graceful fallback)
 
 ## 🗺️ Architecture Registry — Ai sở hữu gì?
 
@@ -29,7 +29,7 @@ Pipeline 4 phase:
 | Audio settings | `utils/video-config.ts` | `AUDIO_BITRATE`, `AUDIO_SAMPLE_RATE` | `'128k'`, `48000` |
 | Subtitle style | `utils/video-config.ts` | `SUB_FONTSIZE`, `SUB_MARGIN_V`, `SUB_MARGIN_LR` | Giá trị trong ASS header |
 | FFmpeg helpers | `utils/video-config.ts` | `colorSource()`, `PAD_FILTER_OPTIONS`, `VBR_OUTPUT_OPTIONS` | Lavfi string thủ công |
-| Channel branding | `utils/branding.ts` | `CHANNEL_HANDLE`, `LINKTREE_URL`, `DEFAULT_HASHTAGS` | `@TechHustleLabs` |
+| Channel branding | `utils/branding.ts` | `CHANNEL_HANDLE`, `LINKTREE_URL`, `DEFAULT_HASHTAGS`, `IG_PAGE_URL` | `@TechHustleLabs` |
 | Discord footer | `utils/branding.ts` | `DISCORD_FOOTER`, `DISCORD_DIGEST_FOOTER` | Footer string trực tiếp |
 | FFmpeg binary | `utils/ffmpeg.ts` | `ffmpeg`, `ffmpegPath`, `ffprobePath` | Import `@ffmpeg-installer` trực tiếp |
 | Font detection | `utils/font-detect.ts` | `detectFont()`, `fontParam()` | Font logic riêng |
@@ -339,16 +339,21 @@ Final video 1080×1920 9:16
 102. **Subtitle font size fix**: `SUB_FONTSIZE` 28→52 in `video-config.ts`. Font 28 was nearly invisible on actual YouTube Shorts playback (confirmed via published video). 52 matches professional Shorts channels for readability on mobile (2026-04-10)
 103. **Public tools directory**: `/tools` page — public landing page listing all active affiliate tools. No login required. Server-side rendered, SEO optimized. `/go/[slug]` redirect route with click tracking. Every video description now links to tools page for evergreen affiliate traffic (2026-04-10)
 104. **Facebook Page auto-publishing**: New `facebook-publisher.ts` in agent-4-publisher. Publishes both FB Reels (3-step: init→upload→publish) and video Posts (resumable upload) to TechHustleLabs Page. Auto-triggered after YouTube publish in Phase 4. Varied captions via script hook text. Affiliate link + tools page embedded. Token exchange script `fb-token-exchange.ts` converts short-lived to permanent Page Token. GH Actions workflow updated with FB credentials (2026-04-11)
+105. **TikTok false-positive fix**: Orchestrator was logging `✅ OK` with empty URL when TikTok returned empty string (unaudited account). Fixed to check URL is non-empty before logging success, otherwise logs `⚠️ skipped` (2026-04-11)
+106. **Affiliate detection improved**: Gemini Search prompt changed from conservative (`CONFIDENT only`) to proactive (`ACTIVELY CHECK /affiliate, /partners, /referral, /partner-program, /earn`). Catches programs like Moises AI `/partner-program/` that were previously missed (2026-04-11)
+107. **Instagram Reels auto-publishing**: New `instagram-publisher.ts` — publishes Reels via Graph API v25.0 Content Publishing API. Flow: upload video to FB hosting → create IG media container (REELS) → poll status → publish. Uses same Page Access Token (with `instagram_content_publish` scope). Pipeline Phase 4 now: YouTube→TikTok→Facebook→Instagram. `IG_BUSINESS_ACCOUNT_ID` env var + GitHub Secret. `IG_PAGE_URL` added to branding (2026-04-11)
 
-## 🚨 Platform Status (tính đến 2026-04-07)
+## 🚨 Platform Status (tính đến 2026-04-11)
 
 | Platform | Trạng thái | Chi tiết |
 |---|---|---|
 | **YouTube** | ✅ **ACTIVE** | OAuth working, daily auto-publish, SEO footer + tag optimizer |
 | **Facebook** | ✅ **ACTIVE** | Reel + Post auto-publish via Graph API v25, TechHustleLabs Page |
+| **Instagram** | ✅ **ACTIVE** | Reels auto-publish via Graph API v25 Content Publishing API, @techhustlelabs |
 | **TikTok** | ⏳ **PENDING** | Re-audit submitted (2026-04-04) with 5-point compliant UX — awaiting TikTok approval |
 | **Dashboard** | ✅ **LIVE v1.4** | https://vibeytb.vercel.app — Tabbed UI (Overview/Control/Insights), paginated tables, Supabase Auth |
 
+> **Instagram**: Linked to FB Page TechHustleLabs. Uses same Page Access Token with `instagram_content_publish` scope.
 > **TikTok**: UX fixes applied (4 rejection points fixed). Re-audit submitted 2026-04-04, đang chờ phản hồi.
 > **Dashboard**: v1.4 — Tabbed interface, Hero metric, Pagination. Auto-retry pipeline on failure. Daily digest to Discord.
 
