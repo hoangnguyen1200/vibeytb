@@ -32,8 +32,11 @@ interface VideoDetail {
   youtube_url: string | null;
   tiktok_url: string | null;
   views_24h: number | null;
+  views_latest: number | null;
   likes_24h: number | null;
+  likes_latest: number | null;
   comments_24h: number | null;
+  comments_latest: number | null;
   discovery_source: string | null;
   script_json: ScriptJson | string | null;
   error_logs: string | null;
@@ -187,15 +190,15 @@ export default function VideoDetailPage() {
             {video.status === 'published' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ fontSize: 24, fontWeight: 700 }}>{video.views_24h ?? '—'}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Views (24h)</p>
+                  <p style={{ fontSize: 24, fontWeight: 700 }}>{video.views_latest ?? video.views_24h ?? '—'}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Views</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ fontSize: 24, fontWeight: 700 }}>{video.likes_24h ?? '—'}</p>
+                  <p style={{ fontSize: 24, fontWeight: 700 }}>{video.likes_latest ?? video.likes_24h ?? '—'}</p>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Likes</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <p style={{ fontSize: 24, fontWeight: 700 }}>{video.comments_24h ?? '—'}</p>
+                  <p style={{ fontSize: 24, fontWeight: 700 }}>{video.comments_latest ?? video.comments_24h ?? '—'}</p>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Comments</p>
                 </div>
               </div>

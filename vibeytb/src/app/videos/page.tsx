@@ -13,7 +13,9 @@ interface VideoRow {
   youtube_url: string | null;
   tiktok_url: string | null;
   views_24h: number | null;
+  views_latest: number | null;
   likes_24h: number | null;
+  likes_latest: number | null;
   comments_24h: number | null;
   discovery_source: string | null;
   created_at: string | null;
@@ -124,7 +126,7 @@ export default function VideosPage() {
           `"${(r.tool_name ?? '').replace(/"/g, '""')}"`,
           `"${(r.youtube_title ?? '').replace(/"/g, '""')}"`,
           r.status,
-          r.views_24h ?? '',
+          r.views_latest ?? r.views_24h ?? '',
           r.youtube_url ?? '',
           r.tiktok_url ?? '',
         ].join(',')),
@@ -287,7 +289,7 @@ export default function VideosPage() {
                       </td>
                       <td><VideoStatusBadge status={v.status} /></td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                        {v.views_24h ?? '—'}
+                        {v.views_latest ?? v.views_24h ?? '—'}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         {v.youtube_url && (
