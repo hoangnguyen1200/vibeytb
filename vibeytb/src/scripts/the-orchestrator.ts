@@ -593,10 +593,7 @@ export class TheMasterOrchestrator {
     const mergedSrtPath = path.join(tmpDir, 'merged_captions.srt');
     this.mergeSrtFiles(sceneSrtPaths, finalSceneFiles, mergedSrtPath);
 
-    await this.updateJob(jobId, {
-      status: VideoStatus.READY_FOR_UPLOAD,
-      ...(fs.existsSync(mergedSrtPath) ? { srt_path: mergedSrtPath } : {}),
-    });
+    await this.updateJobStatus(jobId, VideoStatus.READY_FOR_UPLOAD);
     this.logEntry(3, 'info', `✅ Video produced: ${finalSceneFiles.length} scenes stitched`);
     console.log('[PHASE 3] Completed. Status saved: [ready_for_upload]');
   }
@@ -735,8 +732,9 @@ export class TheMasterOrchestrator {
     if (hasYouTube) {
       try {
         console.log('[PHASE 4] ▶ Uploading to YouTube...');
-        // Resolve SRT path from job metadata or tmp dir
-        const srtPath = (job as Record<string, unknown>).srt_path as string | undefined;
+        // Resolve merged SRT path from tmp dir (generated in Phase 3)
+        const mergedSrt = path.join(this.getJobTmpDir(jobId), 'merged_captions.srt');
+        const srtPath = fs.existsSync(mergedSrt) ? mergedSrt : undefined;
         youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, resolvedUrl || toolUrl, toolName, toolTagline, srtPath);
         console.log(`[PHASE 4] ✅ YouTube upload OK: ${youtubeUrl}`);
         this.logEntry(4, 'info', `🎬 YouTube published: ${youtubeUrl}`);
