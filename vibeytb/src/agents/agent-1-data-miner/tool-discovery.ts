@@ -319,6 +319,14 @@ const VIDEO_BOOST_KEYWORDS = [
   'free', 'open source', 'no-code', 'workflow', 'agent',
 ];
 
+// ─── Demo-ability keywords: tools with visual output score higher for video ───
+const VISUAL_DEMO_KEYWORDS = [
+  'design', 'image', 'video', 'photo', 'edit', 'create', 'generate',
+  'draw', 'animate', 'visual', 'canvas', 'slide', 'presentation',
+  'music', 'audio', 'voice', 'art', 'graphic', 'logo', 'ui', 'ux',
+  'website', 'app', 'builder', 'dashboard', 'chart',
+];
+
 /**
  * Calculate a selection score for a tool.
  * Higher = better candidate for a YouTube video.
@@ -331,6 +339,7 @@ const VIDEO_BOOST_KEYWORDS = [
  *   Video keywords:   +5 if tagline contains video-friendly terms
  *   Affiliate boost:  +30 if Gemini detected an affiliate program (dynamic)
  *   Engagement boost: +20 if matches top-performing category
+ *   Demo-ability:     +10 if tagline suggests visual/interactive output
  */
 function scoreTool(
   tool: DiscoveredTool,
@@ -377,6 +386,12 @@ function scoreTool(
       score += 20;
       console.log(`  📈 [Score] +20 engagement boost: ${tool.name} (matches top category)`);
     }
+  }
+
+  // 8. Demo-ability — visual/interactive tools create more engaging videos
+  if (VISUAL_DEMO_KEYWORDS.some(kw => tagLower.includes(kw))) {
+    score += 10;
+    console.log(`  🎨 [Score] +10 demo-ability: ${tool.name} (visual/interactive tool)`);
   }
 
   return score;

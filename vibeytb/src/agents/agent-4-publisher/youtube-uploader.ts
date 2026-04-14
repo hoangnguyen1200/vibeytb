@@ -106,6 +106,45 @@ async function postPinnedComment(
     }
   }
 }
+/**
+ * Upload SRT captions to YouTube to replace auto-generated captions.
+ * Auto-CC adds [music] tags when it detects background music — our own captions prevent this.
+ * Best-effort: failures are logged but don't affect the upload result.
+ */
+async function uploadCaptions(
+  youtube: youtube_v3.Youtube,
+  videoId: string,
+  srtPath?: string,
+): Promise<void> {
+  if (!srtPath || !fs.existsSync(srtPath)) {
+    console.log('[Captions] No SRT file available — skipping caption upload.');
+    return;
+  }
+
+  try {
+    await youtube.captions.insert({
+      part: ['snippet'],
+      requestBody: {
+        snippet: {
+          videoId,
+          language: 'en',
+          name: 'English',
+          isDraft: false,
+        },
+      },
+      media: {
+        mimeType: 'application/x-subrip',
+        body: fs.createReadStream(srtPath),
+      },
+    });
+    console.log(`📝 [Captions] SRT uploaded for ${videoId} — auto-CC will be replaced.`);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const statusCode = (err as Record<string, unknown>)?.code ||
+                       (err as Record<string, unknown>)?.status || 'unknown';
+    console.warn(`⚠️ [Captions] Failed (non-fatal) [HTTP ${statusCode}]: ${msg}`);
+  }
+}
 
 /**
  * Upload Video lên YouTube sử dụng YouTube Data API v3
@@ -121,6 +160,7 @@ export async function uploadToYouTube(
   toolUrl?: string,
   toolName?: string,
   toolTagline?: string,
+  srtPath?: string,
 ): Promise<string> {
   console.log(`🚀 [API Uploader] Bắt đầu quá trình publish cho project: ${projectId}`);
   
@@ -203,6 +243,9 @@ export async function uploadToYouTube(
 
       // Post pinned comment (best-effort, non-blocking for return)
       await postPinnedComment(youtube, videoId, toolUrl, toolName);
+
+      // Upload SRT captions to replace YouTube auto-CC (best-effort)
+      await uploadCaptions(youtube, videoId, srtPath);
 
       return videoUrl;
 

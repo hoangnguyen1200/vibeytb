@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-11 (Instagram Reels auto-publishing + TikTok false-positive fix)
+> Cập nhật lần cuối: 2026-04-14 (Video quality fixes: ASS BorderStyle, SRT caption upload, Visual QC 3-level, demo-ability scoring)
 
 ---
 
@@ -730,3 +730,19 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | `youtube-uploader.ts` | Import CHANNEL_HANDLE for pinned comments |
 | `notifier.ts` | Import DISCORD_FOOTER/DISCORD_DIGEST_FOOTER |
 
+### 2026-04-14: Video Quality Fixes (Candy AI analysis)
+
+4 fixes from video quality analysis of pipeline output:
+
+1. **ASS BorderStyle=4→3**: Non-standard ASS value `4` replaced with standard `3` (opaque box). Prevents undefined rendering behavior on some FFmpeg/libass builds.
+2. **SRT Caption Upload**: Pipeline now generates `.srt` file alongside `.ass` for each scene. Per-scene SRTs are merged with offset timestamps and uploaded to YouTube via `captions.insert` API → replaces auto-generated captions that add `[music]` tags.
+3. **Visual QC 3-Level**: Upgraded from binary PASS/FAIL to PASS/WEAK/FAIL. WEAK = text-heavy pages (still usable but logged as warning). Helps track retention-killing content.
+4. **Demo-ability Scoring +10**: Tool scoring now includes criterion #8: tools with visual/interactive keywords (design, image, video, builder, etc.) get +10 boost. Max score: 155pts.
+
+| File | Change |
+|------|--------|
+| `tts-client.ts` | BorderStyle=4→3, added `parseSubtitleCues()` + `writeCuesToSrt()`, return `srtPath` |
+| `youtube-uploader.ts` | Added `uploadCaptions()` (best-effort SRT upload), new `srtPath` param |
+| `visual-qc.ts` | 3-level prompt (PASS/WEAK/FAIL), return `VisualQCResult` object |
+| `tool-discovery.ts` | Added `VISUAL_DEMO_KEYWORDS` + criterion #8 (+10 demo-ability) |
+| `the-orchestrator.ts` | Collect SRT paths, merge SRTs, handle QC result object, pass SRT to YouTube |

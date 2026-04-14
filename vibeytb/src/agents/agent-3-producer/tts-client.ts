@@ -7,15 +7,22 @@ import crypto from 'crypto';
 
 import { EdgeTTS } from 'node-edge-tts';
 
+/** Subtitle cue: grouped words with timing */
+interface SubCue {
+  text: string;
+  startMs: number;
+  endMs: number;
+}
+
 /**
- * Chuyển đổi ms sang định dạng VTT Timestamp (HH:MM:SS.mmm) — kept for reference
+ * Chuyển đổi ms sang SRT Timestamp format (HH:MM:SS,mmm)
  */
-function msToVttTimestamp(ms: number): string {
+function msToSrtTimestamp(ms: number): string {
   const hours = Math.floor(ms / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
   const seconds = Math.floor((ms % 60000) / 1000);
   const milliseconds = ms % 1000;
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
 }
 
 /**
@@ -30,38 +37,17 @@ function msToAssTimestamp(ms: number): string {
 }
 
 /**
- * Đọc file JSON subtitle do node-edge-tts sinh ra và convert sang dạng .ass
- * ASS format bakes positioning into the file header — FFmpeg always respects it.
- * Using ASS instead of VTT because FFmpeg's `force_style` is unreliable for WebVTT.
+ * Parse Edge TTS JSON subtitle data into grouped cues.
+ * Groups every 3 word-level entries into one caption cue.
+ * Enforces minimum 1.5s display time and prevents overlap.
  */
-function convertEdgeJsonToAss(jsonPath: string, assPath: string) {
-  if (!fs.existsSync(jsonPath)) return;
-  
+function parseSubtitleCues(jsonPath: string): SubCue[] {
+  if (!fs.existsSync(jsonPath)) return [];
+
   const rawData = fs.readFileSync(jsonPath, 'utf-8');
-  const subs = JSON.parse(rawData) as Array<{ part: string, start: number, end: number }>;
-  
-  // ASS header with bottom-center positioning baked in
-  // PlayResX/Y = target video resolution (1080x1920 portrait)
-  // Alignment=2 = bottom-center (ASS standard)
-  // Fontsize=52 = large, readable on mobile Shorts (28 was too small on actual YouTube playback)
-  // MarginV=200 = 200px from bottom edge → subtitle at y≈1720 (safe zone)
-  const assHeader = `[Script Info]
-Title: VibeYtb Subtitles
-ScriptType: v4.00+
-PlayResX: ${VIDEO_WIDTH}
-PlayResY: ${VIDEO_HEIGHT}
-WrapStyle: 0
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,${SUB_FONTSIZE},&H00FFFFFF,&H000000FF,&H60000000,&HA0000000,1,0,0,0,100,100,0,0,4,1,0,2,${SUB_MARGIN_LR},${SUB_MARGIN_LR},${SUB_MARGIN_V},1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-`;
-
-  let assContent = assHeader;
+  const subs = JSON.parse(rawData) as Array<{ part: string; start: number; end: number }>;
   const MIN_CAPTION_MS = 1500;
+  const cues: SubCue[] = [];
 
   for (let i = 0; i < subs.length; i += 3) {
     const group = subs.slice(i, i + 3);
@@ -78,17 +64,66 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       endMs = nextGroup.start - 50; // 50ms gap
     }
 
-    const startTime = msToAssTimestamp(startMs);
-    const endTime = msToAssTimestamp(endMs);
-
-    // Nối các từ lại, xoá khoảng trắng thừa
     const text = group.map(sub => sub.part.trim()).join(' ');
-    
-    assContent += `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}\n`;
+    cues.push({ text, startMs, endMs });
   }
-  
+
+  return cues;
+}
+
+/**
+ * Convert subtitle cues to ASS format.
+ * ASS format bakes positioning into the file header — FFmpeg always respects it.
+ * Using ASS instead of VTT because FFmpeg's `force_style` is unreliable for WebVTT.
+ *
+ * BorderStyle=3 = opaque background box (standard ASS value).
+ * Previously was 4 which is non-standard and caused undefined rendering behavior.
+ */
+function writeCuesToAss(cues: SubCue[], assPath: string): void {
+  // ASS header with bottom-center positioning baked in
+  // PlayResX/Y = target video resolution (1080x1920 portrait)
+  // Alignment=2 = bottom-center (ASS standard)
+  // Fontsize=52 = large, readable on mobile Shorts
+  // MarginV=200 = 200px from bottom edge → subtitle at y≈1720 (safe zone)
+  // BorderStyle=3 = opaque background box (standard ASS)
+  const assHeader = `[Script Info]
+Title: VibeYtb Subtitles
+ScriptType: v4.00+
+PlayResX: ${VIDEO_WIDTH}
+PlayResY: ${VIDEO_HEIGHT}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,${SUB_FONTSIZE},&H00FFFFFF,&H000000FF,&H60000000,&HA0000000,1,0,0,0,100,100,0,0,3,1,0,2,${SUB_MARGIN_LR},${SUB_MARGIN_LR},${SUB_MARGIN_V},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+  let assContent = assHeader;
+  for (const cue of cues) {
+    const startTime = msToAssTimestamp(cue.startMs);
+    const endTime = msToAssTimestamp(cue.endMs);
+    assContent += `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${cue.text}\n`;
+  }
+
   fs.writeFileSync(assPath, assContent, 'utf-8');
-  fs.unlinkSync(jsonPath); // Xoá file json dọn dẹp
+}
+
+/**
+ * Convert subtitle cues to SRT format for YouTube caption upload.
+ * YouTube uses this to replace auto-generated captions (which add [music] tags).
+ */
+function writeCuesToSrt(cues: SubCue[], srtPath: string): void {
+  let srtContent = '';
+  for (let i = 0; i < cues.length; i++) {
+    const cue = cues[i];
+    srtContent += `${i + 1}\n`;
+    srtContent += `${msToSrtTimestamp(cue.startMs)} --> ${msToSrtTimestamp(cue.endMs)}\n`;
+    srtContent += `${cue.text}\n\n`;
+  }
+  fs.writeFileSync(srtPath, srtContent, 'utf-8');
 }
 
 /**
@@ -114,13 +149,13 @@ export async function getMediaDuration(filePath: string): Promise<number> {
  * @param text Đoạn văn bản cần đọc
  * @param projectId ID của project để nhóm file
  * @param sceneIndex Thứ tự cảnh (để đặt tên file)
- * @returns { filePath: string, vttPath: string, duration: number } Đường dẫn tới file audio, subtitle (.vtt) và độ dài
+ * @returns { filePath, vttPath, srtPath, duration } — audio, ASS subtitle, SRT caption, duration
  */
 export async function generateAudioFromText(
   text: string, 
   projectId: string, 
   sceneIndex: number
-): Promise<{ filePath: string; vttPath: string; duration: number }> {
+): Promise<{ filePath: string; vttPath: string; srtPath: string; duration: number }> {
   
   const tmpDir = path.join(process.cwd(), 'tmp', projectId);
   if (!fs.existsSync(tmpDir)) {
@@ -182,18 +217,25 @@ export async function generateAudioFromText(
       throw lastError; // All retries exhausted
     }
 
-    // Chuyển đổi JSON sinh ra thành ASS cho FFmpeg đốt phụ đề
-    // ASS format bakes positioning vào file header → subtitle luôn ở bottom
+    // Parse JSON subtitles → generate both ASS (for baked video) and SRT (for YouTube caption upload)
     const jsonSubPath = filePath + '.json';
     const vttPath = filePath.replace('.mp3', '.ass');
-    convertEdgeJsonToAss(jsonSubPath, vttPath);
+    const srtPath = filePath.replace('.mp3', '.srt');
+
+    const cues = parseSubtitleCues(jsonSubPath);
+    if (cues.length > 0) {
+      writeCuesToAss(cues, vttPath);
+      writeCuesToSrt(cues, srtPath);
+    }
+    // Cleanup raw JSON (ASS + SRT already generated)
+    if (fs.existsSync(jsonSubPath)) fs.unlinkSync(jsonSubPath);
 
     // Đọc ffprobe để lấy chính xác duration
     const duration = await getMediaDuration(filePath); 
     
     console.log(`✅ [TTS Client] Render xong Edge-TTS Scene ${sceneIndex}. Duration: ${duration.toFixed(2)}s.`);
 
-    return { filePath, vttPath, duration };
+    return { filePath, vttPath, srtPath, duration };
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);

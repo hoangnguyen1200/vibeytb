@@ -26,7 +26,7 @@ import {
   buildInstagramCaption,
   isInstagramConfigured,
 } from '../agents/agent-4-publisher/instagram-publisher';
-import { runVisualQC } from '../agents/agent-3-producer/visual-qc';
+import { runVisualQC, type VisualQCResult } from '../agents/agent-3-producer/visual-qc';
 import { pickBestTool, pickTopTools, discoverViaGeminiSearch, discoverViaGoogleCSE, type DiscoveredTool } from '../agents/agent-1-data-miner/tool-discovery';
 import { validateVideo } from './qc-video';
 import { notifyDiscord, notifyDailyDigest } from '../utils/notifier';
@@ -444,6 +444,7 @@ export class TheMasterOrchestrator {
     await fs.promises.mkdir(tmpDir, { recursive: true });
 
     const finalSceneFiles: string[] = [];
+    const sceneSrtPaths: string[] = [];
 
     // Propagate tool URL to ALL scenes — prevents stock footage fallback
     // LLM often only sets target_website_url on some scenes (e.g. scenes 2-3),
@@ -488,7 +489,7 @@ export class TheMasterOrchestrator {
         continue;
       }
 
-      const { filePath: audioPath, vttPath, duration } = await generateAudioFromText(
+      const { filePath: audioPath, vttPath, srtPath, duration } = await generateAudioFromText(
         scene.narration,
         jobId,
         sceneIndex
@@ -540,10 +541,14 @@ export class TheMasterOrchestrator {
           );
 
           console.log(`[PHASE 3] Running Visual QC on Layer 1 recording...`);
-          const isPass = await runVisualQC(videoPath, jobId, scene.target_website_url);
-          if (isPass) {
+          const qcResult = await runVisualQC(videoPath, jobId, scene.target_website_url);
+          if (qcResult.pass) {
             websiteRecorded = true;
             this.logEntry(3, 'info', `🌐 Website recorded: ${scene.target_website_url}`);
+            if (qcResult.quality === 'weak') {
+              console.warn('[VISUAL QC] ⚠️ WEAK: Website is text-heavy — video may have low retention');
+              this.logEntry(3, 'warn', '⚠️ Visual QC WEAK: text-heavy page');
+            }
           } else {
             console.log('[VISUAL QC] ❌ Layer 1 FAIL → Using stock video.');
             this.logEntry(3, 'warn', '⚠️ Visual QC fail → fallback to stock video');
@@ -570,6 +575,7 @@ export class TheMasterOrchestrator {
 
       await mergeAudioVideoScene(videoPath, audioPath, sceneFinalPath, duration, vttPath, hookText);
       finalSceneFiles.push(sceneFinalPath);
+      if (srtPath && fs.existsSync(srtPath)) sceneSrtPaths.push(srtPath);
     }
 
     if (finalSceneFiles.length === 0) {
@@ -583,7 +589,14 @@ export class TheMasterOrchestrator {
     const finalVideoOutput = this.getFinalVideoPath(jobId);
     await concatScenes(finalSceneFiles, finalVideoOutput, jobId, bgmPath);
 
-    await this.updateJobStatus(jobId, VideoStatus.READY_FOR_UPLOAD);
+    // Merge per-scene SRT files into single SRT for YouTube caption upload
+    const mergedSrtPath = path.join(tmpDir, 'merged_captions.srt');
+    this.mergeSrtFiles(sceneSrtPaths, finalSceneFiles, mergedSrtPath);
+
+    await this.updateJob(jobId, {
+      status: VideoStatus.READY_FOR_UPLOAD,
+      ...(fs.existsSync(mergedSrtPath) ? { srt_path: mergedSrtPath } : {}),
+    });
     this.logEntry(3, 'info', `✅ Video produced: ${finalSceneFiles.length} scenes stitched`);
     console.log('[PHASE 3] Completed. Status saved: [ready_for_upload]');
   }
@@ -722,7 +735,9 @@ export class TheMasterOrchestrator {
     if (hasYouTube) {
       try {
         console.log('[PHASE 4] ▶ Uploading to YouTube...');
-        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, resolvedUrl || toolUrl, toolName, toolTagline);
+        // Resolve SRT path from job metadata or tmp dir
+        const srtPath = (job as Record<string, unknown>).srt_path as string | undefined;
+        youtubeUrl = await uploadToYouTube(jobId, finalVideoOutput, title, desc, tags, false, resolvedUrl || toolUrl, toolName, toolTagline, srtPath);
         console.log(`[PHASE 4] ✅ YouTube upload OK: ${youtubeUrl}`);
         this.logEntry(4, 'info', `🎬 YouTube published: ${youtubeUrl}`);
       } catch (ytErr: unknown) {
@@ -1176,6 +1191,87 @@ Respond with ONLY the keyword phrase, nothing else. Example: "AI tools that repl
 
   private getFinalVideoPath(jobId: string): string {
     return path.join(this.getJobTmpDir(jobId), 'final_output.mp4');
+  }
+
+  /**
+   * Merge per-scene SRT files into a single SRT with offset timestamps.
+   * Each scene's timestamps are shifted by the cumulative duration of previous scenes.
+   */
+  private mergeSrtFiles(srtPaths: string[], sceneVideoPaths: string[], outputPath: string): void {
+    if (srtPaths.length === 0) {
+      console.log('[SRT MERGE] No SRT files to merge — skipping.');
+      return;
+    }
+
+    try {
+      let mergedContent = '';
+      let cueIndex = 1;
+      let cumulativeOffsetMs = 0;
+
+      for (let i = 0; i < srtPaths.length; i++) {
+        const srtPath = srtPaths[i];
+        if (!fs.existsSync(srtPath)) continue;
+
+        const content = fs.readFileSync(srtPath, 'utf-8');
+        const blocks = content.trim().split(/\n\n+/);
+
+        for (const block of blocks) {
+          const lines = block.split('\n');
+          if (lines.length < 3) continue;
+
+          // Parse timestamp line: "00:00:01,500 --> 00:00:03,200"
+          const timeMatch = lines[1].match(
+            /(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/
+          );
+          if (!timeMatch) continue;
+
+          const startMs = this.srtTimeToMs(timeMatch.slice(1, 5)) + cumulativeOffsetMs;
+          const endMs = this.srtTimeToMs(timeMatch.slice(5, 9)) + cumulativeOffsetMs;
+          const text = lines.slice(2).join('\n');
+
+          mergedContent += `${cueIndex}\n`;
+          mergedContent += `${this.msToSrtTime(startMs)} --> ${this.msToSrtTime(endMs)}\n`;
+          mergedContent += `${text}\n\n`;
+          cueIndex++;
+        }
+
+        // Get scene duration for offset calculation (approximate from video file)
+        // Use the SRT's last timestamp as duration estimate
+        const lastBlock = content.trim().split(/\n\n+/).pop();
+        if (lastBlock) {
+          const lastTimeMatch = lastBlock.split('\n')[1]?.match(
+            /\d{2}:\d{2}:\d{2},\d{3}\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/
+          );
+          if (lastTimeMatch) {
+            cumulativeOffsetMs = this.srtTimeToMs(lastTimeMatch.slice(1, 5)) + cumulativeOffsetMs;
+          }
+        }
+      }
+
+      if (mergedContent.trim()) {
+        fs.writeFileSync(outputPath, mergedContent, 'utf-8');
+        console.log(`[SRT MERGE] ✅ Merged ${srtPaths.length} SRT files → ${outputPath} (${cueIndex - 1} cues)`);
+      }
+    } catch (err) {
+      console.warn('[SRT MERGE] ⚠️ Non-fatal error during merge:', err);
+    }
+  }
+
+  private srtTimeToMs(parts: string[]): number {
+    return (
+      parseInt(parts[0]) * 3600000 +
+      parseInt(parts[1]) * 60000 +
+      parseInt(parts[2]) * 1000 +
+      parseInt(parts[3])
+    );
+  }
+
+  private msToSrtTime(ms: number): string {
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const milliseconds = ms % 1000;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
   }
 
   private getFailedVideosDir(): string {
