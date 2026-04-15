@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-14 (Video quality fixes: ASS BorderStyle, SRT caption upload, Visual QC 3-level, demo-ability scoring)
+> Cập nhật lần cuối: 2026-04-15 (Fix FB Reel upload 403 + IG Reel video_url missing)
 
 ---
 
@@ -113,7 +113,8 @@ scoreTool():
   Video keywords:   +5 ("AI", "free", "automation", etc.)
   Affiliate boost:  +15 (has known affiliate program)
   Engagement boost: +20 (matches top-performing category by views/day)
-  Max: 135pts
+  Demo-ability:    +10 (visual/interactive tool keywords)
+  Max: 155pts
 ```
 
 ### URL Verification (3-layer)
@@ -746,3 +747,15 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 | `visual-qc.ts` | 3-level prompt (PASS/WEAK/FAIL), return `VisualQCResult` object |
 | `tool-discovery.ts` | Added `VISUAL_DEMO_KEYWORDS` + criterion #8 (+10 demo-ability) |
 | `the-orchestrator.ts` | Collect SRT paths, merge SRTs, handle QC result object, pass SRT to YouTube |
+
+### 2026-04-15: FB Reel + IG Reel Upload Fixes
+
+2 publishing bugs found from Krea AI pipeline run analysis:
+
+1. **FB Reel 403 fix**: `file_url: videoPath` header sent local Windows path → FB tried fetching as URL → `robots.txt 403`. Removed `file_url`, added correct `offset`/`file_size` headers — binary already in request body.
+2. **IG Reel video_url fix**: `uploadVideoForHosting()` used `published: false` → FB didn't expose `source` URL → IG container creation failed. Changed to `published: true` + `no_story: true` (hidden from timeline). Added 60s polling loop for `source` field (FB needs time to process video).
+
+| File | Change |
+|------|--------|
+| `facebook-publisher.ts` | Remove `file_url` header, add `offset`/`file_size` for rupload |
+| `instagram-publisher.ts` | `published: true` + `no_story: true`, poll `source` URL (12×5s max) |

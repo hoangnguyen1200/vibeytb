@@ -77,8 +77,8 @@ export async function publishFacebookReel(
       headers: {
         Authorization: `OAuth ${token}`,
         'Content-Type': 'application/octet-stream',
-        file_url: videoPath,
-        'Content-Length': String(videoBuffer.length),
+        offset: '0',
+        file_size: String(videoBuffer.length),
       },
       body: videoBuffer,
     });

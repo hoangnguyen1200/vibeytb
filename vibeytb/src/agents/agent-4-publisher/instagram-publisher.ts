@@ -117,14 +117,16 @@ async function uploadVideoForHosting(
     currentEnd = parseInt(transferData.end_offset, 10);
   }
 
-  // Step 3: Finish (unpublished — just for hosting)
+  // Step 3: Finish — publish but hide from timeline (no_story=true).
+  // Using published=false causes 'source' field to be unavailable.
   const finishRes = await fetch(`${GRAPH_API}/${pageId}/videos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       upload_phase: 'finish',
       upload_session_id: initData.upload_session_id,
-      published: false, // Don't publish on FB — just host
+      published: true,
+      no_story: true, // Don't show on Page timeline — just for IG hosting
       access_token: token,
     }),
   });
@@ -134,17 +136,35 @@ async function uploadVideoForHosting(
     throw new Error(`FB video finish failed: ${JSON.stringify(err)}`);
   }
 
-  // Get the video source URL
-  const videoInfoRes = await fetch(
-    `${GRAPH_API}/${initData.video_id}?fields=source&access_token=${token}`,
-  );
+  // Poll for video source URL — FB needs time to process the upload
+  const maxPollAttempts = 12; // 12 × 5s = 60s max
+  for (let i = 0; i < maxPollAttempts; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
 
-  if (!videoInfoRes.ok) {
-    throw new Error('Failed to get video source URL');
+    const videoInfoRes = await fetch(
+      `${GRAPH_API}/${initData.video_id}?fields=source,status&access_token=${token}`,
+    );
+
+    if (!videoInfoRes.ok) continue;
+
+    const videoInfo = await videoInfoRes.json() as {
+      source?: string;
+      status?: { video_status?: string };
+    };
+
+    if (videoInfo.source) {
+      return videoInfo.source;
+    }
+
+    const status = videoInfo.status?.video_status || 'processing';
+    console.log(`  📸 IG: FB video processing (${status}, ${i + 1}/${maxPollAttempts})...`);
+
+    if (status === 'error') {
+      throw new Error('FB video processing failed');
+    }
   }
 
-  const videoInfo = await videoInfoRes.json() as { source: string };
-  return videoInfo.source;
+  throw new Error('FB video source URL not available after 60s');
 }
 
 // ─── Instagram Reel Publishing ──────────────────────────────────────────────
