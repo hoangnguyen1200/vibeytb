@@ -122,7 +122,7 @@ export async function publishFacebookReel(
   }
 }
 
-// ─── Video Post Upload (resumable) ─────────────────────────────────────────
+// ─── Photo Post Upload (multi-photo + text) ────────────────────────────────
 
 export interface PostResult {
   success: boolean;
@@ -131,12 +131,66 @@ export interface PostResult {
 }
 
 /**
- * Publish a video as a regular Facebook Post with text description.
- * Uses Resumable Upload API for reliability.
+ * Extract 3 screenshots from a video at 25%, 50%, 75% timestamps.
+ * Uses FFmpeg to capture high-quality frames for FB photo post.
+ * Returns array of image file paths.
+ */
+export async function extractPostScreenshots(
+  videoPath: string,
+  outputDir: string,
+): Promise<string[]> {
+  const { execSync } = await import('child_process');
+  const { ffmpegPath } = await import('../../utils/ffmpeg');
+
+  const safeFfmpeg = ffmpegPath.replace(/\\/g, '/');
+  const safeInput = videoPath.replace(/\\/g, '/');
+  const screenshots: string[] = [];
+
+  // Get video duration
+  const probeCmd = `"${safeFfmpeg}" -i "${safeInput}" 2>&1 | findstr Duration`;
+  let durationSec = 40; // fallback
+  try {
+    const probeOut = execSync(probeCmd, { encoding: 'utf-8', shell: 'cmd.exe' });
+    const match = probeOut.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
+    if (match) {
+      durationSec = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
+    }
+  } catch { /* use fallback duration */ }
+
+  const timestamps = [0.25, 0.50, 0.75];
+  for (let i = 0; i < timestamps.length; i++) {
+    const seekTime = Math.floor(durationSec * timestamps[i]);
+    const outPath = path.join(outputDir, `fb_screenshot_${i + 1}.jpg`).replace(/\\/g, '/');
+    const cmd = [
+      `"${safeFfmpeg}"`,
+      '-y',
+      `-ss ${seekTime}`,
+      `-i "${safeInput}"`,
+      '-frames:v 1',
+      '-vf "scale=1080:1920:force_original_aspect_ratio=decrease"',
+      '-q:v 2',
+      `"${outPath}"`,
+    ].join(' ');
+
+    try {
+      execSync(cmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000 });
+      screenshots.push(outPath.replace(/\//g, path.sep));
+    } catch (err) {
+      console.warn(`  ⚠ Screenshot ${i + 1} extraction failed — skipping`);
+    }
+  }
+
+  console.log(`  📸 FB Post: Extracted ${screenshots.length} screenshots`);
+  return screenshots;
+}
+
+/**
+ * Publish a multi-photo post with text description on Facebook Page.
+ * Flow: Upload each photo unpublished → create feed post with attached_media[].
+ * Replaces the old video post to avoid duplicate content with Reel.
  */
 export async function publishFacebookPost(
-  videoPath: string,
-  title: string,
+  screenshots: string[],
   description: string,
 ): Promise<PostResult> {
   const config = getConfig();
@@ -147,97 +201,74 @@ export async function publishFacebookPost(
 
   const { pageId, token } = config;
 
+  if (screenshots.length === 0) {
+    console.warn('  ⚠ No screenshots available — skipping FB photo post');
+    return { success: false, error: 'No screenshots' };
+  }
+
   try {
-    const fileSize = fs.statSync(videoPath).size;
-    const fileName = path.basename(videoPath);
+    console.log(`  📝 FB Post: Uploading ${screenshots.length} photos...`);
 
-    console.log(`  📝 FB Post: Starting upload (${(fileSize / 1024 / 1024).toFixed(1)} MB)...`);
+    // Step 1: Upload each photo as unpublished
+    const photoIds: string[] = [];
+    for (let i = 0; i < screenshots.length; i++) {
+      const imgPath = screenshots[i];
+      if (!fs.existsSync(imgPath)) {
+        console.warn(`  ⚠ Screenshot ${i + 1} not found: ${imgPath}`);
+        continue;
+      }
 
-    // Step 1: Init upload session
-    const initRes = await fetch(`${GRAPH_API}/${pageId}/videos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        upload_phase: 'start',
-        file_size: fileSize,
-        access_token: token,
-      }),
-    });
-
-    if (!initRes.ok) {
-      const err = await initRes.json();
-      throw new Error(`Init failed: ${JSON.stringify(err)}`);
-    }
-
-    const { upload_session_id, start_offset, end_offset } = await initRes.json() as {
-      upload_session_id: string;
-      start_offset: string;
-      end_offset: string;
-    };
-
-    console.log(`  📝 FB Post: Session ${upload_session_id} — transferring...`);
-
-    // Step 2: Upload video in chunks
-    let currentStart = parseInt(start_offset, 10);
-    let currentEnd = parseInt(end_offset, 10);
-
-    while (currentStart < fileSize) {
-      const chunk = fs.readFileSync(videoPath).subarray(currentStart, currentEnd);
-
+      const imgBuffer = fs.readFileSync(imgPath);
       const formData = new FormData();
-      formData.append('upload_phase', 'transfer');
-      formData.append('upload_session_id', upload_session_id);
-      formData.append('start_offset', String(currentStart));
       formData.append('access_token', token);
-      formData.append('video_file_chunk', new Blob([chunk]), fileName);
+      formData.append('published', 'false');
+      formData.append('source', new Blob([imgBuffer], { type: 'image/jpeg' }), `screenshot_${i + 1}.jpg`);
 
-      const transferRes = await fetch(`${GRAPH_API}/${pageId}/videos`, {
+      const uploadRes = await fetch(`${GRAPH_API}/${pageId}/photos`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!transferRes.ok) {
-        const err = await transferRes.json();
-        throw new Error(`Transfer failed: ${JSON.stringify(err)}`);
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        console.warn(`  ⚠ Photo ${i + 1} upload failed: ${JSON.stringify(err)}`);
+        continue;
       }
 
-      const transferData = await transferRes.json() as {
-        start_offset: string;
-        end_offset: string;
-      };
-
-      currentStart = parseInt(transferData.start_offset, 10);
-      currentEnd = parseInt(transferData.end_offset, 10);
+      const uploadData = await uploadRes.json() as { id: string };
+      photoIds.push(uploadData.id);
+      console.log(`  📷 Photo ${i + 1} uploaded: ${uploadData.id}`);
     }
 
-    console.log('  📝 FB Post: Transfer complete — publishing...');
+    if (photoIds.length === 0) {
+      throw new Error('All photo uploads failed');
+    }
 
-    // Step 3: Finish + publish
-    const finishRes = await fetch(`${GRAPH_API}/${pageId}/videos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        upload_phase: 'finish',
-        upload_session_id,
-        title,
-        description,
-        access_token: token,
-      }),
+    // Step 2: Create feed post with attached photos
+    const postBody: Record<string, string> = {
+      message: description,
+      access_token: token,
+    };
+
+    // Attach each photo
+    photoIds.forEach((id, idx) => {
+      postBody[`attached_media[${idx}]`] = JSON.stringify({ media_fbid: id });
     });
 
-    if (!finishRes.ok) {
-      const err = await finishRes.json();
-      throw new Error(`Finish failed: ${JSON.stringify(err)}`);
+    const postRes = await fetch(`${GRAPH_API}/${pageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(postBody),
+    });
+
+    if (!postRes.ok) {
+      const err = await postRes.json();
+      throw new Error(`Feed post failed: ${JSON.stringify(err)}`);
     }
 
-    const finishData = await finishRes.json() as { success: boolean; post_id?: string };
-    if (finishData.success) {
-      const postId = finishData.post_id || 'unknown';
-      console.log(`  ✅ FB Post published: ${postId}`);
-      return { success: true, postId };
-    }
-
-    throw new Error('Finish returned success=false');
+    const postData = await postRes.json() as { id: string };
+    console.log(`  ✅ FB Photo Post published: ${postData.id}`);
+    return { success: true, postId: postData.id };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`  ❌ FB Post failed: ${msg}`);
@@ -269,17 +300,31 @@ export function buildReelCaption(
 }
 
 /**
- * Build long Post description with review text + links.
+ * Build long Post description with script text + links + optional Reel link.
+ * Uses script summary from Phase 2 — zero extra Gemini calls.
  */
 export function buildPostDescription(
   toolName: string,
-  reviewText: string,
+  scriptText: string,
   affiliateUrl?: string,
+  reelVideoId?: string,
 ): string {
+  // Format script text as readable review
+  const reviewText = scriptText.length > 600
+    ? scriptText.slice(0, 600).replace(/\s+\S*$/, '') + '...'
+    : scriptText;
+
+  const reelLink = reelVideoId
+    ? `🎬 Watch the full video review: https://fb.watch/${reelVideoId}`
+    : '';
+
   const parts = [
+    `🤖 ${toolName} — AI Tool Review`,
+    '',
     reviewText,
     '',
     '━━━━━━━━━━━━━━',
+    reelLink,
     affiliateUrl ? `🔗 Try ${toolName}: ${affiliateUrl}` : '',
     `🤖 All AI tools I recommend: ${TOOLS_PAGE_URL}`,
     `👉 Follow ${CHANNEL_HANDLE} for daily AI tool reviews!`,
@@ -290,92 +335,6 @@ export function buildPostDescription(
   ].filter(Boolean);
 
   return parts.join('\n');
-}
-
-// ─── Gemini Mini-Review Generator ──────────────────────────────────────────
-
-const REVIEW_STYLES = [
-  'newsletter', // Quick newsletter-style review
-  'listicle',   // Feature-focused bullet points
-  'story',      // Personal experience narrative
-  'versus',     // Compare with alternatives
-  'quicktake',  // Rapid verdict format
-] as const;
-
-/**
- * Generate a varied, blog-style mini-review for Facebook Post.
- * Uses Gemini to create unique review text each time (150-250 words).
- * Falls back to script summary if Gemini fails.
- */
-export async function generateFbMiniReview(
-  toolName: string,
-  scriptSummary: string,
-  toolUrl?: string,
-): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.log('  ⚠ Gemini not available — using script summary for FB review');
-    return scriptSummary;
-  }
-
-  // Pick random style to vary format each time
-  const style = REVIEW_STYLES[Math.floor(Math.random() * REVIEW_STYLES.length)];
-
-  const styleGuide: Record<string, string> = {
-    newsletter: `Write as a quick newsletter digest. Start with a bold headline question.
-      Structure: Headline → 1-paragraph intro → 3 bullet key features → Verdict line.`,
-    listicle: `Write as a feature listicle. Start with an emoji-rich one-liner hook.
-      Structure: Hook → "🎯 What it does" (2 sentences) → "💡 Key features" (4-5 bullets) → "⚡ Who needs this?" (1 line) → "🏆 Verdict" (rating/10).`,
-    story: `Write as a personal recommendation. Start with "I've been using..." or "Last week I discovered...".
-      Structure: Personal intro → What impressed me → Real use cases → Would I recommend? → Verdict.`,
-    versus: `Write as a quick comparison. Start with "Forget [generic alternative]...".
-      Structure: Hook → Why this is different → 3 standout advantages → Price/value note → Verdict.`,
-    quicktake: `Write as a rapid-fire take. Start with "⚡ Quick Take:".
-      Structure: One-line verdict → Good (3 bullets) → Not great (1 bullet) → Bottom line → Rating.`,
-  };
-
-  const prompt = `You're a tech reviewer writing a SHORT Facebook post reviewing "${toolName}".
-
-Context from video script:
-${scriptSummary.slice(0, 800)}
-
-${toolUrl ? `Tool website: ${toolUrl}` : ''}
-
-STYLE: ${style.toUpperCase()}
-${styleGuide[style]}
-
-RULES:
-- Length: 200-300 words (enough to inform, short enough to read on mobile)
-- First line MUST be a scroll-stopper — bold, curious, or surprising
-- Tone: Casual, enthusiastic but honest. Like a friend recommending over coffee
-- Use emojis sparingly — max 5-6 total, placed naturally
-- Include 1 specific detail or number to build credibility (e.g., "30+ languages", "free tier up to 10k chars")
-- End with a clear verdict or recommendation (not just "check it out")
-- DO NOT include links or hashtags (those are added separately)
-- DO NOT mention "affiliate", "sponsored", or "commission"
-- DO NOT use generic AI phrases like "In today's rapidly evolving landscape" or "game-changer"
-- Write in English
-- Each review MUST feel unique — vary your opening, structure, and personality`;
-
-  try {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
-
-    if (text && text.length > 50) {
-      console.log(`  📝 FB mini-review generated (${style} style, ${text.length} chars)`);
-      return text;
-    }
-
-    throw new Error('Generated text too short');
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`  ⚠ Gemini review generation failed (${msg}) — using script summary`);
-    return scriptSummary;
-  }
 }
 
 /**

@@ -244,8 +244,10 @@ export async function uploadToYouTube(
       // Post pinned comment (best-effort, non-blocking for return)
       await postPinnedComment(youtube, videoId, toolUrl, toolName);
 
-      // Upload SRT captions to replace YouTube auto-CC (best-effort)
-      await uploadCaptions(youtube, videoId, srtPath);
+      // SRT upload DISABLED — ASS subtitles are already baked into the video pixels.
+      // Uploading SRT creates a 2nd caption track → dual subtitle display bug.
+      // If ASS baking is ever removed, re-enable this:
+      // await uploadCaptions(youtube, videoId, srtPath);
 
       return videoUrl;
 

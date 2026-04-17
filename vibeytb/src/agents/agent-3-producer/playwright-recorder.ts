@@ -334,7 +334,7 @@ async function runDemoHunter(page: Page, durationSec: number, startMs: number, s
   // === PRE-STEP: Scene-aware scroll offset ===
   // Each scene starts at a different scroll position to show different website sections.
   // Without this, all 4 scenes record the same hero section → repetitive video.
-  const scrollPercents = [0, 30, 60, 85]; // Scene 1=hero, 2=features, 3=cards, 4=bottom
+  const scrollPercents = [0, 30, 60, 100]; // Scene 1=hero, 2=features, 3=cards, 4=footer/CTA
   const initialScroll = scrollPercents[Math.min(sceneIndex, scrollPercents.length - 1)] || 0;
   if (initialScroll > 0) {
     console.log(`[Smart Interact] 📍 Scene ${sceneIndex}: scrolling to ${initialScroll}% before interaction`);

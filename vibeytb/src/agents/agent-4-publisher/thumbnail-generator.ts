@@ -209,8 +209,29 @@ export async function generateThumbnail(
     execSync(pass1Cmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 });
     console.log('[THUMBNAIL] Pass 1: Frame extracted (1280x720)');
 
-    execSync(pass2Cmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 });
-    console.log(`[THUMBNAIL] Pass 2: "${style.name}" style applied`);
+    try {
+      execSync(pass2Cmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 });
+      console.log(`[THUMBNAIL] Pass 2: "${style.name}" style applied`);
+    } catch (pass2Err) {
+      // Style crashed (e.g., Editorial drawtext chain) — fallback to Minimalist
+      if (style.id !== 'minimalist') {
+        console.warn(`[THUMBNAIL] "${style.name}" crashed → retrying with Minimalist`);
+        const fallbackFilters = minimalistStyle.buildFilters(ctx);
+        const fallbackCmd = [
+          `"${safeFfmpegPath}"`,
+          '-y',
+          `-i "${tempFramePath}"`,
+          `-vf "${fallbackFilters}"`,
+          `-q:v 2`,
+          `"${outPath}"`,
+        ].join(' ');
+        execSync(fallbackCmd, { stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 });
+        console.log('[THUMBNAIL] Fallback Minimalist applied successfully');
+        try { fs.unlinkSync(tempFramePath.replace(/\//g, path.sep)); } catch { /* ignore */ }
+        return { thumbnailPath: outputPath, thumbnailStyle: 'minimalist' as ThumbnailStyleId };
+      }
+      throw pass2Err;
+    }
 
     try { fs.unlinkSync(tempFramePath.replace(/\//g, path.sep)); } catch { /* ignore */ }
 

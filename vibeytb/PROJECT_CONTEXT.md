@@ -1,7 +1,7 @@
 # VibeYtb — Project Context & Status
 
 > **Đọc file này ĐẦU TIÊN** khi bắt đầu session mới.
-> Cập nhật lần cuối: 2026-04-15 (Fix FB Reel upload 403 + IG Reel video_url missing)
+> Cập nhật lần cuối: 2026-04-17 (Fix dual subtitle, FB Post→Photo, thumbnail fallback, scroll duplication)
 
 ---
 
@@ -759,3 +759,20 @@ Analytics tracker chạy hàng ngày nhưng 0/17 videos tracked. Root cause + fi
 |------|--------|
 | `facebook-publisher.ts` | Remove `file_url` header, add `offset`/`file_size` for rupload |
 | `instagram-publisher.ts` | `published: true` + `no_story: true`, poll `source` URL (12×5s max) |
+
+### 2026-04-17: Pipeline Bug Fixes (Higgsfield video analysis)
+
+4 fixes from video analysis of pipeline output (Higgsfield AI — run 2026-04-17):
+
+1. **Dual Subtitle fix**: SRT upload disabled in `youtube-uploader.ts`. ASS subtitles already baked into video pixels — uploading SRT created a 2nd CC track → dual subtitle display. Now only ASS (baked) is used.
+2. **FB Post → Photo Post**: Replaced video post (duplicate of Reel) with multi-photo post. Uses FFmpeg to extract 3 screenshots (25%/50%/75%) + script text from Phase 2 (zero Gemini calls). Removed `generateFbMiniReview()` that was hitting 429 quota.
+3. **Thumbnail Fallback**: When a style (e.g., Editorial) crashes FFmpeg `drawtext` filter chain → automatically retry with Minimalist style (simpler, proven stable). Previously crash = no thumbnail.
+4. **Scene Scroll Duplication**: Scene 4 scroll changed from `85%` → `100%` (footer/CTA area). Old `85%` overlapped visually with Scene 3 `60%` on many landing pages.
+
+| File | Change |
+|------|--------|
+| `youtube-uploader.ts` | Comment out `uploadCaptions()` call |
+| `facebook-publisher.ts` | Rewrite `publishFacebookPost()` → multi-photo, add `extractPostScreenshots()`, remove `generateFbMiniReview()` |
+| `the-orchestrator.ts` | Update FB Post call: pass screenshots + script text instead of video + Gemini review |
+| `thumbnail-generator.ts` | Add try-catch fallback: crashed style → retry Minimalist |
+| `playwright-recorder.ts` | `scrollPercents[3]`: `85` → `100` |

@@ -16,9 +16,9 @@ import { uploadToTikTok } from '../agents/agent-4-publisher/tiktok-uploader';
 import {
   publishFacebookReel,
   publishFacebookPost,
+  extractPostScreenshots,
   buildReelCaption,
   buildPostDescription,
-  generateFbMiniReview,
   isFacebookConfigured,
 } from '../agents/agent-4-publisher/facebook-publisher';
 import {
@@ -790,17 +790,17 @@ export class TheMasterOrchestrator {
           this.logEntry(4, 'info', `📱 FB Reel published: ${fbReelId}`);
         }
 
-        // Generate mini-review via Gemini (varied blog-style format)
+        // Photo post with screenshots + script text (zero Gemini calls)
         const scriptText = typeof (scriptData as Record<string, unknown>)?.script === 'string'
           ? ((scriptData as Record<string, unknown>).script as string).slice(0, 800)
           : `${fbToolName} is an incredible AI tool that can transform your workflow.`;
 
-        const miniReview = await generateFbMiniReview(fbToolName, scriptText, toolUrl);
-        const postDesc = buildPostDescription(fbToolName, miniReview, resolvedUrl);
-        const postResult = await publishFacebookPost(finalVideoOutput, `${fbToolName} — AI Tool Review`, postDesc);
+        const screenshots = await extractPostScreenshots(finalVideoOutput, tmpDir);
+        const postDesc = buildPostDescription(fbToolName, scriptText, resolvedUrl, fbReelId);
+        const postResult = await publishFacebookPost(screenshots, postDesc);
         if (postResult.success) {
           fbPostId = postResult.postId || '';
-          this.logEntry(4, 'info', `📝 FB Post published: ${fbPostId}`);
+          this.logEntry(4, 'info', `📝 FB Photo Post published: ${fbPostId}`);
         }
 
         console.log(`[PHASE 4] ✅ Facebook done (Reel: ${fbReelId || 'failed'}, Post: ${fbPostId || 'failed'})`);

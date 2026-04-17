@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import {
   publishFacebookReel,
   publishFacebookPost,
+  extractPostScreenshots,
   buildReelCaption,
   buildPostDescription,
   isFacebookConfigured,
@@ -91,10 +92,12 @@ async function runTest(videoPath: string, type: string) {
   }
 
   if (type === 'post' || type === 'both') {
-    console.log('\n── Testing Post ────────────────────────────────────');
+    console.log('\n── Testing Photo Post ──────────────────────────────');
+    const screenshots = await extractPostScreenshots(videoPath, '.');
     const description = buildPostDescription(toolName, review, affiliateUrl);
     console.log(`📝 Description:\n${description}\n`);
-    const postResult = await publishFacebookPost(videoPath, `${toolName} — Best AI Voice Generator`, description);
+    console.log(`📸 Screenshots: ${screenshots.length} frames`);
+    const postResult = await publishFacebookPost(screenshots, description);
     console.log('Result:', JSON.stringify(postResult, null, 2));
   }
 
