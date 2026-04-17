@@ -795,7 +795,7 @@ export class TheMasterOrchestrator {
           ? ((scriptData as Record<string, unknown>).script as string).slice(0, 800)
           : `${fbToolName} is an incredible AI tool that can transform your workflow.`;
 
-        const screenshots = await extractPostScreenshots(finalVideoOutput, tmpDir);
+        const screenshots = await extractPostScreenshots(finalVideoOutput, this.getJobTmpDir(jobId));
         const postDesc = buildPostDescription(fbToolName, scriptText, resolvedUrl, fbReelId);
         const postResult = await publishFacebookPost(screenshots, postDesc);
         if (postResult.success) {
